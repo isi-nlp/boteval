@@ -1,0 +1,13 @@
+chat_dir: chat-dir-dev
+
+#chat_dir: model-chat-from-darma
+mturk_profile: default # the [default] profile in ~/.aws/credentials file
+
+chatbot:
+  context_file: 
+
+
+flask:
+  # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
+  SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev.db
+  SQLALCHEMY_TRACK_MODIFICATIONS: false

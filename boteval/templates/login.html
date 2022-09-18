@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <ul class="nav nav-tabs row" id="myTab" role="tablist">
+        <li class="nav-item col-4" role="presentation">
+            <a class="nav-link active" id="login-tab" data-toggle="tab" href="#login" role="tab" aria-controls="login"
+                aria-selected="true">Login</a>
+        </li>
+        <li class="nav-item col-4" role="presentation">
+            <a class="nav-link" id="signup-tab" data-toggle="tab" href="#signup" role="tab" aria-controls="signup"
+                aria-selected="false">Sing Up</a>
+        </li>
+    </ul>
+    <div class="tab-content row" id="myTabContent">
+        <div class="tab-pane fade show active col-8" id="login" role="tabpanel" aria-labelledby="home-tab">
+            <form action="/login" method="POST" class="form">
+                <h1 class="h3 mb-3 mt-4 font-weight-normal mt-2">Please Sign In</h1>
+                <label for="user_id" class="sr-only mt-2">user_id</label>
+                <input type="text" name="user_id" id="user_id" class="form-control mt-2" placeholder="UserID" required autofocus>
+                <label for="secret" class="sr-only mt-2">Password</label>
+                <input type="password" name="secret" id="secret" class="form-control mt-2" placeholder="Password" required>
+                <input type="hidden" name="action" value="login">
+                <button class="btn btn-lg btn-primary btn-block col-3 mt-3" type="submit">Log in</button>
+            </form>
+        </div>
+        <div class="tab-pane fade col-8" id="signup" role="tabpanel" aria-labelledby="profile-tab">
+            <form action="/login" method="POST" class="form">
+                <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Sing Up</h1>
+                <label for="s_user_id" class="sr-only mt-2">UserID</label>
+                <input type="text" name="user_id" id="s_user_id" class="form-control mt-2" placeholder="User ID" required autofocus>
+                <!--
+                <label for="name" class="sr-only">Name</label>
+                <input type="password" name="name" id="name" class="form-control mt-2" placeholder="Name" required>
+                -->
+                <label for="s_password" class="sr-only">Password</label>
+                <input type="password" name="secret" id="s_password" class="form-control mt-2" placeholder="Password" required>
+
+                <div class="form-check my-2">
+                    <input class="form-check-input" type="checkbox" value="" id="consent_check" name="consent" required autofocus>
+                    <label class="form-check-label" for="consent_check">
+                        I agree to the terms and conditions.
+                    </label>
+                  </div>
+
+                <input type="hidden" name="action" value="signup">
+
+                <button class="btn btn-lg btn-primary btn-block col-3 mt-3" type="submit">Sign Up</button>
+            </form>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    if ('{{action}}' == 'signup') {
+        $('#myTab a[href="#signup"]').tab('show')
+    }
+</script>
+
+{% endblock %}

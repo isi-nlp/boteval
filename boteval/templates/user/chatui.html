@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section style="background-color: #eee;">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="../">All chats</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{chat_id}}</li>
+        </ol>
+    </nav>
+    <div class="container-fluid px-5">
+
+        <div class="row">
+            <div class="col-md-5 col-lg-4 col-xl-3 mb-4 border-right border-left">
+                <h2> Info </h2>
+                <ul class="list">
+                    {% if 'final_rating' in data %}
+                    <li>
+                        <b>Ratings:</b>
+                        {% set rt_map={'Not at all': 1, 'Mostly not': 2, 'So-so': 3, 'Somewhat': 4, 'Very': 5}%}
+                        <ol class="list-group">
+                            {% for q, a in data['final_rating'] %}
+                            <li class="list-group-item">
+                                <i>{{q}}</i> (<small>{{a}}</small>)
+                                <input id="rating-{{loop.index}}" type="range" list="tickmarks" value="{{rt_map[a]}}"
+                                    style="width: 100%;" min="1" max="5" , value="{{idx}}" disabled>
+                                <datalist id="tickmarks"
+                                    style="display: flex; justify-content: space-between; width: 100%;">
+                                    <option>Not at all</option>
+                                    <option>Mostly not</option>
+                                    <option>So-so</option>
+                                    <option>Somewhat</option>
+                                    <option>Very</option>
+                                </datalist>
+                            </li>
+                            {% endfor %}
+                        </ol>
+                    </li>
+                    {% endif %}
+                    {% for key, val in data.items() if key not in (
+                    'dialog', 'time', 'task_description', 'final_rating', 'mturk') %}
+                    <li> <b>{{ key }}:</b> {{ val | flat_single }}</li>
+                    {% endfor %}
+                </ul>
+                <hr />
+                {% if 'mturk' in data and 'assignment_id' in data['mturk'] %}
+                <div class="col">
+                    {{ render_assignment(data['mturk'], where=mturk_where) }}
+                </div>
+                {% else %}
+                <div class="card p-4">
+                    <p>MTurk information is not found.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-7 col-lg-8 col-xl-9 border-left border-right">
+                <div class="text-right disabled">
+                    <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
+                </div>
+                <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; height:640px">
+                    {% for msg in data['dialog'] %}
+                    <li class="d-flex justify-content-between mb-1">
+                        <div class="card
+                        {% if msg['agent_idx'] == 0 and not msg['fake_start']  %} alert-info {% endif %}
+                        {% if msg['id'] == 'Moderator' %} alert-warning {% endif %}
+                        ">
+                            <div class="card-header d-flex justify-content-between p-2">
+                                <p class="fw-bold mb-0"> {{ msg['id'] }}</p>
+                                <p class="text-muted small mb-0"><i class="far fa-clock"></i>
+                                    {% if 'time' in msg %} {{ msg['time'] | ctime }} {% else %} (time not found) {%
+                                    endif %}
+                                </p>
+                            </div>
+                            <div class="card-body" style="padding: 0.5em">
+                                <p class="mb-0">{{ msg['text'] }}</p>
+                                {% if 'text_orig' in msg %}
+                                <p class="mb-0 text-muted">{{ msg['text_orig'] }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <form id="next_msg_form" class="form" action="#" method="POST">
+                    <div class="form-group basic-textarea" style="display: flex">
+                        <textarea id="next_msg_text" class="form-control pl-2 my-0" rows="2"
+                            placeholder="Type your message here..."></textarea>
+                        <div class="my-1">
+                            <input type="submit" class="btn btn-primary mx-2" id='send_btn' value="Send"
+                                type="submit"></input>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+
+        function show_new_message(msg, side){
+            let msg_id = msg['id']
+            let time = msg['time']
+            let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
+            let text = msg['text']
+            let chat_html = `
+            <li style="width:100%">
+                <div class="card ${theme} mb-4" style="float:${side}; width:75%">
+                    <div class="card-header d-flex justify-content-between p-2">
+                        <p class="fw-bold mb-0"> ${msg_id} </p>
+                        <p class="text-muted small mb-0"><i class="far fa-clock"></i>${time}</p>
+                    </div>
+                    <div class="card-body" style="padding: 0.5em">
+                        <p class="mb-0">${text}</p>
+                    </div>
+                </div>
+            </li> <li></li>`
+            $('#chat-thread').append($.parseHTML(chat_html))
+        }
+
+        window.onload = () => {
+
+            let user = {user_name: 'user1', user_id: 'userid1', chat_id: 'chatid1'}
+
+            const socket = io()
+            socket.on( 'connect', () => {
+                console.log('socket connected')
+                $('#status_info').text('Connected').attr('class', 'btn btn-sm btn-success')
+                socket.emit('user_connect', {message: 'User connected', user: user})
+            });
+
+            socket.on( 'disconnect', () => {
+                console.log('socket disconnected')
+                $('#status_info').text('Disconnected').attr('class', 'btn btn-sm btn-danger')
+                //socket.emit('my event', {data: 'User Dis Connected'})
+            });
+
+            // catch all event listener
+            socket.prependAny((event, ...args) => {
+                console.log(`got ${event} \t args:`);
+                console.log(args)
+            });
+
+
+            $("#next_msg_text").keyup(event => {
+                if (event.which === 13) {
+                    $("#next_msg_form").submit();
+                }
+            });
+
+            $("#next_msg_form").submit(event => {
+                event.preventDefault();
+                var text = $('#next_msg_text').val().trim()
+                if (!text) {
+                    console.log('No text to send')
+                    return
+                }
+
+                data = {'text': text, time: new Date().toISOString()}
+                data = {...user, ...data}  //combine two
+
+                msg_id = show_new_message(data, side='right')
+                console.log(data)
+                socket.emit( 'new_message', data, (reply) => {
+                    console.log('server reply:')
+                    console.log(reply)
+                    if (reply['head']['status'] == 'SUCCESS'){
+                        msg_id = show_new_message(reply['body'], side='left')
+                        $('#next_msg_text').val('')
+                    } else {
+                        alert('Something went wrong. See logs.')
+                    }
+                })
+            })
+        }
+    </script>
+</section>
+{% endblock%}
