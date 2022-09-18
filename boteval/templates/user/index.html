@@ -2,4 +2,16 @@
 
 {% block content %}
 
+<section class="container">
+    <div class="col-6">
+        <h3 class="col-6"> List of topics </h3>
+    <ol class="list-group">
+    {% for topic in data['topics'] %}
+        <li class="list-item col-6 m-2 p-2 border">
+            <a href="/launch-topic/{{topic['id']}}"><b>{{topic['name']}}</b> </a><br>
+        </li>
+    {%endfor %}
+    </ol>
+</section>
+
 {% endblock %}

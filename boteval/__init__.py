@@ -8,4 +8,4 @@ from flask_sqlalchemy import SQLAlchemy
 log.basicConfig(level=log.INFO)
 yaml = YAML(typ='safe')   # default, if not specfied, is 'rt' (round-trip)
 
-db = SQLAlchemy()
+db: SQLAlchemy = SQLAlchemy()

@@ -20,8 +20,6 @@ pip install -e .
 
 ## Run
 
-
-
 ```bash
 # deevelopment/debugging: autoreloads when files are changes
 python -m boteval -d

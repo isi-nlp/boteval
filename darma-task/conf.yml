@@ -1,10 +1,10 @@
-chat_dir: chat-dir-dev
+chat_dir: darma-task/data
 
 #chat_dir: model-chat-from-darma
 mturk_profile: default # the [default] profile in ~/.aws/credentials file
 
 chatbot:
-  context_file: 
+  topics_file: darma-task/chat_topics.json
 
 
 flask:

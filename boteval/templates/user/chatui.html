@@ -121,13 +121,13 @@
 
         window.onload = () => {
 
-            let user = {user_name: 'user1', user_id: 'userid1', chat_id: 'chatid1'}
+            let user_data = {user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{data["thread"].id}}'}
 
             const socket = io()
             socket.on( 'connect', () => {
                 console.log('socket connected')
                 $('#status_info').text('Connected').attr('class', 'btn btn-sm btn-success')
-                socket.emit('user_connect', {message: 'User connected', user: user})
+                socket.emit('user_connect', {message: 'User connected', user: user_data})
             });
 
             socket.on( 'disconnect', () => {
@@ -158,14 +158,14 @@
                 }
 
                 data = {'text': text, time: new Date().toISOString()}
-                data = {...user, ...data}  //combine two
+                data = {...user_data, ...data}  //combine two
 
                 msg_id = show_new_message(data, side='right')
                 console.log(data)
                 socket.emit( 'new_message', data, (reply) => {
                     console.log('server reply:')
                     console.log(reply)
-                    if (reply['head']['status'] == 'SUCCESS'){
+                    if (reply['head']['status'] == 'success'){
                         msg_id = show_new_message(reply['body'], side='left')
                         $('#next_msg_text').val('')
                     } else {

@@ -69,15 +69,18 @@ def init_app(**args):
     app.config.from_mapping(config['flask'])
     db.init_app(app)
     login_manager.init_app(app)
+    chat_service = ChatService(config=config)
+
     with app.app_context():
         db.create_all(app=app)
+        chat_service.load_topics()
+
         #login_url(url_for('app.login'))
 
     user_controllers(router=bp, socket=socket,
-                     chat_service=ChatService(),
+                     service=chat_service,
                      login_manager=login_manager)
     app.register_blueprint(bp, url_prefix=args.get('base'))
-
 
     if args.pop('debug'):
         app.debug = True

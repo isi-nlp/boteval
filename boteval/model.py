@@ -6,10 +6,18 @@ from dataclasses import dataclass
 from flask_login import UserMixin
 from sqlalchemy.sql import func
 from sqlalchemy import orm
+import json
 
 from . import db, log
 
 # Docs for flask SQLAlchemy https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/
+
+UserThread = db.Table('user_thread',
+    db.Column('user_id', db.String(31), db.ForeignKey('user.id'), primary_key=True),
+    db.Column('thread_id', db.Integer, db.ForeignKey('thread.id'), primary_key=True)
+)
+
+
 
 class User(db.Model):
     __tablename__ = 'user'
@@ -23,17 +31,9 @@ class User(db.Model):
 
     role: str = db.Column(db.String(30), nullable=True)
 
-    """
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.__init_on_orm()
+    # relationships
+    #threads = db.relationship('thread', secondary=UserThread, backref='user_threads')
 
-    @orm.reconstructor
-    def __init_on_orm(self):
-        # ORM doesnt call __init__ so we need to decorate @orm.reconstructor
-        # https://docs-sqlalchemy.readthedocs.io/ko/latest/orm/constructors.html
-        self._is_authenticated = False
-    """
     @property
     def is_active(self):
         return True
@@ -81,43 +81,6 @@ class User(db.Model):
         db.session.add(user)
         db.session.commit()
         return cls.get(user.id)
-"""
-class LoginUser:
-
-    def __init__(self, user: User):
-        self.user: User = user
-        self.is_authneticated = False
-        self.is_active = False
-        self.is_anonymous = False
-
-    def get_id(self):
-        return str(self.user.id)
-
-    @classmethod
-    def get(cls, id: str):
-        if not id:
-            return None
-        try:
-            return cls(User.query.get(id))
-        except Exception as e:
-            log.warning(e)
-            return None
-
-    @classmethod
-    def _hash(cls, secret):
-        return hashlib.sha3_256(secret.encode()).hexdigest()
-
-    def verify_secret(self, secret):
-        return self.user.secret == self._hash(secret)
-
-    @classmethod
-    def create_new(cls, user_id: str, secret: str, name: str):
-        user = User(id=user_id, secret=cls._hash(secret), name=name)
-        log.info(f'Creating User {user.id}')
-        db.session.add(user)
-        db.session.commit()
-        return cls.get(user.id)
-"""
 
 class ChatMessage(db.Model):
     __tablename__ = 'message'
@@ -129,24 +92,41 @@ class ChatMessage(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
 
 
-user_thread = db.Table('user_thread',
-    db.Column('user_id', db.String(31), db.ForeignKey('user.id'), primary_key=True),
-    db.Column('thread_id', db.Integer, db.ForeignKey('thread.id'), primary_key=True)
-)
-
-
 class ChatThread(db.Model):
+
     __tablename__ = 'thread'
+
     id: int = db.Column(db.Integer, primary_key=True)
+    topic_id = db.Column(db.String(31), db.ForeignKey('topic.id'), nullable=False)
+
     # one-to-many
     messages: List[ChatMessage] = db.relationship('ChatMessage', backref='thread', lazy=False, uselist=True)
     # many-to-many : https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/#many-to-many-relationships 
-    users: List[User] = db.relationship('User', secondary=user_thread, lazy='subquery',
+    users: List[User] = db.relationship('User', secondary=UserThread, lazy='subquery',
                                         backref=db.backref('threads', lazy=True))
 
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
+
+class ChatTopic(db.Model):
+
+    __tablename__ = 'topic'
+
+    id: str = db.Column(db.String(32), primary_key=True)
+    name: str = db.Column(db.String(100), nullable=False)
+    data: str = db.Column(db.Text, nullable=False)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+
+    def get_data(self):
+        if isinstance(self.data, str):
+            data = json.loads(self.data)
+        return data
+
+    def set_data(self, data):
+        if not isinstance(data, str):
+            self.data = json.dumps(data, ensure_ascii=False)
 
 if False:
 

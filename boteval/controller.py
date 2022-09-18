@@ -3,6 +3,8 @@ import os
 import flask
 from flask import request, url_for
 import flask_login as FL
+
+from boteval.service import ChatService
 #from flask_login import login_user, current_user, login_required, login_url
 
 from . import log
@@ -18,7 +20,7 @@ SUCCESS = 'success'
 
 
 def render_template(*args, **kwargs):
-    return flask.render_template(*args, environ=ENV, user=FL.current_user, **kwargs)
+    return flask.render_template(*args, environ=ENV, cur_user=FL.current_user, **kwargs)
 
 
 def wrap(body=None, status=SUCCESS, description=None):
@@ -27,9 +29,7 @@ def wrap(body=None, status=SUCCESS, description=None):
         body=body)
 
 
-def user_controllers(router, socket, chat_service, login_manager):
-
-    service = chat_service
+def user_controllers(router, socket, service: ChatService, login_manager):
 
     @login_manager.user_loader
     def load_user(user_id: str):
@@ -83,20 +83,21 @@ def user_controllers(router, socket, chat_service, login_manager):
         return flask.redirect(flask.url_for('app.login'))
 
     @router.route('/')
-    def index():
-        return render_template('user/chatui.html', data={})
-
-
-    @router.route('/test-login')
     @FL.login_required
-    def test_login():
-        user = FL.current_user
-        return f'Login Success: User: {user} {user.id}'
+    def index():
+        topics = service.get_topics()
+        return render_template('user/index.html', data=dict(topics=topics))
 
-    @socket.on('my event')
-    def handle_my_custom_event(json, methods=['GET', 'POST']):
-        log.info('received my event: ' + str(json))
-        socket.emit('my response', json)
+
+    @router.route('/launch-topic/<topic_id>')
+    @FL.login_required
+    def launch_topic(topic_id):
+        topic = service.get_topic(topic_id=topic_id)
+        if not topic:
+            return f'Topic {topic} not found', 400
+        thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
+        return render_template('user/chatui.html', data=dict(thread=thread))
+
 
     @socket.on('new_message')
     def handle_new_message(msg, methods=['GET', 'POST']):
@@ -104,10 +105,12 @@ def user_controllers(router, socket, chat_service, login_manager):
         msg["text"] = 'server reply to ' + msg['text']
         thread_id = msg.get('thread_id')
         user_id = msg.get('user_id')
-        if not thread_id or not user_id :
+        if not thread_id or not user_id:
             return wrap(status=ERROR, description='both thread_id and user_id are required')
 
-        chatroom = service.make_or_get_chatroom(user_id, thread_id)
-        reply = chatroom.get_reply(msg)
+        #chatroom = service.get_thread(user_id, thread_id)
+        #reply = chatroom.get_reply(msg)
+        reply = msg
+        reply['text'] = 'server reply -- ' + reply['text']
         return wrap(body=reply)
 
