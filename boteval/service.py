@@ -1,48 +1,122 @@
 
+from concurrent.futures import thread
 from pathlib import Path
 import json
-from typing import List
+from threading import Thread
+from typing import List, Optional
+import functools
+
 from  . import log, db
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
+from .bots import BotAgent, load_bot_agent
+
+
+class ChatManager:
+
+    def __init__(self, thread: ChatThread) -> None:
+        self.thread: ChatThread = thread
+
+    def new_message(self, message):
+        raise NotImplementedError()
+
+
+class DialogBotChatManager(ChatManager):
+
+    # 1-on-1 dialog between human and a bot
+
+    def __init__(self, thread: ChatThread, bot_agent:BotAgent):
+        super().__init__(thread)
+        bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
+        user_ids = [u.id for u in thread.users]
+        assert len(bots) == 1, f'Expect 1 bot in thead {thread.id}; found {len(bots)}; Users: {user_ids}'
+        self.bot_user = bots[0]
+        assert bot_agent
+        self.bot_agent = bot_agent
+
+        humans = [ user for user in thread.users if user.role == User.ROLE_HUMAN ]
+        assert len(humans) == 1, f'Expect 1 human in thead {thread.id}; found {len(humans)}; Users: {user_ids}'
+        self.human_user = humans[0]
+
+    def observe_message(self, message: ChatMessage) -> ChatMessage:
+        # Observe and reply
+        # this message is from human
+        assert message.user_id == self.human_user.id
+        self.thread.messages.append(message)
+        reply = self.bot_reply()
+        self.thread.messages.append(reply)
+        db.session.add(message)
+        db.session.add(reply)
+        db.session.commit()
+        return reply
+
+    def bot_reply(self) -> ChatMessage:
+        # only using last message as context
+        text = self.thread.messages[-1].text if self.thread.messages else ''
+        reply = self.bot_agent.talk(text)
+        msg = ChatMessage(user_id = self.bot_user.id, text=reply, thread_id = self.thread.id)
+        return msg
 
 
 class ChatService:
 
     def __init__(self, config):
         self.config = config
+        self._bot_user = None
+        self.topics_file = self.config['chatbot']['topics_file']
 
-    def load_topics(self, topics_file=None):
+        bot_name = config['chatbot']['bot_name']
+        bot_args = config['chatbot'].get('bot_args') or {}
+        self.bot_agent = load_bot_agent(bot_name, bot_args)
+        self.limits = config.get('limits') or {}
 
-        if not topics_file:
-            topics_file = Path(self.config['chatbot']['topics_file']).resolve()
+    @property
+    def bot_user(self):
+        if not self._bot_user:
+            self._bot_user = User.query.get('bot01')
+        return self._bot_user
 
-        topics_file.exists(), f'{topics_file} not found'
+    def init_db(self, init_topics=True):
 
-        with open(topics_file, encoding='utf-8') as out:
-            topics = json.load(out)
-        assert isinstance(topics, list)
-        log.info(f'found {len(topics)} topics in {topics_file}')
-        if topics:
+        if not User.query.get('admin'):
+            db.session.add(User(id='admin', name='Chat Admin', secret='', role=User.ROLE_ADMIN))
+        if not User.query.get('bot01'):
+            db.session.add(User(id='bot01', name='Chat Bot', secret='', role=User.ROLE_BOT))
+        if not User.query.get('dev'):
+            # for development
+            User.create_new(id='dev', name='Developer', secret='abcd', role=User.ROLE_HUMAN)
+
+        if init_topics:
+            assert self.topics_file
+            topics_file = Path(self.topics_file).resolve()
+            topics_file.exists(), f'{topics_file} not found'
+
+            with open(topics_file, encoding='utf-8') as out:
+                topics = json.load(out)
+            assert isinstance(topics, list)
+            log.info(f'found {len(topics)} topics in {topics_file}')
             objs = []
             for topic in topics:
                 obj = ChatTopic.query.get(topic['id'])
                 if obj:
                     log.warning(f'Chat topic exisits {topic["id"]}, so skipping')
                     continue
-                obj = ChatTopic(id=topic['id'], name=topic['name'], data=json.dumps(topic))
+                obj = ChatTopic(id=topic['id'], name=topic['name'], extra=json.dumps(topic))
                 objs.append(obj)
             if objs:
                 log.info(f"Inserting {len(objs)} topics to db")
                 db.session.add_all(objs)
-                db.session.commit()
+        db.session.commit()
 
     def get_topics(self):
         return ChatTopic.query.all()
 
+    def get_user_threads(self, user):
+        return ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).all()
+
     def get_topic(self, topic_id):
         return ChatTopic.query.get(topic_id)
 
-    def get_thread_for_topic(self, user, topic, create_if_missing=True):
+    def get_thread_for_topic(self, user, topic, create_if_missing=True) -> Optional[ChatThread]:
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
         thread = None
@@ -55,10 +129,13 @@ class ChatService:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
             thread = ChatThread(topic_id=topic.id)
             thread.users.append(user)
+            thread.users.append(self.bot_user)
             db.session.add(thread)
             db.session.commit()
         return thread
 
+    def get_thread(self, thread_id) -> Optional[ChatThread]:
+        return ChatThread.query.get(thread_id)
 
     def get_threads(self, user: User) -> List[ChatThread]:
         log.info(f'Querying {user.id}')
@@ -67,7 +144,12 @@ class ChatService:
         log.info(f'Found {len(threads)} threads found')
         return threads
 
+    @functools.lru_cache(maxsize=256)
+    def cached_get(self, thread):
+        return DialogBotChatManager(thread=thread, bot_agent=self.bot_agent)
 
-
-
+    def new_message(self, msg: ChatMessage, thread: ChatThread) -> ChatMessage:
+        dialog = self.cached_get(thread)
+        reply = dialog.observe_message(msg)
+        return reply
 

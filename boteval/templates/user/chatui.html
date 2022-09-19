@@ -2,6 +2,8 @@
 
 {% block content %}
 
+{% set max_turns = (limits or {}).get('max_turns_per_thread', 10000) %}
+{% set remaining_turns = namespace(value=max_turns) %}
 <section style="background-color: #eee;">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -10,7 +12,6 @@
         </ol>
     </nav>
     <div class="container-fluid px-5">
-
         <div class="row">
             <div class="col-md-5 col-lg-4 col-xl-3 mb-4 border-right border-left">
                 <h2> Info </h2>
@@ -60,29 +61,34 @@
                     <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
                 </div>
                 <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; height:640px">
-                    {% for msg in data['dialog'] %}
+                    {% for msg in thread.messages %}
+                    {% set msg_extra = msg.get_extra() or dict() %}
+                    {% if msg.user_id == cur_user.id %}
+                        {% set remaining_turns.value = remaining_turns.value - 1 %}
+                    {% endif %}
                     <li class="d-flex justify-content-between mb-1">
                         <div class="card
-                        {% if msg['agent_idx'] == 0 and not msg['fake_start']  %} alert-info {% endif %}
-                        {% if msg['id'] == 'Moderator' %} alert-warning {% endif %}
+                        {% if msg_extra['agent_idx'] == 0 and not msg_extra['fake_start']  %} alert-info {% endif %}
+                        {% if msg.user_id == 'bot01' %} alert-warning {% endif %}
                         ">
                             <div class="card-header d-flex justify-content-between p-2">
-                                <p class="fw-bold mb-0"> {{ msg['id'] }}</p>
+                                <p class="fw-bold mb-0"> {{ "You" if msg.user_id == cur_user.id else msg.user_id  }}</p>
                                 <p class="text-muted small mb-0"><i class="far fa-clock"></i>
-                                    {% if 'time' in msg %} {{ msg['time'] | ctime }} {% else %} (time not found) {%
-                                    endif %}
+                                    {% if msg.time %} {{ msg.time | ctime }} 
+                                    {% else %} (time not found) {%endif %}
                                 </p>
                             </div>
                             <div class="card-body" style="padding: 0.5em">
-                                <p class="mb-0">{{ msg['text'] }}</p>
-                                {% if 'text_orig' in msg %}
-                                <p class="mb-0 text-muted">{{ msg['text_orig'] }}</p>
+                                <p class="mb-0">{{ msg.text }}</p>
+                                {% if 'text_orig' in msg_extra %}
+                                <p class="mb-0 text-muted">{{ msg_extra['text_orig'] }}</p>
                                 {% endif %}
                             </div>
                         </div>
                     </li>
                     {% endfor %}
                 </ul>
+                {% if remaining_turns.value > 0 %}
                 <form id="next_msg_form" class="form" action="#" method="POST">
                     <div class="form-group basic-textarea" style="display: flex">
                         <textarea id="next_msg_text" class="form-control pl-2 my-0" rows="2"
@@ -93,6 +99,11 @@
                         </div>
                     </div>
                 </form>
+                {% else %}
+                    <div class="p-4 alert alert-info">
+                        This chat has already reached the sufficient number of turns. So futher replies are disabled.
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -117,11 +128,16 @@
                 </div>
             </li> <li></li>`
             $('#chat-thread').append($.parseHTML(chat_html))
+            scroll_bottom()
+        }
+
+        function scroll_bottom(){
+            $('#chat-thread').animate({scrollTop: $('#chat-thread').last().offset().bottom}, 'slow');
         }
 
         window.onload = () => {
-
-            let user_data = {user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{data["thread"].id}}'}
+            scroll_bottom()
+            let user_data = {user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}'}
 
             const socket = io()
             socket.on( 'connect', () => {

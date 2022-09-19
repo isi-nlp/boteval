@@ -1,14 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-
 <section class="container">
     <div class="col-6">
         <h3 class="col-6"> List of topics </h3>
     <ol class="list-group">
-    {% for topic in data['topics'] %}
-        <li class="list-item col-6 m-2 p-2 border">
-            <a href="/launch-topic/{{topic['id']}}"><b>{{topic['name']}}</b> </a><br>
+    {% for topic, thread in data['topics'] %}
+        <li class="list-item m-2 p-2 border">
+            <b>{{topic['name']}}</b><br>
+            {% if thread %}
+                <a href="{{url_for('app.get_thread', thread_id=thread.id)}}">Continue or review chat</a> <br/>
+                 <small>Previously chatted on {{ thread.time_created | ctime }}</small>
+            {% else %}
+                <a href="{{url_for('app.launch_topic', topic_id=topic.id)}}">Start chat</a><br>
+            {% endif %}
         </li>
     {%endfor %}
     </ol>

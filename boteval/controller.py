@@ -1,14 +1,17 @@
 import os
+import functools
+from typing import List
 
 import flask
 from flask import request, url_for
 import flask_login as FL
+import flask_socketio as FS
 
 from boteval.service import ChatService
 #from flask_login import login_user, current_user, login_required, login_url
 
 from . import log
-from .model import User
+from .model import ChatMessage, ChatThread, ChatTopic, User
 
 ENV = {}
 for env_key in ['GTAG']:
@@ -29,11 +32,31 @@ def wrap(body=None, status=SUCCESS, description=None):
         body=body)
 
 
+def login_required_socket(f):
+    """
+    This decorator has similar functionality as Flask-Login's login_required
+    but meant to be decorated for socketIO methods
+    """
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        if not FL.current_user.is_authenticated:
+            FS.disconnect()
+        else:
+            return f(*args, **kwargs)
+    return wrapped
+
+
 def user_controllers(router, socket, service: ChatService, login_manager):
 
     @login_manager.user_loader
     def load_user(user_id: str):
         return User.get(user_id)
+
+    @login_manager.unauthorized_handler
+    def unauthorized_handler():
+        flask.flash('Login required')
+        return flask.redirect(url_for('app.login'))
+
 
     @router.route('/login', methods=['GET', 'POST'])
     def login():
@@ -75,42 +98,83 @@ def user_controllers(router, socket, service: ChatService, login_manager):
             action = 'login'
         return render_template('login.html', form=dict(user_id=user_id, action=action))
 
-    @router.route('/logout')
+    @router.route('/logout', methods=['GET'])
     @FL.login_required
     def logout():
         FL.logout_user()
         flask.flash('Logout Success')
         return flask.redirect(flask.url_for('app.login'))
 
-    @router.route('/')
+    @router.route('/', methods=['GET'])
     @FL.login_required
     def index():
-        topics = service.get_topics()
+        topics: List[ChatTopic] = service.get_topics()
+        threads: List[ChatThread] = service.get_user_threads(user=FL.current_user)
+        topics = {topic.id: [topic, None] for topic in topics}
+        for thread in threads:
+            topics[thread.topic_id][1] = thread
+        topics = topics.values()
         return render_template('user/index.html', data=dict(topics=topics))
 
 
-    @router.route('/launch-topic/<topic_id>')
+    @router.route('/launch-topic/<topic_id>', methods=['GET'])
     @FL.login_required
     def launch_topic(topic_id):
         topic = service.get_topic(topic_id=topic_id)
         if not topic:
             return f'Topic {topic} not found', 400
         thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
-        return render_template('user/chatui.html', data=dict(thread=thread))
+        return flask.redirect(url_for('app.get_thread', thread_id=thread.id))
+
+
+    @router.route('/thread/<thread_id>', methods=['GET'])
+    @FL.login_required
+    def get_thread(thread_id):
+        thread = service.get_thread(thread_id)
+        if not thread:
+            return f'Thread {thread_id} found', 400
+        return render_template('user/chatui.html', limits=service.limits, thread=thread, data={})
+
+
+    ####### Sockets and stuff
+    @socket.on('connect')
+    def connect_handler():
+        if FL.current_user.is_authenticated:
+            log.info(f'{FL.current_user.id} has joined')
+        else:
+            return False  # not allowed here
 
 
     @socket.on('new_message')
+    @login_required_socket
     def handle_new_message(msg, methods=['GET', 'POST']):
         log.info('received new_message: ' + str(msg))
-        msg["text"] = 'server reply to ' + msg['text']
+
+        text = msg.get('text', '').strip()
         thread_id = msg.get('thread_id')
         user_id = msg.get('user_id')
+        user = FL.current_user
         if not thread_id or not user_id:
             return wrap(status=ERROR, description='both thread_id and user_id are required')
+        if user.id != user_id:
+            return wrap(status=ERROR, description='user_id mismatch with login user. Try logout and login')
+        if not text:
+            return wrap(status=ERROR, description='text is empty or null')
 
-        #chatroom = service.get_thread(user_id, thread_id)
-        #reply = chatroom.get_reply(msg)
-        reply = msg
-        reply['text'] = 'server reply -- ' + reply['text']
-        return wrap(body=reply)
+        thread = service.get_thread(thread_id=thread_id)
+        if not thread:
+            return wrap(status=ERROR, description=f'thread_id {thread_id} is invalid')
+        if user not in thread.users:
+            return wrap(status=ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
+
+        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id)
+        reply = service.new_message(msg, thread)
+        reply_dict = {
+            'id': reply.id,
+            'text': reply.text,
+            'time': str(reply.time),
+            'user_id': reply.user_id,
+            'thread_id': reply.thread_id
+        }
+        return wrap(body=reply_dict)
 

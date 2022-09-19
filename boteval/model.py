@@ -19,9 +19,36 @@ UserThread = db.Table('user_thread',
 
 
 
-class User(db.Model):
+class JsonExtraMixin:
+    """
+     a field named 'extra' is injected into all Models that extends this.
+     The goal is not to use this 'extra' field, but in the unforeseen future
+     you want to store some extra data which is hard to fit into RDBMS schema
+     then you may use this.
+
+     I have used this in ChatTopic where I store seed chat context
+    """
+
+    def get_extra(self):
+        extra = self.extra
+        if isinstance(extra, str):
+            extra = json.loads(extra)
+        return extra
+
+    def set_extra(self, extra):
+        if not isinstance(extra, str):
+            extra = json.dumps(extra, ensure_ascii=False)
+        self.extra = extra
+
+
+class User(db.Model, JsonExtraMixin):
+
     __tablename__ = 'user'
+
     ANONYMOUS = 'Anonymous'
+    ROLE_BOT = 'bot'
+    ROLE_HUMAN = 'human'
+    ROLE_ADMIN = 'admin'
 
     id: str = db.Column(db.String(31), primary_key=True)
     name: str = db.Column(db.String(100), nullable=False)
@@ -29,10 +56,8 @@ class User(db.Model):
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
 
-    role: str = db.Column(db.String(30), nullable=True)
-
-    # relationships
-    #threads = db.relationship('thread', secondary=UserThread, backref='user_threads')
+    role: str = db.Column(db.String(30), nullable=True)  # eg: bot, human, admin
+    extra: str = db.Column(db.Text, nullable=True)
 
     @property
     def is_active(self):
@@ -47,7 +72,7 @@ class User(db.Model):
         return False
 
     def get_id(self):
-        return str(self.id)
+        return self.id
 
     def __eq__(self, other):
         """
@@ -74,31 +99,33 @@ class User(db.Model):
             return None
 
     @classmethod
-    def create_new(cls, id: str, secret: str, name: str=None):
+    def create_new(cls, id: str, secret: str, name: str=None, role: str=None):
         name = name or cls.ANONYMOUS
-        user = User(id=id, secret=cls._hash(secret), name=name)
+        role =  role or cls.ROLE_HUMAN
+        user = User(id=id, secret=cls._hash(secret), name=name, role=role)
         log.info(f'Creating User {user.id}')
         db.session.add(user)
         db.session.commit()
         return cls.get(user.id)
 
-class ChatMessage(db.Model):
+class ChatMessage(db.Model, JsonExtraMixin):
+
     __tablename__ = 'message'
+
     id: int = db.Column(db.Integer, primary_key=True)
     text: str = db.Column(db.String(2048), nullable=False)
-    time: int =  db.Column(db.Integer, nullable=False)
     user_id: str = db.Column(db.String(31), db.ForeignKey('user.id'), nullable=False)
     thread_id: int = db.Column(db.Integer, db.ForeignKey('thread.id'), nullable=False)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    time = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    extra: str = db.Column(db.Text, nullable=True)
 
 
-class ChatThread(db.Model):
+class ChatThread(db.Model, JsonExtraMixin):
 
     __tablename__ = 'thread'
 
     id: int = db.Column(db.Integer, primary_key=True)
     topic_id = db.Column(db.String(31), db.ForeignKey('topic.id'), nullable=False)
-
     # one-to-many
     messages: List[ChatMessage] = db.relationship('ChatMessage', backref='thread', lazy=False, uselist=True)
     # many-to-many : https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/#many-to-many-relationships 
@@ -107,33 +134,17 @@ class ChatThread(db.Model):
 
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    extra: str = db.Column(db.Text, nullable=True)
 
 
-class ChatTopic(db.Model):
+class ChatTopic(db.Model, JsonExtraMixin):
 
     __tablename__ = 'topic'
 
     id: str = db.Column(db.String(32), primary_key=True)
     name: str = db.Column(db.String(100), nullable=False)
-    data: str = db.Column(db.Text, nullable=False)
+    #data: str = db.Column(db.Text, nullable=False)
     time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
     time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    extra: str = db.Column(db.Text, nullable=False)
 
-    def get_data(self):
-        if isinstance(self.data, str):
-            data = json.loads(self.data)
-        return data
-
-    def set_data(self, data):
-        if not isinstance(data, str):
-            self.data = json.dumps(data, ensure_ascii=False)
-
-if False:
-
-    class PrivateChatThread(db.Model):
-        """Private chat with the bot (by single user)"""
-        __tablename__ = 'private_thread'
-        id: int = db.Column(db.Integer, primary_key=True)
-        user_id: int = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-        messages: List[ChatMessage] = db.relationship('ChatMessage', backref='messages', lazy=False, uselist=True)
-        time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())

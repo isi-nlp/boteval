@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from datetime import datetime
 from pathlib import Path
 import time
 
@@ -24,8 +25,15 @@ bp = Blueprint('app', __name__, template_folder='templates', static_folder='stat
 
 
 @app.template_filter('ctime')
-def timectime(s):
-    return time.ctime(s) # datetime.datetime.fromtimestamp(s)
+def timectime(s) -> str:
+    if isinstance(s, datetime):
+        return str(s)
+    elif isinstance(s, int):
+        return time.ctime(s) # datetime.datetime.fromtimestamp(s)
+    elif s is None:
+        return ''
+    else:
+        return str(s)
 
 
 @app.template_filter('flat_single')
@@ -67,15 +75,13 @@ def init_app(**args):
     config = yaml.load(config_file)
     # load flask configs; this includes flask-sqlalchemy
     app.config.from_mapping(config['flask'])
-    db.init_app(app)
-    login_manager.init_app(app)
     chat_service = ChatService(config=config)
-
+    
     with app.app_context():
+        login_manager.init_app(app)
+        db.init_app(app)
         db.create_all(app=app)
-        chat_service.load_topics()
-
-        #login_url(url_for('app.login'))
+        chat_service.init_db()
 
     user_controllers(router=bp, socket=socket,
                      service=chat_service,

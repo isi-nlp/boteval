@@ -5,9 +5,18 @@ mturk_profile: default # the [default] profile in ~/.aws/credentials file
 
 chatbot:
   topics_file: darma-task/chat_topics.json
+  #bot_name: transformers
+  bot_name: dummybot
+  #bot_args:
+  #  model_name: facebook/blenderbot_small-90M
+
+limits:
+  max_threads_per_user: 10
+  max_threads_per_topic: 3
+  max_turns_per_thread: 4
 
 
 flask:
   # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
-  SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev.db
+  SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev2.db
   SQLALCHEMY_TRACK_MODIFICATIONS: false
