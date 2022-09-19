@@ -8,87 +8,46 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="../">All chats</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{chat_id}}</li>
+            <li class="breadcrumb-item active" aria-current="page">{{thread.id}}</li>
         </ol>
     </nav>
-    <div class="container-fluid px-5">
+    <div class="container-fluid">
         <div class="row">
-            <div class="col-md-5 col-lg-4 col-xl-3 mb-4 border-right border-left">
-                <h2> Info </h2>
-                <ul class="list">
-                    {% if 'final_rating' in data %}
-                    <li>
-                        <b>Ratings:</b>
-                        {% set rt_map={'Not at all': 1, 'Mostly not': 2, 'So-so': 3, 'Somewhat': 4, 'Very': 5}%}
-                        <ol class="list-group">
-                            {% for q, a in data['final_rating'] %}
-                            <li class="list-group-item">
-                                <i>{{q}}</i> (<small>{{a}}</small>)
-                                <input id="rating-{{loop.index}}" type="range" list="tickmarks" value="{{rt_map[a]}}"
-                                    style="width: 100%;" min="1" max="5" , value="{{idx}}" disabled>
-                                <datalist id="tickmarks"
-                                    style="display: flex; justify-content: space-between; width: 100%;">
-                                    <option>Not at all</option>
-                                    <option>Mostly not</option>
-                                    <option>So-so</option>
-                                    <option>Somewhat</option>
-                                    <option>Very</option>
-                                </datalist>
-                            </li>
-                            {% endfor %}
-                        </ol>
-                    </li>
-                    {% endif %}
-                    {% for key, val in data.items() if key not in (
-                    'dialog', 'time', 'task_description', 'final_rating', 'mturk') %}
-                    <li> <b>{{ key }}:</b> {{ val | flat_single }}</li>
-                    {% endfor %}
-                </ul>
-                <hr />
-                {% if 'mturk' in data and 'assignment_id' in data['mturk'] %}
-                <div class="col">
-                    {{ render_assignment(data['mturk'], where=mturk_where) }}
-                </div>
-                {% else %}
-                <div class="card p-4">
-                    <p>MTurk information is not found.</p>
-                </div>
-                {% endif %}
-            </div>
-
-            <div class="col-md-7 col-lg-8 col-xl-9 border-left border-right">
+            <div class="col-md-6 col-lg-7 col-xl-8 border-left border-right">
                 <div class="text-right disabled">
                     <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
                 </div>
+                {% if topic.data.get('target_user') %}
+                    <div class="alert alert-info p-1 text-center"> You are replying as Speaker {{topic.data['target_user']}}</div>
+                {% endif%}
                 <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; height:640px">
                     {% for msg in thread.messages %}
-                    {% set msg_extra = msg.get_extra() or dict() %}
                     {% if msg.user_id == cur_user.id %}
-                        {% set remaining_turns.value = remaining_turns.value - 1 %}
+                    {% set remaining_turns.value = remaining_turns.value - 1 %}
                     {% endif %}
+
+                    {% set display_user = "You" if msg.user_id == cur_user.id else (msg.data['speaker_id'] if msg.data.get('fake_start') else msg.user_id) %}
+                    {% set display_right_side = msg.user_id == cur_user.id or (msg.data.get('fake_start') and msg.data.get('speaker_id') == topic.data.get('target_user')) %}
+
                     <li class="d-flex justify-content-between mb-1">
-                        <div class="card
-                        {% if msg_extra['agent_idx'] == 0 and not msg_extra['fake_start']  %} alert-info {% endif %}
-                        {% if msg.user_id == 'bot01' %} alert-warning {% endif %}
-                        ">
-                            <div class="card-header d-flex justify-content-between p-2">
-                                <p class="fw-bold mb-0"> {{ "You" if msg.user_id == cur_user.id else msg.user_id  }}</p>
+                        <div class="card {% if display_right_side %} alert-info {% endif %} {% if msg.user_id == 'bot01' %} alert-warning {% endif %}" {% if display_right_side %} style="float:right;" {%endif%}>
+                            <div class="card-header d-flex justify-content-between p-2" >
+                                <p class="fw-bold mb-0"> {{display_user}}</p>
                                 <p class="text-muted small mb-0"><i class="far fa-clock"></i>
-                                    {% if msg.time %} {{ msg.time | ctime }} 
+                                    {% if msg.time %} {{ msg.time | ctime }}
                                     {% else %} (time not found) {%endif %}
                                 </p>
                             </div>
                             <div class="card-body" style="padding: 0.5em">
                                 <p class="mb-0">{{ msg.text }}</p>
-                                {% if 'text_orig' in msg_extra %}
-                                <p class="mb-0 text-muted">{{ msg_extra['text_orig'] }}</p>
+                                {% if msg.data.get('text_orig') %}
+                                <p class="mb-0 text-muted">{{ msg.data['text_orig'] }}</p>
                                 {% endif %}
                             </div>
                         </div>
                     </li>
                     {% endfor %}
                 </ul>
-                {% if remaining_turns.value > 0 %}
                 <form id="next_msg_form" class="form" action="#" method="POST">
                     <div class="form-group basic-textarea" style="display: flex">
                         <textarea id="next_msg_text" class="form-control pl-2 my-0" rows="2"
@@ -99,54 +58,79 @@
                         </div>
                     </div>
                 </form>
-                {% else %}
-                    <div class="p-4 alert alert-info">
-                        This chat has already reached the sufficient number of turns. So futher replies are disabled.
-                    </div>
-                {% endif %}
+                <div id="end_info" class="p-4 alert alert-info">
+                    This chat has already reached the sufficient number of turns. So futher replies are disabled.
+                </div>
+            </div>
+            <div {% if remaining_turns.value > 0 or not thread.episode_done %} style="display:none" {%endif%}
+                 id="ratings-view" class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
+
+                <form id="ratings-form" class="form">
+                    <b>Rate this conversation:</b>
+                    {% for q in rating_questions %}
+                    <li class="list-group-item">
+                        <i>{{q['question']}}</i>
+                        <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"
+                            max="{{q['choices']|length}}" name="{{q}}">
+                        <datalist id="tickmarks"
+                            style="display: flex; justify-content: space-between; width: 100%;">
+                            {% for ch in q['choices'] %}
+                            <option>{{ch}}</option>
+                            {%endfor%}
+                        </datalist>
+                    </li>
+                    {% endfor %}
+                    <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2"/>
+                </form>
+                <hr />
             </div>
         </div>
     </div>
 
     <script type="text/javascript">
 
-        function show_new_message(msg, side){
-            let msg_id = msg['id']
-            let time = msg['time']
+        var remaining_turns = {{remaining_turns.value}};
+
+        function show_new_message(msg, side) {
             let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
-            let text = msg['text']
             let chat_html = `
             <li style="width:100%">
                 <div class="card ${theme} mb-4" style="float:${side}; width:75%">
                     <div class="card-header d-flex justify-content-between p-2">
-                        <p class="fw-bold mb-0"> ${msg_id} </p>
-                        <p class="text-muted small mb-0"><i class="far fa-clock"></i>${time}</p>
+                        <p class="fw-bold mb-0"> ${msg['user_id']} </p>
+                        <p class="text-muted small mb-0"><i class="far fa-clock"></i>${msg['time']}</p>
                     </div>
                     <div class="card-body" style="padding: 0.5em">
-                        <p class="mb-0">${text}</p>
+                        <p class="mb-0">${msg['text']}</p>
                     </div>
                 </div>
             </li> <li></li>`
             $('#chat-thread').append($.parseHTML(chat_html))
-            scroll_bottom()
+            refresh_view()
         }
 
-        function scroll_bottom(){
-            $('#chat-thread').animate({scrollTop: $('#chat-thread').last().offset().bottom}, 'slow');
+        function refresh_view() {
+            $('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
+            if (remaining_turns < 1) {
+                $('#next_msg_form').hide()
+                $('#end_info').show()
+            } else {
+                $('#next_msg_form').show()
+                $('#end_info').hide()
+            }
         }
 
         window.onload = () => {
-            scroll_bottom()
-            let user_data = {user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}'}
+            let user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
 
             const socket = io()
-            socket.on( 'connect', () => {
+            socket.on('connect', () => {
                 console.log('socket connected')
                 $('#status_info').text('Connected').attr('class', 'btn btn-sm btn-success')
-                socket.emit('user_connect', {message: 'User connected', user: user_data})
+                socket.emit('user_connect', { message: 'User connected', user: user_data })
             });
 
-            socket.on( 'disconnect', () => {
+            socket.on('disconnect', () => {
                 console.log('socket disconnected')
                 $('#status_info').text('Disconnected').attr('class', 'btn btn-sm btn-danger')
                 //socket.emit('my event', {data: 'User Dis Connected'})
@@ -173,22 +157,27 @@
                     return
                 }
 
-                data = {'text': text, time: new Date().toISOString()}
-                data = {...user_data, ...data}  //combine two
+                data = { 'text': text, time: new Date().toISOString() }
+                data = { ...user_data, ...data }  //combine two
 
-                msg_id = show_new_message(data, side='right')
+                msg_id = show_new_message(data, side = 'right')
                 console.log(data)
-                socket.emit( 'new_message', data, (reply) => {
+                socket.emit('new_message', data, (reply) => {
                     console.log('server reply:')
                     console.log(reply)
-                    if (reply['head']['status'] == 'success'){
-                        msg_id = show_new_message(reply['body'], side='left')
+                    if (reply['head']['status'] == 'success') {
+                        if (reply['body']['episode_done']){
+                            $('#ratings-view').show()
+                            remaining_turns = 0
+                        }
+                        msg_id = show_new_message(reply['body'], side = 'left')
                         $('#next_msg_text').val('')
                     } else {
                         alert('Something went wrong. See logs.')
                     }
                 })
             })
+            refresh_view()
         }
     </script>
 </section>

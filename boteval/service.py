@@ -9,6 +9,9 @@ import functools
 from  . import log, db
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
 from .bots import BotAgent, load_bot_agent
+from . import config
+
+
 
 
 class ChatManager:
@@ -24,7 +27,8 @@ class DialogBotChatManager(ChatManager):
 
     # 1-on-1 dialog between human and a bot
 
-    def __init__(self, thread: ChatThread, bot_agent:BotAgent):
+    def __init__(self, thread: ChatThread, bot_agent:BotAgent,
+                 max_turns:int=config.DEF_MAX_TURNS_PER_THREAD):
         super().__init__(thread)
         bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
         user_ids = [u.id for u in thread.users]
@@ -37,6 +41,10 @@ class DialogBotChatManager(ChatManager):
         assert len(humans) == 1, f'Expect 1 human in thead {thread.id}; found {len(humans)}; Users: {user_ids}'
         self.human_user = humans[0]
 
+        self.max_turns = max_turns
+        self.num_turns = thread.count_turns(self.human_user)
+
+
     def observe_message(self, message: ChatMessage) -> ChatMessage:
         # Observe and reply
         # this message is from human
@@ -47,7 +55,10 @@ class DialogBotChatManager(ChatManager):
         db.session.add(message)
         db.session.add(reply)
         db.session.commit()
-        return reply
+        self.num_turns += 1
+        episode_done = self.num_turns >= self.max_turns
+        log.info(f'{self.thread.id} turns:{self.num_turns} max:{self.max_turns}')
+        return reply, episode_done
 
     def bot_reply(self) -> ChatMessage:
         # only using last message as context
@@ -62,12 +73,14 @@ class ChatService:
     def __init__(self, config):
         self.config = config
         self._bot_user = None
+        self._context_user = None
         self.topics_file = self.config['chatbot']['topics_file']
 
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
         self.bot_agent = load_bot_agent(bot_name, bot_args)
         self.limits = config.get('limits') or {}
+        self.ratings = config['ratings']
 
     @property
     def bot_user(self):
@@ -75,15 +88,28 @@ class ChatService:
             self._bot_user = User.query.get('bot01')
         return self._bot_user
 
+    @property
+    def context_user(self):
+        if not self._context_user:
+            self._context_user = User.query.get('context')
+        return self._context_user
+
     def init_db(self, init_topics=True):
 
         if not User.query.get('admin'):
             db.session.add(User(id='admin', name='Chat Admin', secret='', role=User.ROLE_ADMIN))
+
         if not User.query.get('bot01'):
             db.session.add(User(id='bot01', name='Chat Bot', secret='', role=User.ROLE_BOT))
+
+        if not User.query.get('context'):
+            # for loading context messages
+            db.session.add(User(id='context', name='Context User', secret='', role=User.ROLE_HIDDEN))
+
         if not User.query.get('dev'):
             # for development
             User.create_new(id='dev', name='Developer', secret='abcd', role=User.ROLE_HUMAN)
+
 
         if init_topics:
             assert self.topics_file
@@ -100,7 +126,7 @@ class ChatService:
                 if obj:
                     log.warning(f'Chat topic exisits {topic["id"]}, so skipping')
                     continue
-                obj = ChatTopic(id=topic['id'], name=topic['name'], extra=json.dumps(topic))
+                obj = ChatTopic(id=topic['id'], name=topic['name'], data=topic)
                 objs.append(obj)
             if objs:
                 log.info(f"Inserting {len(objs)} topics to db")
@@ -130,7 +156,19 @@ class ChatService:
             thread = ChatThread(topic_id=topic.id)
             thread.users.append(user)
             thread.users.append(self.bot_user)
+            thread.users.append(self.context_user)
             db.session.add(thread)
+            db.session.flush()  # flush it to get thread_id
+            for m in topic.data['conversation']:
+                text = m['text']
+                msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, data={})
+                msg.data['text_orig'] = m.get('text_orig')
+                msg.data['speaker_id'] = m.get('speaker_id')
+                msg.data['fake_start'] = True
+                db.session.add(msg)
+                thread.messages.append(msg)
+            db.session.merge(thread)
+            db.session.flush()
             db.session.commit()
         return thread
 
@@ -146,10 +184,20 @@ class ChatService:
 
     @functools.lru_cache(maxsize=256)
     def cached_get(self, thread):
-        return DialogBotChatManager(thread=thread, bot_agent=self.bot_agent)
+        max_turns = self.config.get('limits', {}).get('max_turns_per_thread',
+                                                      config.DEF_MAX_TURNS_PER_THREAD)
+        return DialogBotChatManager(thread=thread, bot_agent=self.bot_agent,
+                                    max_turns=max_turns)
 
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> ChatMessage:
         dialog = self.cached_get(thread)
-        reply = dialog.observe_message(msg)
-        return reply
+        reply, episode_done = dialog.observe_message(msg)
+        if thread.episode_done != episode_done:
+            thread.episode_done = episode_done
+            db.session.merge(thread)
+            db.session.commit()
+        return reply, episode_done
+
+    def get_rating_questions(self):
+        return self.ratings
 

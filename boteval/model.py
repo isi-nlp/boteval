@@ -4,8 +4,8 @@ import time
 import hashlib
 from dataclasses import dataclass
 from flask_login import UserMixin
-from sqlalchemy.sql import func
-from sqlalchemy import orm
+
+from sqlalchemy import orm, sql
 import json
 
 from . import db, log
@@ -19,29 +19,7 @@ UserThread = db.Table('user_thread',
 
 
 
-class JsonExtraMixin:
-    """
-     a field named 'extra' is injected into all Models that extends this.
-     The goal is not to use this 'extra' field, but in the unforeseen future
-     you want to store some extra data which is hard to fit into RDBMS schema
-     then you may use this.
-
-     I have used this in ChatTopic where I store seed chat context
-    """
-
-    def get_extra(self):
-        extra = self.extra
-        if isinstance(extra, str):
-            extra = json.loads(extra)
-        return extra
-
-    def set_extra(self, extra):
-        if not isinstance(extra, str):
-            extra = json.dumps(extra, ensure_ascii=False)
-        self.extra = extra
-
-
-class User(db.Model, JsonExtraMixin):
+class User(db.Model):
 
     __tablename__ = 'user'
 
@@ -49,15 +27,16 @@ class User(db.Model, JsonExtraMixin):
     ROLE_BOT = 'bot'
     ROLE_HUMAN = 'human'
     ROLE_ADMIN = 'admin'
+    ROLE_HIDDEN = 'hidden'
 
     id: str = db.Column(db.String(31), primary_key=True)
     name: str = db.Column(db.String(100), nullable=False)
     secret: str = db.Column(db.String(100), nullable=False)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    time_created = db.Column(db.DateTime(timezone=True), server_default=sql.func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=sql.func.now())
 
     role: str = db.Column(db.String(30), nullable=True)  # eg: bot, human, admin
-    extra: str = db.Column(db.Text, nullable=True)
+    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     @property
     def is_active(self):
@@ -108,7 +87,7 @@ class User(db.Model, JsonExtraMixin):
         db.session.commit()
         return cls.get(user.id)
 
-class ChatMessage(db.Model, JsonExtraMixin):
+class ChatMessage(db.Model):
 
     __tablename__ = 'message'
 
@@ -116,35 +95,39 @@ class ChatMessage(db.Model, JsonExtraMixin):
     text: str = db.Column(db.String(2048), nullable=False)
     user_id: str = db.Column(db.String(31), db.ForeignKey('user.id'), nullable=False)
     thread_id: int = db.Column(db.Integer, db.ForeignKey('thread.id'), nullable=False)
-    time = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    extra: str = db.Column(db.Text, nullable=True)
+    time = db.Column(db.DateTime(timezone=True), server_default=sql.func.now())
+    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
 
 
-class ChatThread(db.Model, JsonExtraMixin):
+class ChatThread(db.Model):
 
     __tablename__ = 'thread'
 
     id: int = db.Column(db.Integer, primary_key=True)
     topic_id = db.Column(db.String(31), db.ForeignKey('topic.id'), nullable=False)
+    episode_done = db.Column(db.Boolean, server_default=sql.expression.true(), nullable=False)
     # one-to-many
     messages: List[ChatMessage] = db.relationship('ChatMessage', backref='thread', lazy=False, uselist=True)
     # many-to-many : https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/#many-to-many-relationships 
     users: List[User] = db.relationship('User', secondary=UserThread, lazy='subquery',
                                         backref=db.backref('threads', lazy=True))
 
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-    extra: str = db.Column(db.Text, nullable=True)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=sql.func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=sql.func.now())
+    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
 
 
-class ChatTopic(db.Model, JsonExtraMixin):
+    def count_turns(self, user: User):
+        return sum(msg.user_id == user.id for msg in self.messages)
+
+class ChatTopic(db.Model):
 
     __tablename__ = 'topic'
 
     id: str = db.Column(db.String(32), primary_key=True)
     name: str = db.Column(db.String(100), nullable=False)
     #data: str = db.Column(db.Text, nullable=False)
-    time_created = db.Column(db.DateTime(timezone=True), server_default=func.now())
-    time_updated = db.Column(db.DateTime(timezone=True), onupdate=func.now())
-    extra: str = db.Column(db.Text, nullable=False)
+    time_created = db.Column(db.DateTime(timezone=True), server_default=sql.func.now())
+    time_updated = db.Column(db.DateTime(timezone=True), onupdate=sql.func.now())
+    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
 

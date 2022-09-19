@@ -111,10 +111,16 @@ def user_controllers(router, socket, service: ChatService, login_manager):
         topics: List[ChatTopic] = service.get_topics()
         threads: List[ChatThread] = service.get_user_threads(user=FL.current_user)
         topics = {topic.id: [topic, None] for topic in topics}
+        limits = dict(max_threads_per_user = service.limits.get('max_threads_per_user'),
+                    max_threads_per_topic = service.limits.get('max_threads_per_topic'),
+                    threds_launched=len(threads),
+                    threads_completed=(sum(th.episode_done for th in threads))
+        )
+
         for thread in threads:
             topics[thread.topic_id][1] = thread
         topics = topics.values()
-        return render_template('user/index.html', data=dict(topics=topics))
+        return render_template('user/index.html', data=dict(topics=topics), limits=limits)
 
 
     @router.route('/launch-topic/<topic_id>', methods=['GET'])
@@ -133,7 +139,13 @@ def user_controllers(router, socket, service: ChatService, login_manager):
         thread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id} found', 400
-        return render_template('user/chatui.html', limits=service.limits, thread=thread, data={})
+        ratings = service.get_rating_questions()
+        topic = service.get_topic(thread.topic_id)
+        return render_template('user/chatui.html', limits=service.limits,
+                               thread=thread,
+                               topic=topic,
+                               rating_questions=ratings,
+                               data=dict())
 
 
     ####### Sockets and stuff
@@ -168,13 +180,14 @@ def user_controllers(router, socket, service: ChatService, login_manager):
             return wrap(status=ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
 
         msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id)
-        reply = service.new_message(msg, thread)
+        reply, episode_done = service.new_message(msg, thread)
         reply_dict = {
             'id': reply.id,
             'text': reply.text,
             'time': str(reply.time),
             'user_id': reply.user_id,
-            'thread_id': reply.thread_id
+            'thread_id': reply.thread_id,
+            'episode_done': episode_done
         }
         return wrap(body=reply_dict)
 

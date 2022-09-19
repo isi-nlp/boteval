@@ -15,6 +15,22 @@ limits:
   max_threads_per_topic: 3
   max_turns_per_thread: 4
 
+ratings:
+  - question: 'How Coherent was the conversation?'
+    choices: &choices
+      - Not at all
+      - Mostly not
+      - So-so
+      - Somewhat
+      - Very
+  - question: 'How likely are you going to continue the conversation with the bot?'
+    choices: *choices
+  - question:  Did the bot understand your point of view?
+    choices: *choices
+  - question: Did the bot understand your point of view?
+    choices: *choices
+  - question: 'Did the bot convince you to change your behavior?'
+    choices: *choices
 
 flask:
   # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/

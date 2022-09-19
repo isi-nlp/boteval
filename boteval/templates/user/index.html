@@ -4,6 +4,7 @@
 <section class="container">
     <div class="col-6">
         <h3 class="col-6"> List of topics </h3>
+        {{limits}}
     <ol class="list-group">
     {% for topic, thread in data['topics'] %}
         <li class="list-item m-2 p-2 border">

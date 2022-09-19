@@ -55,6 +55,8 @@ class DummyBot(BotAgent):
     NAME = 'dummybot'
 
     def talk(self, context):
+        if context.lower() == 'ping':
+            return 'pong'
         return "dummybot reply --" + context[-30:]
 
 
