@@ -10,16 +10,25 @@
           <span>Found {{chats | length }} chats </span>
         </div>
       </div>
-      <ul class="list-group">
-        {% for name, meta in chats %}
-        <li class="list-group-item">
-          <a href="review/{{ name }}">{{ name }}</a>
-          <small class="font-weight-light text-muted"> {{ meta['size'] }}; </small>
-          <small class="text-muted font-italic font-weight-lighter">Modified on {{ meta['modified'] }}</small>
-        </li>
+      <table class="table">
+        <tr>
+          <th scope="col">ThreadID</th>
+          <th scope="col">Episode | Ratings</th>
+          <th scope="col">Time</th>
+          <th scope="col">Actions</th>
+        </tr>
+        {% for thread in chats %}
+        <tr>
+          <td scope="row"> {{thread.id}}  </td>
+          <td> {{thread.episode_done}} | {{thread.data.get('rating_done')}} </td>
+          <td> Created: {{thread.time_created|ctime}}; Modified: {{thread.time_modified|ctime}}  </td>
+          <td> <ul>
+            <li><a href="{{url_for('admin.thread_export', thread_id=thread.id)}}" target="_blank">Export</a></li>
+            <li><a href="{{url_for('app.get_thread', thread_id=thread.id)}}" target="_blank">Open Chat</a></li>
+          </ul> </td>
+        </tr>
         {% endfor %}
-        </li>
-      </ul>
+      </table>
     </div>
   </div>
 </div>

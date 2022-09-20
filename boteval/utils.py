@@ -44,6 +44,8 @@ def jsonify(obj):
         return {key: jsonify(val) for key, val in obj.items()}
     elif isinstance(obj, list):
         return [jsonify(it) for it in obj]
+    elif hasattr(obj, 'as_dict'):
+        return jsonify(obj.as_dict())
     #elif isinstance(ob, np.ndarray):
     #    return _jsonify(ob.tolist())
     else:

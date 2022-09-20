@@ -2,3 +2,4 @@ model-chat*
 **.pyc
 __pycache__
 *.db
+darma-task/data

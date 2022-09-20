@@ -3,12 +3,13 @@ from datetime import datetime
 from pathlib import Path
 import time
 
+import flask
 from flask import Flask, Blueprint, url_for
 from flask_socketio import SocketIO
 from flask_login import LoginManager, login_url
 
 from . import log, __version__, yaml, db
-from .controller import user_controllers
+from .controller import user_controllers, admin_controllers, init_login_manager
 from .service import ChatService
 
 
@@ -20,9 +21,6 @@ app.config['JSON_AS_ASCII'] = False
 app.config['SECRET_KEY'] = 'abcd1234'
 socket = SocketIO(app)
 login_manager = LoginManager()
-
-bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
-
 
 @app.template_filter('ctime')
 def timectime(s) -> str:
@@ -69,24 +67,31 @@ def parse_args():
 # uwsgi --http 127.0.0.1:5000 --module boteval.app:app # --pyargv "--foo=bar"
 
 
+
 def init_app(**args):
     config_file: Path = args['config']
     assert config_file.exists() and config_file.is_file(), f'Expected config YAML file at {config_file}, but it is not found'
     config = yaml.load(config_file)
     # load flask configs; this includes flask-sqlalchemy
     app.config.from_mapping(config['flask'])
-    chat_service = ChatService(config=config)
-    
+    service = ChatService(config=config)
+
     with app.app_context():
         login_manager.init_app(app)
         db.init_app(app)
         db.create_all(app=app)
-        chat_service.init_db()
+        service.init_db()
 
-    user_controllers(router=bp, socket=socket,
-                     service=chat_service,
-                     login_manager=login_manager)
-    app.register_blueprint(bp, url_prefix=args.get('base'))
+        init_login_manager(login_manager=login_manager)
+
+    bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
+    user_controllers(router=bp, socket=socket, service=service)
+    base_prefix = args.get('base', '')
+    app.register_blueprint(bp, url_prefix=base_prefix)
+
+    admin_bp = Blueprint('admin', __name__, template_folder='templates', static_folder='static')
+    admin_controllers(router=admin_bp, service=service)
+    app.register_blueprint(admin_bp, url_prefix=f'{base_prefix}/admin')
 
     if args.pop('debug'):
         app.debug = True

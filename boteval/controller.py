@@ -1,6 +1,8 @@
+from asyncio import threads
 import os
 import functools
 from typing import List
+import random
 
 import flask
 from flask import request, url_for
@@ -11,6 +13,8 @@ from boteval.service import ChatService
 #from flask_login import login_user, current_user, login_required, login_url
 
 from . import log
+from .config import ERROR, SUCCESS
+from .utils import jsonify
 from .model import ChatMessage, ChatThread, ChatTopic, User
 
 ENV = {}
@@ -46,7 +50,37 @@ def login_required_socket(f):
     return wrapped
 
 
-def user_controllers(router, socket, service: ChatService, login_manager):
+
+class AdminLoginDecorator:
+
+    """
+    Similar to flask-login's `login_required` but checks for role=admin on user
+    This is a stateful decorator (hence class instead of function)
+    """
+    def __init__(self, login_manager=None) -> None:
+        self.login_manager = login_manager
+
+    def __call__(self, func):
+
+        @functools.wraps(func)
+        def decorated_view(*args, **kwargs):
+            if not FL.current_user.is_authenticated:
+                return self.login_manager.unauthorized()
+            elif FL.current_user.role != User.ROLE_ADMIN:
+                flask.flash('This functionality is for admin only')
+                return 'ERROR: Access denied. This resource can only be accessed by admin user.', 403
+            else: # user is logged in and they have role=admin;
+                return func(*args, **kwargs)
+
+        return decorated_view
+
+admin_login_required = None
+
+
+def init_login_manager(login_manager):
+
+    global admin_login_required
+    admin_login_required =  AdminLoginDecorator(login_manager=login_manager)
 
     @login_manager.user_loader
     def load_user(user_id: str):
@@ -57,6 +91,9 @@ def user_controllers(router, socket, service: ChatService, login_manager):
         flask.flash('Login required')
         return flask.redirect(url_for('app.login'))
 
+
+
+def user_controllers(router, socket, service: ChatService):
 
     @router.route('/login', methods=['GET', 'POST'])
     def login():
@@ -110,17 +147,34 @@ def user_controllers(router, socket, service: ChatService, login_manager):
     def index():
         topics: List[ChatTopic] = service.get_topics()
         threads: List[ChatThread] = service.get_user_threads(user=FL.current_user)
-        topics = {topic.id: [topic, None] for topic in topics}
-        limits = dict(max_threads_per_user = service.limits.get('max_threads_per_user'),
-                    max_threads_per_topic = service.limits.get('max_threads_per_topic'),
-                    threds_launched=len(threads),
-                    threads_completed=(sum(th.episode_done for th in threads))
-        )
+        data = {topic.id: [topic, None, 0] for topic in topics}
 
+        limits = dict(threads_launched=len(threads),
+                      threads_completed=sum(th.episode_done for th in threads))
+        limits.update(service.limits)
+        max_threads_per_topic = limits['max_threads_per_topic']
+        thread_counts = service.get_thread_counts(episode_done=True) # completed threads
         for thread in threads:
-            topics[thread.topic_id][1] = thread
-        topics = topics.values()
-        return render_template('user/index.html', data=dict(topics=topics), limits=limits)
+            data[thread.topic_id][1] = thread
+            print(thread, thread.episode_done)
+
+        for topic_id, n_threads in thread_counts.items():
+            data[topic_id][2] = n_threads
+        data = list(data.values())
+        random.shuffle(data)  # randomize
+        # Ranks:  threads t threads that need anotation in the top
+        def sort_key(rec):
+            _, my_thread, n_threads = rec
+            if my_thread:
+                if not my_thread.episode_done: # Rank 1 incomplete threads,
+                    return -1
+                else: # completed thread
+                    return max_threads_per_topic  # done, push it to the end
+            else:
+                return n_threads
+
+        data = list(sorted(data, key=sort_key))
+        return render_template('user/index.html', data=data, limits=limits)
 
 
     @router.route('/launch-topic/<topic_id>', methods=['GET'])
@@ -138,7 +192,7 @@ def user_controllers(router, socket, service: ChatService, login_manager):
     def get_thread(thread_id):
         thread = service.get_thread(thread_id)
         if not thread:
-            return f'Thread {thread_id} found', 400
+            return f'Thread {thread_id} found', 404
         ratings = service.get_rating_questions()
         topic = service.get_topic(thread.topic_id)
         return render_template('user/chatui.html', limits=service.limits,
@@ -146,6 +200,18 @@ def user_controllers(router, socket, service: ChatService, login_manager):
                                topic=topic,
                                rating_questions=ratings,
                                data=dict())
+
+    @router.route('/thread/<thread_id>/rating', methods=['POST'])
+    @FL.login_required
+    def thread_rating(thread_id):
+        thread = service.get_thread(thread_id)
+        if not thread:
+            return f'Thread {thread_id} found', 404
+        log.info(f'updating ratings for {thread.id}')
+        ratings = {key: val for key, val in request.form.items()}
+        service.update_thread_ratings(thread, ratings=ratings)
+        flask.flash('Great job! You have completed a thread!')
+        return flask.redirect(url_for('app.index'))
 
 
     ####### Sockets and stuff
@@ -184,10 +250,27 @@ def user_controllers(router, socket, service: ChatService, login_manager):
         reply_dict = {
             'id': reply.id,
             'text': reply.text,
-            'time': str(reply.time),
+            'time': reply.time.isoformat(),
             'user_id': reply.user_id,
             'thread_id': reply.thread_id,
             'episode_done': episode_done
         }
         return wrap(body=reply_dict)
 
+
+def admin_controllers(router, service: ChatService):
+    from .model import User, ChatMessage, ChatThread, ChatTopic
+
+    @router.route('/')
+    @admin_login_required
+    def admin_index():
+        chats = ChatThread.query.all()
+        return render_template('admin/index.html', chats=chats)
+
+    @router.route('/thread/<thread_id>/export')
+    @admin_login_required
+    def thread_export(thread_id):
+        thread: ChatThread = ChatThread.query.get(thread_id)
+        if not thread:
+            return 'Thread not found', 404
+        return jsonify(thread), 200

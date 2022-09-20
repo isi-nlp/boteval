@@ -1,17 +1,20 @@
 
-from concurrent.futures import thread
+
 from pathlib import Path
 import json
 from threading import Thread
-from typing import List, Optional
+from typing import List, Mapping, Optional, Union
 import functools
+from datetime import datetime
+
+from sqlalchemy import func
+from sqlalchemy.orm import attributes
 
 from  . import log, db
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
 from .bots import BotAgent, load_bot_agent
+from .utils import jsonify
 from . import config
-
-
 
 
 class ChatManager:
@@ -68,6 +71,28 @@ class DialogBotChatManager(ChatManager):
         return msg
 
 
+class FileExportService:
+    """Export chat data from database into file system"""
+
+    def __init__(self, data_dir: Union[Path,str]) -> None:
+        if not isinstance(data_dir, Path):
+            data_dir = Path(data_dir)
+        self.data_dir = data_dir
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+
+    def export_thread(self, thread: ChatThread, **meta):
+        dt_now = datetime.now()
+        file_name = dt_now.strftime("%Y%m%d-%H%M%S") + f'-{thread.topic_id}_{thread.id}.json'
+        path = self.data_dir / dt_now.strftime("%Y%m%d") / file_name
+        log.info(f'Export thread {thread.id} to {path}')
+        path.parent.mkdir(exist_ok=True, parents=True)
+        with open(path, 'w', encoding='utf-8') as out:
+            data = thread.as_dict()
+            data['_exported_'] = str(dt_now)
+            data['meta'] = meta
+            json.dump(data, out, indent=2, ensure_ascii=False)
+
+
 class ChatService:
 
     def __init__(self, config):
@@ -76,6 +101,7 @@ class ChatService:
         self._context_user = None
         self.topics_file = self.config['chatbot']['topics_file']
 
+        self.exporter = FileExportService(config['chat_dir'])
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
         self.bot_agent = load_bot_agent(bot_name, bot_args)
@@ -85,30 +111,37 @@ class ChatService:
     @property
     def bot_user(self):
         if not self._bot_user:
-            self._bot_user = User.query.get('bot01')
+            self._bot_user = User.query.get(config.Auth.BOT_USER)
         return self._bot_user
 
     @property
     def context_user(self):
         if not self._context_user:
-            self._context_user = User.query.get('context')
+            self._context_user = User.query.get(config.Auth.CONTEXT_USER)
         return self._context_user
 
     def init_db(self, init_topics=True):
 
-        if not User.query.get('admin'):
-            db.session.add(User(id='admin', name='Chat Admin', secret='', role=User.ROLE_ADMIN))
+        if not User.query.get(config.Auth.ADMIN_USER):
+            User.create_new(
+                id=config.Auth.ADMIN_USER, name='Chat Admin',
+                secret=config.Auth.ADMIN_SECRET, role=User.ROLE_ADMIN)
 
-        if not User.query.get('bot01'):
-            db.session.add(User(id='bot01', name='Chat Bot', secret='', role=User.ROLE_BOT))
+        if not User.query.get(config.Auth.DEV_USER): # for development
+            User.create_new(id=config.Auth.DEV_USER, name='Developer',
+                            secret=config.Auth.DEV_SECRET,
+                            role=User.ROLE_HUMAN)
 
-        if not User.query.get('context'):
+        if not User.query.get(config.Auth.BOT_USER):
+            # login not enabled. directly insert with empty string as secret
+            db.session.add(User(id=config.Auth.BOT_USER, name='Chat Bot',
+                                secret='', role=User.ROLE_BOT))
+
+        if not User.query.get(config.Auth.CONTEXT_USER):
             # for loading context messages
-            db.session.add(User(id='context', name='Context User', secret='', role=User.ROLE_HIDDEN))
-
-        if not User.query.get('dev'):
-            # for development
-            User.create_new(id='dev', name='Developer', secret='abcd', role=User.ROLE_HUMAN)
+            db.session.add(User(id=config.Auth.CONTEXT_USER,
+                                name='Context User', secret='',
+                                role=User.ROLE_HIDDEN))
 
 
         if init_topics:
@@ -161,10 +194,8 @@ class ChatService:
             db.session.flush()  # flush it to get thread_id
             for m in topic.data['conversation']:
                 text = m['text']
-                msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, data={})
-                msg.data['text_orig'] = m.get('text_orig')
-                msg.data['speaker_id'] = m.get('speaker_id')
-                msg.data['fake_start'] = True
+                data =  dict(text_orig=m.get('text_orig'), speaker_id= m.get('speaker_id'), fake_start=True)
+                msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, data=data)
                 db.session.add(msg)
                 thread.messages.append(msg)
             db.session.merge(thread)
@@ -182,6 +213,26 @@ class ChatService:
         log.info(f'Found {len(threads)} threads found')
         return threads
 
+    def get_thread_counts(self, episode_done=True) -> Mapping[str, int]:
+        thread_counts = ChatThread.query.filter_by(episode_done=bool(episode_done))\
+            .with_entities(ChatThread.topic_id, func.count(ChatThread.topic_id))\
+            .group_by(ChatThread.topic_id).all()
+
+        return {tid: count for tid, count in thread_counts }
+
+    def update_thread_ratings(self, thread: ChatThread, ratings:dict):
+        thread.data.update(dict(ratings=ratings, rating_done=True))
+        thread.episode_done = True
+        # sometimes JSON field updates are not automatically detected.
+        # https://github.com/sqlalchemy/sqlalchemy/discussions/6473
+        attributes.flag_modified(thread, 'data')
+        db.session.merge(thread)
+        db.session.flush()
+        db.session.commit()
+        self.exporter.export_thread(thread, rating_questions=self.ratings)
+
+
+
     @functools.lru_cache(maxsize=256)
     def cached_get(self, thread):
         max_turns = self.config.get('limits', {}).get('max_turns_per_thread',
@@ -192,12 +243,7 @@ class ChatService:
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> ChatMessage:
         dialog = self.cached_get(thread)
         reply, episode_done = dialog.observe_message(msg)
-        if thread.episode_done != episode_done:
-            thread.episode_done = episode_done
-            db.session.merge(thread)
-            db.session.commit()
         return reply, episode_done
 
     def get_rating_questions(self):
         return self.ratings
-

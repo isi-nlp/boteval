@@ -32,35 +32,19 @@ This starts a service on http://localhost:6060 by default.
 
 ## Config file
 
-Here is an example
-```yaml
-chat_dir: ../darma_chat/darma_chat/model_chat
-mturk_profile: default    # the [default] profile in ~/.aws/credentials file
-```
-
-* `chat_dir` -- path to directory having JSON files stored by `darma_chat`.
-* If `mturk_profile` value is the name of credential profile in `~/.aws/credentials` to be used for authentication with AWS/mturk APIs.
+Look at `darma-task/conf.yml` for an example
 
 
+## Development
 
-**CLI options:**
+* Model view controller pattern: https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller
+* Flask: https://flask.palletsprojects.com/en/2.2.x/api/
+  * Server side templating is using Jinja2: https://jinja.palletsprojects.com/en/3.1.x/templates/
+* Login and user session manager: https://flask-login.readthedocs.io/en/latest/
+* Database backend and ORM: persistance: https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/
+  * If you do not know how Dabase and ORM works or how you could use them, then this could be most complex piece of the system. Good news is that we build on top of battele-tested SqlAlchemy. See its documentation at https://docs.sqlalchemy.org/en/14/
+  * Some examples for CRUD ops https://flask-sqlalchemy.palletsprojects.com/en/2.x/queries/
 
-```
-$ python -m chat_admin -h
-usage: chat-admin [-h] [-d] [-p PORT] [-ho HOST] [-b BASE] config
+* Sockets and stuff: https://flask-socketio.readthedocs.io/en/latest/intro.html
+* Themes and styles via Bootstrap : https://getbootstrap.com/docs/4.5/getting-started/introduction/
 
-Deploy a chat admin UI
-
-positional arguments:
-  config                Path to config file
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -d, --debug           Run Flask server in debug mode (default: False)
-  -p PORT, --port PORT  port to run server on (default: 6060)
-```
-
-## Security Notes:
-* Authentication is not yet built into admin web UI.
-* Currently, the web server  binds to loopback interface `127.0.0.1`. This is intentional, as only the requests coming from same node are accepted.
-* If this web UI is deployed on a remote server, use ssh tunnel (e.g. `ssh -L 6060:localhost:6060 <server>`) to establish connection with server. This way, ssh takes care of authentication and only people with ssh access to the remote server can access the admin UI.

@@ -25,11 +25,9 @@ ratings:
       - Very
   - question: 'How likely are you going to continue the conversation with the bot?'
     choices: *choices
-  - question:  Did the bot understand your point of view?
+  - question:  To what degree did the bot understand your point of view?
     choices: *choices
-  - question: Did the bot understand your point of view?
-    choices: *choices
-  - question: 'Did the bot convince you to change your behavior?'
+  - question: 'To what degree did the moderator convince you to change your behavior?'
     choices: *choices
 
 flask:

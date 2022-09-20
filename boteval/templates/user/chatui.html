@@ -18,8 +18,8 @@
                     <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
                 </div>
                 {% if topic.data.get('target_user') %}
-                    <div class="alert alert-info p-1 text-center"> You are replying as Speaker {{topic.data['target_user']}}</div>
-                {% endif%}
+                    <div class="alert alert-info p-1 text-center"> You are replying as <b>Speaker {{topic.data['target_user']}}</b></div>
+                {% endif %}
                 <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; height:640px">
                     {% for msg in thread.messages %}
                     {% if msg.user_id == cur_user.id %}
@@ -62,17 +62,20 @@
                     This chat has already reached the sufficient number of turns. So futher replies are disabled.
                 </div>
             </div>
-            <div {% if remaining_turns.value > 0 or not thread.episode_done %} style="display:none" {%endif%}
+            <!-- hide this block when more turns to go; but show this to admin regardless -->
+            <div {% if cur_user.role !='admin' and remaining_turns.value > 0 %} style="display:none" {%endif%}
                  id="ratings-view" class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
-
-                <form id="ratings-form" class="form">
+                 {%set is_disabled = 'disabled' if thread.data.get('rating_done') else '' %}
+                <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form" class="form">
                     <b>Rate this conversation:</b>
                     {% for q in rating_questions %}
+                    {% set prev_ratings = thread.data.get('ratings') or {}%}
                     <li class="list-group-item">
                         <i>{{q['question']}}</i>
-                        <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"
-                            max="{{q['choices']|length}}" name="{{q}}">
-                        <datalist id="tickmarks"
+                        <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;"
+                            min="1" max="{{q['choices']|length}}" name="{{q['question']}}"
+                            value="{{prev_ratings.get(q['question'])}}" {{is_disabled}} >
+                        <datalist id="tickmarks-{{loop.index}}"
                             style="display: flex; justify-content: space-between; width: 100%;">
                             {% for ch in q['choices'] %}
                             <option>{{ch}}</option>
@@ -80,7 +83,7 @@
                         </datalist>
                     </li>
                     {% endfor %}
-                    <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2"/>
+                    <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}}/>
                 </form>
                 <hr />
             </div>
