@@ -1,26 +1,88 @@
-from typing import List, Optional
+from typing import Dict, List, Mapping, Optional, Any
 from dataclasses import dataclass, field
 import time
 import hashlib
+import abc
 from dataclasses import dataclass
-from flask_login import UserMixin
 
 from sqlalchemy import orm, sql
 import json
 
 from . import db, log
 
-# Docs for flask SQLAlchemy https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/
+"""
+# Docs for flask-SQLAlchemy https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/
+SqlAlchemy  https://docs.sqlalchemy.org/en/14/
 
-UserThread = db.Table('user_thread',
-                      db.Column('user_id', db.String(31), db.ForeignKey(
-                          'user.id'), primary_key=True),
-                      db.Column('thread_id', db.Integer, db.ForeignKey(
-                          'thread.id'), primary_key=True)
-                      )
+flask-sqlalchemy binds many of sqlalchemy's classes into db.* namespace.
+Some important classes:
+ - Column https://docs.sqlalchemy.org/en/14/core/metadata.html?highlight=column#sqlalchemy.schema.Column 
+
+TG's comments:
+  We are using data column as JSON type -- which is nice to store any arbitrary key=value pairs.
+  Catch, I believe, is JSON not indexable (atleast without some complications).
+  So reverse look up of record based on a key=value in JSON field may not be the
+"""
 
 
-class User(db.Model):
+
+class BaseModel(db.Model):
+    __abstract__ = True
+
+    id: int = db.Column(db.Integer, primary_key=True)
+    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
+    time_created = db.Column(db.DateTime(timezone=True),
+                             server_default=sql.func.now())
+    time_updated = db.Column(db.DateTime(timezone=True),
+                             onupdate=sql.func.now())
+
+    def __eq__(self, other):
+        """
+        Checks the equality of two objects using `get_id`.
+        """
+        return self.id == other.id
+
+    def as_dict(self) -> Dict[str, Any]:
+        return dict(
+            id = self.id,
+            data = self.data,
+            time_created=self.time_created and self.time_created.isoformat(),
+            time_updated=self.time_updated and self.time_updated.isoformat(),
+        )
+
+
+class BaseExternalModel(BaseModel):
+    __abstract__ = True
+
+    id: str = db.Column(db.String(64), primary_key=True) # redefine id as str
+    src: str = db.Column(db.String(32), nullable=False)
+    name: str = db.Column(db.String(32), nullable=True)
+    int_id: str =  None # must be defined by child class
+
+    def as_dict(self) -> Dict[str, Any]:
+        return super().as_dict() | dict(
+            src = self.src,
+            name = self.name,
+            int_id = self.int_id
+        )
+
+
+class BaseModelWithExternal(BaseModel):
+
+    __abstract__ = True
+
+    external: List['BaseExternalModel'] = None
+
+    def get_external(self, src):
+        # helper function to find an external counter part example src=mturk
+        for e in self.external:
+            if e.src ==  e.src:
+                return e
+        return None
+
+
+
+class User(BaseModelWithExternal):
 
     __tablename__ = 'user'
 
@@ -33,19 +95,20 @@ class User(db.Model):
     id: str = db.Column(db.String(31), primary_key=True)
     name: str = db.Column(db.String(100), nullable=False)
     secret: str = db.Column(db.String(100), nullable=False)
-    time_created = db.Column(db.DateTime(timezone=True),
-                             server_default=sql.func.now())
-    time_updated = db.Column(db.DateTime(
-        timezone=True), onupdate=sql.func.now())
+    active = db.Column(db.Boolean, server_default=sql.expression.true(),
+                       nullable=False)
 
+    last_active = db.Column(db.DateTime(timezone=True), nullable=True)
     email: str = db.Column(db.String(31), nullable=True)
     # eg: bot, human, admin
     role: str = db.Column(db.String(30), nullable=True)
-    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
+
+    external: List['UserXt'] = db.relationship(
+        'UserXt', backref='user', lazy=False, uselist=True)
 
     @property
     def is_active(self):
-        return True
+        return self.active
 
     @property
     def is_authenticated(self):
@@ -82,7 +145,8 @@ class User(db.Model):
             return None
 
     @classmethod
-    def create_new(cls, id: str, secret: str, name: str = None, role: str = None, data=None):
+    def create_new(cls, id: str, secret: str, name: str = None,
+                   role: str = None, data=None):
         name = name or cls.ANONYMOUS
         role = role or cls.ROLE_HUMAN
         user = User(id=id, secret=cls._hash(secret), name=name, role=role, data=data)
@@ -92,16 +156,24 @@ class User(db.Model):
         return cls.get(user.id)
 
     def as_dict(self):
-        return dict(
+        return super().as_dict() | dict(
             id=self.id,
             name= self.name,
-            time_created=self.time_created and self.time_created.isoformat(),
-            time_updated=self.time_updated and self.time_updated.isoformat(),
             role=self.role,
-            data=self.data
         )
 
-class ChatMessage(db.Model):
+
+class UserXt(BaseExternalModel):
+
+    __tablename__ = 'user_xt'
+
+    int_id: str =  db.Column(db.Integer,
+                         db.ForeignKey('user.id'),
+                         nullable=False)
+
+
+
+class ChatMessage(BaseModel):
 
     __tablename__ = 'message'
 
@@ -111,75 +183,96 @@ class ChatMessage(db.Model):
         db.String(31), db.ForeignKey('user.id'), nullable=False)
     thread_id: int = db.Column(
         db.Integer, db.ForeignKey('thread.id'), nullable=False)
-    time = db.Column(db.DateTime(timezone=True), server_default=sql.func.now())
-    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
+
+    @property
+    def time(self):
+        return self.time_created
 
     def as_dict(self):
-        return dict(
+        return super().as_dict() |  dict(
             id=self.id,
             text=self.text,
             user_id=self.user_id,
             thread_id=self.thread_id,
-            time=self.time and self.time.isoformat(),
-            data=self.data
+            external=self.external and [e.as_dict() for e in self.external]
         )
 
-class ChatThread(db.Model):
+UserThread = db.Table(
+    'user_thread',
+    db.Column('user_id', db.String(31), db.ForeignKey('user.id'),
+              primary_key=True),
+    db.Column('thread_id', db.Integer, db.ForeignKey('thread.id'),
+              primary_key=True)
+    )
+
+
+class ChatThread(BaseModel):
 
     __tablename__ = 'thread'
 
     id: int = db.Column(db.Integer, primary_key=True)
-    topic_id = db.Column(db.String(31), db.ForeignKey(
-        'topic.id'), nullable=False)
-    episode_done = db.Column(
-        db.Boolean, server_default=sql.expression.false(), nullable=False)
+    topic_id = db.Column(db.String(31),
+                         db.ForeignKey('topic.id'),
+                         nullable=False)
+    episode_done = db.Column(db.Boolean,
+                             server_default=sql.expression.false(),
+                             nullable=False)
     # one-to-many
     messages: List[ChatMessage] = db.relationship(
         'ChatMessage', backref='thread', lazy=False, uselist=True)
     # many-to-many : https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/#many-to-many-relationships
-    users: List[User] = db.relationship('User', secondary=UserThread, lazy='subquery',
-                                        backref=db.backref('threads', lazy=True))
+    users: List[User] = db.relationship(
+        'User', secondary=UserThread, lazy='subquery',
+        backref=db.backref('threads', lazy=True))
 
-    time_created = db.Column(db.DateTime(timezone=True),
-                             server_default=sql.func.now())
-    time_updated = db.Column(db.DateTime(
-        timezone=True), onupdate=sql.func.now())
-    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
+    #ID to external system such as mturk
+    external: List['ChatThreadXt'] = db.relationship(
+        'ChatThreadXt', backref='thread', lazy=False, uselist=True)
 
     def count_turns(self, user: User):
         return sum(msg.user_id == user.id for msg in self.messages)
 
     def as_dict(self):
-        return dict(
-            id=self.id,
+        return super().as_dict() | dict(
             topic_id=self.topic_id,
             episode_done=self.episode_done,
             users=[u.as_dict() for u in self.users],
             messages=[m.as_dict() for m in self.messages],
-            time_created=self.time_created and self.time_created.isoformat(),
-            time_updated=self.time_updated and self.time_updated.isoformat(),
-            data=self.data
+            external=self.external and [e.as_dict() for e in self.external]
         )
 
 
-class ChatTopic(db.Model):
+class ChatThreadXt(BaseExternalModel):
+
+    __tablename__ = 'thread_xt'
+
+    int_id: str =  db.Column(db.Integer,
+                         db.ForeignKey('thread.id'),
+                         nullable=False)
+
+
+
+class ChatTopic(BaseModelWithExternal):
 
     __tablename__ = 'topic'
 
-    id: str = db.Column(db.String(32), primary_key=True)
+    id: str = db.Column(db.String(32), primary_key=True)  # redefine id as str
     name: str = db.Column(db.String(100), nullable=False)
-    #data: str = db.Column(db.Text, nullable=False)
-    time_created = db.Column(db.DateTime(timezone=True),
-                             server_default=sql.func.now())
-    time_updated = db.Column(db.DateTime(timezone=True),
-                             onupdate=sql.func.now())
-    data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
+
+    #ID to external system such as mturk
+    external: List['ChatTopicXt'] = db.relationship(
+        'ChatTopicXt', backref='topic', lazy=False, uselist=True)
 
     def as_dict(self):
-        return dict(
-            id=self.id,
+        return super().as_dict() | dict(
             name=self.name,
-            time_created=self.time_created and self.time_created.isoformat(),
-            time_updated=self.time_updated and self.time_updated.isoformat(),
-            data=self.data
+            external=self.external and [e.as_dict() for e in self.external]
         )
+
+class ChatTopicXt(BaseExternalModel):
+
+    __tablename__ = 'topic_xt'
+
+    int_id: str =  db.Column(db.String(31),
+                         db.ForeignKey('topic.id'),
+                         nullable=False)
