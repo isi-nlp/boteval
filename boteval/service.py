@@ -6,6 +6,7 @@ from threading import Thread
 from typing import List, Mapping, Optional, Union
 import functools
 from datetime import datetime
+import copy
 
 from sqlalchemy import func
 from sqlalchemy.orm import attributes
@@ -108,6 +109,10 @@ class ChatService:
         self.limits = config.get('limits') or {}
         self.ratings = config['ratings']
 
+        self.onboarding = config.get('onboarding') and copy.deepcopy(config['onboarding'])
+        if  self.onboarding and 'agreement_file' in self.onboarding:
+            self.onboarding['agreement_text'] = Path(self.onboarding['agreement_file']).read_text()
+
     @property
     def bot_user(self):
         if not self._bot_user:
@@ -119,6 +124,7 @@ class ChatService:
         if not self._context_user:
             self._context_user = User.query.get(config.Auth.CONTEXT_USER)
         return self._context_user
+
 
     def init_db(self, init_topics=True):
 

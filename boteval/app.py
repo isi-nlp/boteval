@@ -81,7 +81,6 @@ def init_app(**args):
         db.init_app(app)
         db.create_all(app=app)
         service.init_db()
-
         init_login_manager(login_manager=login_manager)
 
     bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')

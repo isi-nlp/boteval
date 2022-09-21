@@ -88,29 +88,42 @@ def init_login_manager(login_manager):
 
     @login_manager.unauthorized_handler
     def unauthorized_handler():
-        flask.flash('Login required')
-        return flask.redirect(url_for('app.login'))
+        flask.flash(f'Login required for {request.full_path}')
+        return flask.redirect(url_for('app.login', next=request.full_path, action='login'))
 
+
+def is_safe_url(url):
+    # TODO: validate url
+    return True
 
 
 def user_controllers(router, socket, service: ChatService):
 
     @router.route('/login', methods=['GET', 'POST'])
     def login():
+        next = request.values.get('next')
         if request.method == 'GET':
-            return render_template('login.html', action=request.values.get('action', 'login'))
+            return render_template('login.html',
+                                   action=request.values.get('action', 'login'),
+                                   next=next,
+                                   onboarding=service.onboarding)
 
         # form sumission as POST
         log.info(f'Form:: {request.form}')
-        user_id = request.form.get('user_id')
-        secret = request.form.get('secret')
-        action = request.form.get('action', 'login')
+        args = dict(request.form)
+        user_id = args.pop('user_id')
+        secret = args.pop('secret')
+        action = args.pop('action', 'login')
+        next_url = args.pop('next', None) or request.args.get('next', None)
         assert action in ('login', 'signup')
         if action == 'login':
             user = User.get(user_id)
             if user and user.verify_secret(secret):
+
                 FL.login_user(user, remember=True, force=True)
                 flask.flash('Logged in successfully.')
+                if next_url and is_safe_url(next_url):
+                    return flask.redirect(next_url)
                 return flask.redirect(flask.url_for('app.index'))
             else:
                 flask.flash('login failed')
@@ -126,14 +139,16 @@ def user_controllers(router, socket, service: ChatService):
                 flask.flash('Invalid User ID. ID should be at least 2 chars and atmost 16 chars and only alpha numeric chars are permitted')
             elif len(secret) < 4:
                 flask.flash('Password should be atleast 4 chars long')
-            name = request.form.get('name')
-            user = User.create_new(user_id, secret, name=name)
-            flask.flash(f'Sign up success.Try login with your user ID: {user.id}')
-            return render_template('login.html', form=dict(user=user, action='login'))
+            else:
+                name = args.pop('name')
+                user = User.create_new(user_id, secret, name=name, data=args)
+                flask.flash(f'Sign up success.Try login with your user ID: {user.id}')
+                return render_template('login.html', form=dict(user=user, action='login'))
         else:
             flask.flash('Wrong action. only login and signup are supported')
             action = 'login'
-        return render_template('login.html', form=dict(user_id=user_id, action=action))
+        return render_template('login.html', form=dict(user_id=user_id, action=action),
+                               next=next, onboarding=service.onboarding)
 
     @router.route('/logout', methods=['GET'])
     @FL.login_required

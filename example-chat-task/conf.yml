@@ -1,10 +1,10 @@
-chat_dir: darma-task/data
+chat_dir: example-chat-task/data
 
 #chat_dir: model-chat-from-darma
 mturk_profile: default # the [default] profile in ~/.aws/credentials file
 
 chatbot:
-  topics_file: darma-task/chat_topics.json
+  topics_file: example-chat-task/chat_topics.json
   #bot_name: transformers
   bot_name: dummybot
   #bot_args:
@@ -14,6 +14,13 @@ limits:
   max_threads_per_user: 10
   max_threads_per_topic: 3
   max_turns_per_thread: 4
+
+onboarding:
+  agreement_file: example-chat-task/user-agreement.html
+  instructions_file: example-chat-task/instructions.html
+  checkboxes:
+    instructions_read: I have read the instructions.
+    iam_adult: I am 18 years or older and I understand that I may have to read and write using toxic language.
 
 ratings:
   - question: 'How Coherent was the conversation?'
@@ -25,9 +32,7 @@ ratings:
       - Very
   - question: 'How likely are you going to continue the conversation with the bot?'
     choices: *choices
-  - question:  To what degree did the bot understand your point of view?
-    choices: *choices
-  - question: 'To what degree did the moderator convince you to change your behavior?'
+  - question: 'To what degree did the bot convince you to change your behavior?'
     choices: *choices
 
 flask:

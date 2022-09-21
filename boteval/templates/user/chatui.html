@@ -18,7 +18,8 @@
                     <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
                 </div>
                 {% if topic.data.get('target_user') %}
-                    <div class="alert alert-info p-1 text-center"> You are replying as <b>Speaker {{topic.data['target_user']}}</b></div>
+                <div class="alert alert-info p-1 text-center"> You are replying as <b>Speaker
+                        {{topic.data['target_user']}}</b></div>
                 {% endif %}
                 <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; height:640px">
                     {% for msg in thread.messages %}
@@ -26,12 +27,15 @@
                     {% set remaining_turns.value = remaining_turns.value - 1 %}
                     {% endif %}
 
-                    {% set display_user = "You" if msg.user_id == cur_user.id else (msg.data['speaker_id'] if msg.data.get('fake_start') else msg.user_id) %}
-                    {% set display_right_side = msg.user_id == cur_user.id or (msg.data.get('fake_start') and msg.data.get('speaker_id') == topic.data.get('target_user')) %}
+                    {% set display_user = "You" if msg.user_id == cur_user.id else (msg.data['speaker_id'] if
+                    msg.data.get('fake_start') else msg.user_id) %}
+                    {% set display_right_side = msg.user_id == cur_user.id or (msg.data.get('fake_start') and
+                    msg.data.get('speaker_id') == topic.data.get('target_user')) %}
 
                     <li class="d-flex justify-content-between mb-1">
-                        <div class="card {% if display_right_side %} alert-info {% endif %} {% if msg.user_id == 'bot01' %} alert-warning {% endif %}" {% if display_right_side %} style="float:right;" {%endif%}>
-                            <div class="card-header d-flex justify-content-between p-2" >
+                        <div class="card {% if display_right_side %} alert-info {% endif %} {% if msg.user_id == 'bot01' %} alert-warning {% endif %}"
+                            {% if display_right_side %} style="float:right;" {%endif%}>
+                            <div class="card-header d-flex justify-content-between p-2">
                                 <p class="fw-bold mb-0"> {{display_user}}</p>
                                 <p class="text-muted small mb-0"><i class="far fa-clock"></i>
                                     {% if msg.time %} {{ msg.time | ctime }}
@@ -63,18 +67,20 @@
                 </div>
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
-            <div {% if cur_user.role !='admin' and remaining_turns.value > 0 %} style="display:none" {%endif%}
-                 id="ratings-view" class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
-                 {%set is_disabled = 'disabled' if thread.data.get('rating_done') else '' %}
-                <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form" class="form">
+            <div {% if cur_user.role !='admin' and remaining_turns.value> 0 %} style="display:none" {%endif%}
+                id="ratings-view" class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
+                {%set is_disabled = 'disabled' if thread.data.get('rating_done') else '' %}
+
+                <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
+                    class="form">
                     <b>Rate this conversation:</b>
                     {% for q in rating_questions %}
                     {% set prev_ratings = thread.data.get('ratings') or {}%}
                     <li class="list-group-item">
                         <i>{{q['question']}}</i>
-                        <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;"
-                            min="1" max="{{q['choices']|length}}" name="{{q['question']}}"
-                            value="{{prev_ratings.get(q['question'])}}" {{is_disabled}} >
+                        <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"
+                            max="{{q['choices']|length}}" name="{{q['question']}}"
+                            value="{{prev_ratings.get(q['question'])}}" {{is_disabled}}>
                         <datalist id="tickmarks-{{loop.index}}"
                             style="display: flex; justify-content: space-between; width: 100%;">
                             {% for ch in q['choices'] %}
@@ -83,7 +89,7 @@
                         </datalist>
                     </li>
                     {% endfor %}
-                    <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}}/>
+                    <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}} />
                 </form>
                 <hr />
             </div>
@@ -92,7 +98,7 @@
 
     <script type="text/javascript">
 
-        var remaining_turns = {{remaining_turns.value}};
+        var remaining_turns = {{ remaining_turns.value }};
 
         function show_new_message(msg, side) {
             let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
@@ -139,12 +145,12 @@
                 //socket.emit('my event', {data: 'User Dis Connected'})
             });
 
+            // TODO: register socket on {{thread.id}}
             // catch all event listener
             socket.prependAny((event, ...args) => {
                 console.log(`got ${event} \t args:`);
                 console.log(args)
             });
-
 
             $("#next_msg_text").keyup(event => {
                 if (event.which === 13) {
@@ -169,7 +175,7 @@
                     console.log('server reply:')
                     console.log(reply)
                     if (reply['head']['status'] == 'success') {
-                        if (reply['body']['episode_done']){
+                        if (reply['body']['episode_done']) {
                             $('#ratings-view').show()
                             remaining_turns = 0
                         }

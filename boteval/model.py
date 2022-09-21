@@ -38,6 +38,7 @@ class User(db.Model):
     time_updated = db.Column(db.DateTime(
         timezone=True), onupdate=sql.func.now())
 
+    email: str = db.Column(db.String(31), nullable=True)
     # eg: bot, human, admin
     role: str = db.Column(db.String(30), nullable=True)
     data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
@@ -81,10 +82,10 @@ class User(db.Model):
             return None
 
     @classmethod
-    def create_new(cls, id: str, secret: str, name: str = None, role: str = None):
+    def create_new(cls, id: str, secret: str, name: str = None, role: str = None, data=None):
         name = name or cls.ANONYMOUS
         role = role or cls.ROLE_HUMAN
-        user = User(id=id, secret=cls._hash(secret), name=name, role=role)
+        user = User(id=id, secret=cls._hash(secret), name=name, role=role, data=data)
         log.info(f'Creating User {user.id}')
         db.session.add(user)
         db.session.commit()
@@ -170,8 +171,8 @@ class ChatTopic(db.Model):
     #data: str = db.Column(db.Text, nullable=False)
     time_created = db.Column(db.DateTime(timezone=True),
                              server_default=sql.func.now())
-    time_updated = db.Column(db.DateTime(
-        timezone=True), onupdate=sql.func.now())
+    time_updated = db.Column(db.DateTime(timezone=True),
+                             onupdate=sql.func.now())
     data: str = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     def as_dict(self):
