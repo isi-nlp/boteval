@@ -47,7 +47,6 @@ def flatten_singleton(obj):
     return res
 
 
-
 def parse_args():
     parser = ArgumentParser(
         prog="boteval",
@@ -73,7 +72,7 @@ def init_app(**args):
     assert config_file.exists() and config_file.is_file(), f'Expected config YAML file at {config_file}, but it is not found'
     config = yaml.load(config_file)
     # load flask configs; this includes flask-sqlalchemy
-    app.config.from_mapping(config['flask'])
+    app.config.from_mapping(config['flask_config'])
     service = ChatService(config=config)
 
     with app.app_context():
@@ -82,6 +81,7 @@ def init_app(**args):
         db.create_all(app=app)
         service.init_db()
         init_login_manager(login_manager=login_manager)
+
 
     bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
     user_controllers(router=bp, socket=socket, service=service)
@@ -104,6 +104,9 @@ def main():
     host, port = args.get('addr', '0.0.0.0'), args.get('port', 6060)
     scheme = 'http'
     log.info(f'Starting on {scheme}://{host}:{port}')
+    with app.test_request_context():
+        ext_url = flask.url_for('app.index', _external=True)
+        log.info(f'External URL: {ext_url}')
     socket.run(app, port=port, host=host, debug=app.debug)
 
 

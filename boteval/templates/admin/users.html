@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid">
+  <h1 class="text-center">{% block title %} Chat Admin {% endblock %}</h1>
+  <div class="row">
+    <div class="col-8">
+      <div class="card">
+        <div class="card-body">
+          <span>Found {{chats | length }} chats </span>
+        </div>
+      </div>
+      <table class="table">
+        <tr>
+          <th scope="col">ThreadID</th>
+          <th scope="col">Episode | Ratings</th>
+          <th scope="col">Time</th>
+          <th scope="col">Actions</th>
+        </tr>
+        {% for thread in chats %}
+        <tr>
+          <td scope="row"> {{thread.id}}  </td>
+          <td> {{thread.episode_done}} | {{thread.data.get('rating_done')}} </td>
+          <td> Created: {{thread.time_created|ctime}}; Modified: {{thread.time_modified|ctime}}  </td>
+          <td> <ul>
+            <li><a href="{{url_for('admin.thread_export', thread_id=thread.id)}}" target="_blank">Export</a></li>
+            <li><a href="{{url_for('app.get_thread', thread_id=thread.id)}}" target="_blank">Open Chat</a></li>
+          </ul> </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

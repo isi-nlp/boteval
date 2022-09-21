@@ -4,6 +4,8 @@ This project offers a web interface to admnister darma chats
 
 ## Setup
 
+> Requires Python 3.9 or newer
+
 ```bash
 git clone  https://github.com/isi-nlp/isi_darma
 cd isi_darma/chat_admin

@@ -35,7 +35,8 @@ ratings:
   - question: 'To what degree did the bot convince you to change your behavior?'
     choices: *choices
 
-flask:
+flask_config:
   # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
   SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev2.db
   SQLALCHEMY_TRACK_MODIFICATIONS: false
+  SERVER_NAME: localhost:6060

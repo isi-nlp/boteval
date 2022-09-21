@@ -10,7 +10,7 @@ class Auth:
     ADMIN_USER = 'admin'
     BOT_USER = 'bot01'
     DEV_USER = 'dev'
-    CONTEXT_USER = 'contex'
+    CONTEXT_USER = 'context'
 
     # TODO: better way to handle
     ADMIN_SECRET = os.environ.get('ADMIN_USER_SECRET', 'xyza')
