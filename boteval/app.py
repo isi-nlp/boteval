@@ -9,7 +9,7 @@ from flask_socketio import SocketIO
 from flask_login import LoginManager, login_url
 
 from . import log, __version__, yaml, db
-from .controller import user_controllers, admin_controllers, init_login_manager
+from .controller import user_controllers, admin_controllers, init_login_manager, register_app_hooks
 from .service import ChatService
 
 
@@ -81,7 +81,7 @@ def init_app(**args):
         db.create_all(app=app)
         service.init_db()
         init_login_manager(login_manager=login_manager)
-
+        register_app_hooks(app)
 
     bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
     user_controllers(router=bp, socket=socket, service=service)

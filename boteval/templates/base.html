@@ -66,7 +66,7 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav mr-auto">
         {% if cur_user and cur_user.is_authenticated  and cur_user.role == 'admin' %}         
-            <li class="nav-item"><a class="nav-link" href="{{url_for('admin.admin_index')}}">Admin Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{url_for('admin.index')}}">Admin Dashboard</a></li>
             <!--
             <li class="nav-item"><a class="nav-link" href="/mturk/sandbox">MTurk Sandbox</a></li>
             <li class="nav-item"><a class="nav-link" href="/mturk/live">MTurk Live</a></li>

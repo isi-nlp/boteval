@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{url_for('admin.index')}}">Admin</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Threads</li>
+    </ol>
+  </nav>
+
+  <h3 class="text-center">{% block title %} Topics {% endblock %}</h3>
+  <div class="row">
+    <div class="col-8">
+      <div class="card">
+        <div class="card-body">
+          <span>Found {{topics | length }} topics </span>
+        </div>
+      </div>
+      <table class="table table-striped">
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Topic</th>
+          <th scope="col">Num Threads</th>
+          <th scope="col">Time</th>
+          <th scope="col">Actions</th>
+        </tr>
+        {% for topic in topics %}
+        <tr>
+          <td>{{loop.index}}</td>
+          <td scope="row"> {{topic.id}} </td>
+          <td></td>
+          <td> Created {{topic.time_created|ctime}}; {{topic.time_modified|ctime}}  </td>
+          <td><ul>
+            {% if topic.ext_id %}
+            <li>{{topic.ext_src, topic.ext_id}}</li>
+            {% else %}
+            <li>
+              <a href="mturk launch">Create launch</a> </a>
+              {{url_for('app.launch_topic', topic_id=topic.id, _external=True)}}
+            </li>
+            {% endif %}
+          </ul></td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

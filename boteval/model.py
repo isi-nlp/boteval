@@ -1,3 +1,4 @@
+from enum import unique
 from typing import Dict, List, Mapping, Optional, Any
 from dataclasses import dataclass, field
 import time
@@ -40,7 +41,17 @@ class BaseModel(db.Model):
         """
         Checks the equality of two objects using `get_id`.
         """
-        return self.id == other.id
+        try:
+            return self._primary_key == other._primary_key
+        except:
+            return False
+
+    @property
+    def _primary_key(self):
+        return self.id
+
+    def __hash__(self) -> int:
+        return hash(self._primary_key)
 
     def as_dict(self) -> Dict[str, Any]:
         return dict(
@@ -51,34 +62,20 @@ class BaseModel(db.Model):
         )
 
 
-class BaseExternalModel(BaseModel):
-    __abstract__ = True
-
-    id: str = db.Column(db.String(64), primary_key=True) # redefine id as str
-    src: str = db.Column(db.String(32), nullable=False)
-    name: str = db.Column(db.String(32), nullable=True)
-    int_id: str =  None # must be defined by child class
-
-    def as_dict(self) -> Dict[str, Any]:
-        return super().as_dict() | dict(
-            src = self.src,
-            name = self.name,
-            int_id = self.int_id
-        )
-
-
 class BaseModelWithExternal(BaseModel):
 
     __abstract__ = True
 
-    external: List['BaseExternalModel'] = None
+    ext_id: str = db.Column(db.String(64), nullable=True)
+    ext_src: str = db.Column(db.String(32), nullable=True)
 
-    def get_external(self, src):
-        # helper function to find an external counter part example src=mturk
-        for e in self.external:
-            if e.src ==  e.src:
-                return e
-        return None
+    #Example, for MTurk, ext_src=mturk;
+    #       ext_id= workerId for user,
+    #       HITID for ChatTopic,
+    #       AssignmentID for ChatThread
+
+    def as_dict(self) -> Dict[str, Any]:
+        return super().as_dict() | dict(ext_id = self.ext_id, ext_src = self.ext_src)
 
 
 
@@ -103,8 +100,6 @@ class User(BaseModelWithExternal):
     # eg: bot, human, admin
     role: str = db.Column(db.String(30), nullable=True)
 
-    external: List['UserXt'] = db.relationship(
-        'UserXt', backref='user', lazy=False, uselist=True)
 
     @property
     def is_active(self):
@@ -163,17 +158,7 @@ class User(BaseModelWithExternal):
         )
 
 
-class UserXt(BaseExternalModel):
-
-    __tablename__ = 'user_xt'
-
-    int_id: str =  db.Column(db.Integer,
-                         db.ForeignKey('user.id'),
-                         nullable=False)
-
-
-
-class ChatMessage(BaseModel):
+class ChatMessage(BaseModelWithExternal):
 
     __tablename__ = 'message'
 
@@ -190,11 +175,9 @@ class ChatMessage(BaseModel):
 
     def as_dict(self):
         return super().as_dict() |  dict(
-            id=self.id,
             text=self.text,
             user_id=self.user_id,
             thread_id=self.thread_id,
-            external=self.external and [e.as_dict() for e in self.external]
         )
 
 UserThread = db.Table(
@@ -206,7 +189,7 @@ UserThread = db.Table(
     )
 
 
-class ChatThread(BaseModel):
+class ChatThread(BaseModelWithExternal):
 
     __tablename__ = 'thread'
 
@@ -225,10 +208,6 @@ class ChatThread(BaseModel):
         'User', secondary=UserThread, lazy='subquery',
         backref=db.backref('threads', lazy=True))
 
-    #ID to external system such as mturk
-    external: List['ChatThreadXt'] = db.relationship(
-        'ChatThreadXt', backref='thread', lazy=False, uselist=True)
-
     def count_turns(self, user: User):
         return sum(msg.user_id == user.id for msg in self.messages)
 
@@ -237,19 +216,8 @@ class ChatThread(BaseModel):
             topic_id=self.topic_id,
             episode_done=self.episode_done,
             users=[u.as_dict() for u in self.users],
-            messages=[m.as_dict() for m in self.messages],
-            external=self.external and [e.as_dict() for e in self.external]
+            messages=[m.as_dict() for m in self.messages]
         )
-
-
-class ChatThreadXt(BaseExternalModel):
-
-    __tablename__ = 'thread_xt'
-
-    int_id: str =  db.Column(db.Integer,
-                         db.ForeignKey('thread.id'),
-                         nullable=False)
-
 
 
 class ChatTopic(BaseModelWithExternal):
@@ -259,20 +227,5 @@ class ChatTopic(BaseModelWithExternal):
     id: str = db.Column(db.String(32), primary_key=True)  # redefine id as str
     name: str = db.Column(db.String(100), nullable=False)
 
-    #ID to external system such as mturk
-    external: List['ChatTopicXt'] = db.relationship(
-        'ChatTopicXt', backref='topic', lazy=False, uselist=True)
-
     def as_dict(self):
-        return super().as_dict() | dict(
-            name=self.name,
-            external=self.external and [e.as_dict() for e in self.external]
-        )
-
-class ChatTopicXt(BaseExternalModel):
-
-    __tablename__ = 'topic_xt'
-
-    int_id: str =  db.Column(db.String(31),
-                         db.ForeignKey('topic.id'),
-                         nullable=False)
+        return super().as_dict() | dict(name=self.name)

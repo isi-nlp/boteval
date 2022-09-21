@@ -12,6 +12,7 @@
     </ul>
   </section>
 
+  {% if sys_info %}
   <section class="container">
     <h2 id="sysinfo"> System Info</h2>
       <table class="table float-left">
@@ -24,6 +25,7 @@
       </table>
 
   </section>
+  {%endif%}
 </div>
 
 {% endblock %}

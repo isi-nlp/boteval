@@ -1,8 +1,8 @@
-from asyncio import threads
 import os
 import functools
 from typing import List
 import random
+from datetime import datetime
 
 import flask
 from flask import request, url_for
@@ -12,8 +12,7 @@ import flask_socketio as FS
 from boteval.service import ChatService
 #from flask_login import login_user, current_user, login_required, login_url
 
-from . import log
-from .config import ERROR, SUCCESS
+from . import log, C, db
 from .utils import jsonify
 from .model import ChatMessage, ChatThread, ChatTopic, User
 
@@ -22,15 +21,12 @@ for env_key in ['GTAG']:
     ENV[env_key] = os.environ.get(env_key)
 
 
-ERROR = 'error'
-SUCCESS = 'success'
-
-
 def render_template(*args, **kwargs):
-    return flask.render_template(*args, environ=ENV, cur_user=FL.current_user, **kwargs)
+    return flask.render_template(*args, environ=ENV, cur_user=FL.current_user,
+                                 C=C, **kwargs)
 
 
-def wrap(body=None, status=SUCCESS, description=None):
+def wrap(body=None, status=C.SUCCESS, description=None):
     return dict(
         head=dict(status=status, description=description),
         body=body)
@@ -96,6 +92,18 @@ def is_safe_url(url):
     # TODO: validate url
     return True
 
+def register_app_hooks(app):
+
+    @app.before_request
+    def update_last_active():
+        user:User = FL.current_user
+        if user and user.is_active:
+            if not user.last_active or\
+                (datetime.now() - user.last_active).total_seconds() > C.USER_ACTIVE_UPDATE_FREQ:
+                user.last_active = datetime.now()
+                db.session.merge(user)  # update
+                db.session.commit()
+
 
 def user_controllers(router, socket, service: ChatService):
 
@@ -150,12 +158,17 @@ def user_controllers(router, socket, service: ChatService):
         return render_template('login.html', form=dict(user_id=user_id, action=action),
                                next=next, onboarding=service.onboarding)
 
+
     @router.route('/logout', methods=['GET'])
     @FL.login_required
     def logout():
         FL.logout_user()
         flask.flash('Logout Success')
         return flask.redirect(flask.url_for('app.login'))
+
+    @router.route('/about', methods=['GET'])
+    def about():
+        return render_template('about.html')
 
     @router.route('/', methods=['GET'])
     @FL.login_required
@@ -195,6 +208,8 @@ def user_controllers(router, socket, service: ChatService):
     @router.route('/launch-topic/<topic_id>', methods=['GET'])
     @FL.login_required
     def launch_topic(topic_id):
+        if FL.current_user.role == User.ROLE_ADMIN:
+            return 'Wait, Admin! Create or use normal user a/c to chat.', 400
         topic = service.get_topic(topic_id=topic_id)
         if not topic:
             return f'Topic {topic} not found', 400
@@ -248,29 +263,33 @@ def user_controllers(router, socket, service: ChatService):
         user_id = msg.get('user_id')
         user = FL.current_user
         if not thread_id or not user_id:
-            return wrap(status=ERROR, description='both thread_id and user_id are required')
+            return wrap(status=C.ERROR, description='both thread_id and user_id are required')
         if user.id != user_id:
-            return wrap(status=ERROR, description='user_id mismatch with login user. Try logout and login')
+            return wrap(status=C.ERROR, description='user_id mismatch with login user. Try logout and login')
         if not text:
-            return wrap(status=ERROR, description='text is empty or null')
+            return wrap(status=C.ERROR, description='text is empty or null')
 
         thread = service.get_thread(thread_id=thread_id)
         if not thread:
-            return wrap(status=ERROR, description=f'thread_id {thread_id} is invalid')
+            return wrap(status=C.ERROR, description=f'thread_id {thread_id} is invalid')
         if user not in thread.users:
-            return wrap(status=ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
+            return wrap(status=C.ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
 
         msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id)
-        reply, episode_done = service.new_message(msg, thread)
-        reply_dict = {
-            'id': reply.id,
-            'text': reply.text,
-            'time': reply.time.isoformat(),
-            'user_id': reply.user_id,
-            'thread_id': reply.thread_id,
-            'episode_done': episode_done
-        }
-        return wrap(body=reply_dict)
+        try:
+            reply, episode_done = service.new_message(msg, thread)
+            reply_dict = {
+                'id': reply.id,
+                'text': reply.text,
+                'time': (reply.time or datetime.now()).isoformat(),
+                'user_id': reply.user_id,
+                'thread_id': reply.thread_id,
+                'episode_done': episode_done
+            }
+            return wrap(body=reply_dict)
+        except Exception as e:
+            log.exception(e)
+            return wrap(status=C.ERROR, description='Something went wrong on server side')
 
 
 def admin_controllers(router, service: ChatService):
@@ -278,9 +297,14 @@ def admin_controllers(router, service: ChatService):
 
     @router.route('/')
     @admin_login_required
-    def admin_index():
-        chats = ChatThread.query.all()
-        return render_template('admin/index.html', chats=chats)
+    def index():
+        counts = dict(
+            user=User.query.count(),
+            thread=ChatThread.query.count(),
+            topic=ChatTopic.query.count(),
+            message=ChatMessage.query.count(),
+            )
+        return render_template('admin/index.html', counts=counts)
 
     @router.route('/thread/<thread_id>/export')
     @admin_login_required
@@ -289,3 +313,21 @@ def admin_controllers(router, service: ChatService):
         if not thread:
             return 'Thread not found', 404
         return jsonify(thread), 200
+
+    @router.route('/user/')
+    @admin_login_required
+    def get_users():
+        users = User.query.order_by(User.last_active.desc()).limit(C.MAX_PAGE_SIZE).all()
+        return render_template('admin/users.html', users=users)
+
+    @router.route('/thread/')
+    @admin_login_required
+    def get_threads():
+        threads = ChatThread.query.order_by(ChatThread.time_updated.desc(), ChatThread.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
+        return render_template('admin/threads.html', threads=threads)
+
+    @router.route('/topic/')
+    @admin_login_required
+    def get_topics():
+        topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
+        return render_template('admin/topics.html', topics=topics)

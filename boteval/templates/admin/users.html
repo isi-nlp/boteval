@@ -1,30 +1,39 @@
 {% extends 'base.html' %}
+
 {% block content %}
 <div class="container-fluid">
-  <h1 class="text-center">{% block title %} Chat Admin {% endblock %}</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{url_for('admin.index')}}">Admin</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Users</li>
+    </ol>
+  </nav>
+
+  <h3>{% block title %} Users {% endblock %}</h3>
   <div class="row">
     <div class="col-8">
       <div class="card">
         <div class="card-body">
-          <span>Found {{chats | length }} chats </span>
+          <span>Found {{users | length }} users </span>
         </div>
       </div>
-      <table class="table">
+      <table class="table table-striped">
         <tr>
-          <th scope="col">ThreadID</th>
-          <th scope="col">Episode | Ratings</th>
-          <th scope="col">Time</th>
-          <th scope="col">Actions</th>
+          <th scope="col">#</th>
+          <th scope="col">ID</th>
+          <th scope="col">Name</th>
+          <th scope="col">Joined</th>
+          <th scope="col">Last Active</th>
+          <th scope="col"></th>
         </tr>
-        {% for thread in chats %}
+        {% for user in users %}
         <tr>
-          <td scope="row"> {{thread.id}}  </td>
-          <td> {{thread.episode_done}} | {{thread.data.get('rating_done')}} </td>
-          <td> Created: {{thread.time_created|ctime}}; Modified: {{thread.time_modified|ctime}}  </td>
-          <td> <ul>
-            <li><a href="{{url_for('admin.thread_export', thread_id=thread.id)}}" target="_blank">Export</a></li>
-            <li><a href="{{url_for('app.get_thread', thread_id=thread.id)}}" target="_blank">Open Chat</a></li>
-          </ul> </td>
+          <td> {{loop.index}} </td>
+          <td scope="row"> {{user.id}}  </td>
+          <td> {{user.name}} </td>
+          <td> {{user.time_created|ctime}}</td>
+          <td> {{user.last_active|ctime}}</td>
+          <td>  </td>
         </tr>
         {% endfor %}
       </table>

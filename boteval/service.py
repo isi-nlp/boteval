@@ -15,7 +15,7 @@ from  . import log, db
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
 from .bots import BotAgent, load_bot_agent
 from .utils import jsonify
-from . import config
+from . import constants
 
 
 class ChatManager:
@@ -32,7 +32,7 @@ class DialogBotChatManager(ChatManager):
     # 1-on-1 dialog between human and a bot
 
     def __init__(self, thread: ChatThread, bot_agent:BotAgent,
-                 max_turns:int=config.DEF_MAX_TURNS_PER_THREAD):
+                 max_turns:int=constants.DEF_MAX_TURNS_PER_THREAD):
         super().__init__(thread)
         bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
         user_ids = [u.id for u in thread.users]
@@ -56,8 +56,8 @@ class DialogBotChatManager(ChatManager):
         self.thread.messages.append(message)
         reply = self.bot_reply()
         self.thread.messages.append(reply)
-        db.session.add(message)
-        db.session.add(reply)
+        #db.session.add(message)
+        #db.session.add(reply)
         db.session.commit()
         self.num_turns += 1
         episode_done = self.num_turns >= self.max_turns
@@ -116,36 +116,36 @@ class ChatService:
     @property
     def bot_user(self):
         if not self._bot_user:
-            self._bot_user = User.query.get(config.Auth.BOT_USER)
+            self._bot_user = User.query.get(constants.Auth.BOT_USER)
         return self._bot_user
 
     @property
     def context_user(self):
         if not self._context_user:
-            self._context_user = User.query.get(config.Auth.CONTEXT_USER)
+            self._context_user = User.query.get(constants.Auth.CONTEXT_USER)
         return self._context_user
 
 
     def init_db(self, init_topics=True):
 
-        if not User.query.get(config.Auth.ADMIN_USER):
+        if not User.query.get(constants.Auth.ADMIN_USER):
             User.create_new(
-                id=config.Auth.ADMIN_USER, name='Chat Admin',
-                secret=config.Auth.ADMIN_SECRET, role=User.ROLE_ADMIN)
+                id=constants.Auth.ADMIN_USER, name='Chat Admin',
+                secret=constants.Auth.ADMIN_SECRET, role=User.ROLE_ADMIN)
 
-        if not User.query.get(config.Auth.DEV_USER): # for development
-            User.create_new(id=config.Auth.DEV_USER, name='Developer',
-                            secret=config.Auth.DEV_SECRET,
+        if not User.query.get(constants.Auth.DEV_USER): # for development
+            User.create_new(id=constants.Auth.DEV_USER, name='Developer',
+                            secret=constants.Auth.DEV_SECRET,
                             role=User.ROLE_HUMAN)
 
-        if not User.query.get(config.Auth.BOT_USER):
+        if not User.query.get(constants.Auth.BOT_USER):
             # login not enabled. directly insert with empty string as secret
-            db.session.add(User(id=config.Auth.BOT_USER, name='Chat Bot',
+            db.session.add(User(id=constants.Auth.BOT_USER, name='Chat Bot',
                                 secret='', role=User.ROLE_BOT))
 
-        if not User.query.get(config.Auth.CONTEXT_USER):
+        if not User.query.get(constants.Auth.CONTEXT_USER):
             # for loading context messages
-            db.session.add(User(id=config.Auth.CONTEXT_USER,
+            db.session.add(User(id=constants.Auth.CONTEXT_USER,
                                 name='Context User', secret='',
                                 role=User.ROLE_HIDDEN))
 
@@ -238,11 +238,10 @@ class ChatService:
         self.exporter.export_thread(thread, rating_questions=self.ratings)
 
 
-
     @functools.lru_cache(maxsize=256)
     def cached_get(self, thread):
         max_turns = self.config.get('limits', {}).get('max_turns_per_thread',
-                                                      config.DEF_MAX_TURNS_PER_THREAD)
+                                                      constants.DEF_MAX_TURNS_PER_THREAD)
         return DialogBotChatManager(thread=thread, bot_agent=self.bot_agent,
                                     max_turns=max_turns)
 
