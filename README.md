@@ -7,11 +7,11 @@ This project offers a web interface to admnister darma chats
 > Requires Python 3.9 or newer
 
 ```bash
-git clone  https://github.com/isi-nlp/isi_darma
-cd isi_darma/chat_admin
+git clone  https://github.com/thammegowda/boteval
+cd boteval
 pip install -e .
 
-python -m chat_admin -h
+python -m boteval -h
 ```
 
 ## Start Server
@@ -21,12 +21,12 @@ python -m chat_admin -h
 ```bash
 
 # add -d for debug
-python -m chat_admin path-to-config.yml -d
+python -m boteval -d -c example-chat-task/conf.yml
 ```
 
 # Deployment
 ```bash
-python -m chat_admin path-to-config.yml
+python -m boteval -c example-chat-task/conf.yml
 ```
 
 This starts a service on http://localhost:6060 by default.
@@ -34,7 +34,7 @@ This starts a service on http://localhost:6060 by default.
 
 ## Config file
 
-Look at `darma-task/conf.yml` for an example
+Look at `example-chat-task/conf.yml` for an example
 
 ## SSL and HTTPS Notes
 
