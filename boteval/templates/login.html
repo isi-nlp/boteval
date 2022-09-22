@@ -14,7 +14,7 @@
     </ul>
     <div class="tab-content row" id="myTabContent">
         <div class="tab-pane fade show active col-8" id="login" role="tabpanel" aria-labelledby="home-tab">
-            <form action="/login" method="POST" class="form">
+            <form action="{{url_for('app.login')}}" method="POST" class="form">
                 <h1 class="h3 mb-3 mt-4 font-weight-normal mt-2">Please Sign In</h1>
                 <small class="text-muted">Dont have an account? Click 'Sign Up' </small>
                 <input type="text" name="user_id" id="user_id" class="form-control mt-2" placeholder="UserId" required
@@ -29,7 +29,7 @@
             </form>
         </div>
         <div class="tab-pane fade col-8" id="signup" role="tabpanel" aria-labelledby="profile-tab">
-            <form action="/login" method="POST" class="form">
+            <form action="{{url_for('app.login')}}" method="POST" class="form">
                 <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Sign Up</h1>
                 <input type="text" name="user_id" id="s_user_id" class="form-control mt-2" placeholder="ID" required>
                 <input type="password" name="secret" id="s_password" class="form-control mt-2" placeholder="Password"
