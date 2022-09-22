@@ -25,15 +25,6 @@
         </li>
       </ul>
     </div>
-    <div class="col-6">
-      {%set ext_url= url_for('app.index', _external=True)%}
-          External URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a>
-      <p class="text-muted">
-        Make sure the above URL is accessible via the (public) Internet so crowd workers can access me from their home computers.
-        <br/>
-        Hint: set <code>flask_config.SERVER_NAME=</code> in config YML file to public server name
-      </p>
-    </div>
   </div>
 </div>
 {% endblock %}

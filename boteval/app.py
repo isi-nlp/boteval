@@ -104,6 +104,8 @@ init_app(**args)
 with app.test_request_context():
     ext_url = flask.url_for('app.index', _external=True)
     log.info(f'Server URL: {ext_url}')
+    app.config['EXT_URL_BASE'] = ext_url
+
 
 def main():
     #app.run(port=cli_args["port"], host=cli_args.get('addr', '0.0.0.0'))

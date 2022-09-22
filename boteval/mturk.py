@@ -1,6 +1,7 @@
 import copy
 from dataclasses import dataclass
 import boto3
+import json
 
 from . import C, log
 
@@ -85,7 +86,10 @@ class MTurkService:
             Reason=reason
             )
 
-    def create_HIT(self, external_url, max_assignments, reward, title, frame_height=640, **kwargs):
+    def create_HIT(self, external_url, max_assignments, reward, description, title=None, frame_height=640, **kwargs):
+        if not external_url.startswith('https://'):
+            raise Exception(f"MTurk requires HTTPS URL")
+
         namespace = 'http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2006-07-14/ExternalQuestion.xsd'
         question_data = f'''<?xml version="1.0" encoding="UTF-8"?>
             <ExternalQuestion xmlns="{namespace}">
@@ -101,10 +105,23 @@ class MTurkService:
             MaxAssignments=max_assignments,
             Reward=reward
         )
-        if title and 'Title' in args:
-            args['Title'] = args['Title'] + ' : ' + title
-        log.info(f'creating HIT with args {args}')
+        if title:
+            if 'Title' in args:
+                title += '\n' + args['Title']
+            args['Title'] = title
+
+        if description:
+            if 'Description' in args:
+                description += '\n' + args['Description']
+            args['Description'] = description
+
+        log.info(f'creating HIT..')
         response = self.client.create_hit(**args)['HIT']
         hit_id = response['HITId']
-        log.info('HIT created : {hit_id}\n {response}')
-        return hit_id, response
+        hit_group_id = response['HITGroupId']
+        subdomain = 'workersandbox' if self.is_sandbox else 'www'
+        task_url = f'https://{subdomain}.mturk.com/projects/{hit_group_id}/tasks'
+        log.info(f'HIT created: {hit_id}  {task_url}')
+        
+        log.info(f'Task URL: {task_url}')
+        return hit_id, task_url, response

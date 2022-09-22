@@ -22,8 +22,9 @@ for env_key in ['GTAG']:
 
 
 def render_template(*args, **kwargs):
-    return flask.render_template(*args, environ=ENV, cur_user=FL.current_user,
-                                 C=C, **kwargs)
+    return flask.render_template(*args, environ=ENV,
+        cur_user=FL.current_user,
+        C=C, **kwargs)
 
 
 def wrap(body=None, status=C.SUCCESS, description=None):
@@ -84,7 +85,7 @@ def init_login_manager(login_manager):
 
     @login_manager.unauthorized_handler
     def unauthorized_handler():
-        flask.flash(f'Login required for {request.full_path}')
+        flask.flash(f'Login required for accessing the requested resource.')
         return flask.redirect(url_for('app.login', next=request.full_path, action='login'))
 
 
@@ -109,13 +110,16 @@ def user_controllers(router, socket, service: ChatService):
 
     @router.route('/login', methods=['GET', 'POST'])
     def login():
-        next = request.values.get('next')
+        next_url = request.values.get('next')
+        tmpl_args = dict(
+            action=request.values.get('action', 'login'),
+            next=next_url,
+            ext_id=request.values.get('ext_id'),
+            ext_src=request.values.get('ext_src'),
+            onboarding=service.onboarding)
         log.info(f"login/signup. next={next}")
         if request.method == 'GET':
-            return render_template('login.html',
-                                   action=request.values.get('action', 'login'),
-                                   next=next,
-                                   onboarding=service.onboarding)
+            return render_template('login.html', **tmpl_args)
 
         # form sumission as POST
         log.info(f'Form:: {request.form}')
@@ -123,12 +127,10 @@ def user_controllers(router, socket, service: ChatService):
         user_id = args.pop('user_id')
         secret = args.pop('secret')
         action = args.pop('action', 'login')
-        next_url = args.pop('next', None) or request.args.get('next', None)
         assert action in ('login', 'signup')
         if action == 'login':
             user = User.get(user_id)
             if user and user.verify_secret(secret):
-
                 FL.login_user(user, remember=True, force=True)
                 flask.flash('Logged in successfully.')
                 if next_url and is_safe_url(next_url):
@@ -143,7 +145,7 @@ def user_controllers(router, socket, service: ChatService):
         elif action == 'signup':
             user = User.get(user_id)
             if user:
-                flask.flash(f'User {user.id} already exists. Try login instead')
+                flask.flash(f'User {user.id} already exists. Try login instead.')
             elif len(user_id) < 2 or len(user_id) > 16 or not user_id.isalnum():
                 flask.flash('Invalid User ID. ID should be at least 2 chars and atmost 16 chars and only alpha numeric chars are permitted')
             elif len(secret) < 4:
@@ -151,13 +153,13 @@ def user_controllers(router, socket, service: ChatService):
             else:
                 name = args.pop('name')
                 user = User.create_new(user_id, secret, name=name, data=args)
-                flask.flash(f'Sign up success.Try login with your user ID: {user.id}')
-                return render_template('login.html', form=dict(user=user, action='login'))
+                tmpl_args['action'] = 'login'
+                flask.flash(f'Sign up success. Try login with your user ID: {user.id}. Verify that it works and write down the password for future logins.')
+                return render_template('login.html', **tmpl_args)
         else:
             flask.flash('Wrong action. only login and signup are supported')
-            action = 'login'
-        return render_template('login.html', form=dict(user_id=user_id, action=action),
-                               next=next, onboarding=service.onboarding)
+            tmpl_args['action'] = 'login'
+        return render_template('login.html', user_id=user_id, **tmpl_args)
 
 
     @router.route('/logout', methods=['GET'])
@@ -216,7 +218,6 @@ def user_controllers(router, socket, service: ChatService):
             return f'Topic {topic} not found', 400
         thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
         return flask.redirect(url_for('app.get_thread', thread_id=thread.id))
-
 
     @router.route('/thread/<thread_id>', methods=['GET'])
     @FL.login_required
@@ -292,6 +293,49 @@ def user_controllers(router, socket, service: ChatService):
             log.exception(e)
             return wrap(status=C.ERROR, description='Something went wrong on server side')
 
+    #### M Turk Integration
+    @router.route('/launch-topic-mturk/<topic_id>', methods=['GET'])
+    def launch_topic_mturk( topic_id):
+
+        assignmet_id = request.values.get('assignmentId')
+        hit_id = request.values.get('hitId')
+        worker_id = request.values.get('workerId')
+        sumit_url = request.values.get('turkSubmitTo') 
+        is_previewing = assignmet_id == 'ASSIGNMENT_ID_NOT_AVAILABLE'
+        #Our mapping: Worker=User; Assignment = ChatThread; HIT=ChatTopic
+        # Step 1: map Hit to Topic, so we can perview it
+        topic = ChatTopic.query.find_by(ext_src=C.MTURK, ext_id=hit_id).first()
+        if not topic:
+            return 'Invalid HIT or task', 400
+
+        if is_previewing: 
+            return index() # sending index page for now. We can do better later
+
+        # Step2. Find the mapping user
+        user = User.query.filter_by(ext_src=C.MTURK, ext_id=worker_id).first()
+        if not user:
+            # sign up and come back (so set next)
+            return flask.redirect(url_for('app.login', action='signup', ext_id=worker_id, ext_src=C.MTURK, next=request.url))
+        elif not FL.current_user or FL.current_user.get_id() != user.id:
+                flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
+                return flask.redirect(url_for('app.login', action='login', next=request.url))
+
+        # user exist, logged in => means user already signed up and doing so, gave consent,     
+        # Step 3: map assignment to chat thread -- 
+        data = {
+            C.MTURK: {
+            'sumit_url': submit_url,
+            'is_sandbox': 'workersandbox' in submit_url,
+            'assignment_id': assignmet_id,
+            'hit_id': hit_id,
+            'worker_id': worker_id
+        }}
+        chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
+            ext_id=ext_id, ext_src=C.MTURK, data=data)
+
+        assert chat_thread
+        return get_thread(thread_id=chat_thread)
+
 
 def admin_controllers(router, service: ChatService):
     from .model import User, ChatMessage, ChatThread, ChatTopic
@@ -346,7 +390,7 @@ def admin_controllers(router, service: ChatService):
             return f'Topic {topic_id} already has been launched on {topic.ext_src}'
         ext_id = service.launch_topic_on_crowd(topic)
         if ext_id:
-            flask.flash(f'Successfully launched {topic_id} on {crowd_name} as {crowd_id}')
+            flask.flash(f'Successfully launched {topic_id} on {crowd_name} as {ext_id}')
             return dict(staus='success', ext_id=ext_id), 200
         else:
             return 'Error: we couldnt launch on crowd', 400

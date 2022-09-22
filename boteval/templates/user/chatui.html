@@ -69,13 +69,13 @@
             <!-- hide this block when more turns to go; but show this to admin regardless -->
             <div {% if cur_user.role !='admin' and remaining_turns.value> 0 %} style="display:none" {%endif%}
                 id="ratings-view" class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
-                {%set is_disabled = 'disabled' if thread.data.get('rating_done') else '' %}
+                {%set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
 
                 <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
                     class="form">
                     <b>Rate this conversation:</b>
                     {% for q in rating_questions %}
-                    {% set prev_ratings = thread.data.get('ratings') or {}%}
+                    {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
                     <li class="list-group-item">
                         <i>{{q['question']}}</i>
                         <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"

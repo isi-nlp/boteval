@@ -12,7 +12,7 @@ limits:
   max_threads_per_user: 10
   max_threads_per_topic: &max_assignments 3
   max_turns_per_thread: 4
-  reward: &reward '0.5' # dollars
+  reward: &reward '0.001' # dollars
   
 onboarding:
   agreement_file: example-chat-task/user-agreement.html
@@ -55,4 +55,7 @@ flask_config:
   SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev2.db
   SQLALCHEMY_TRACK_MODIFICATIONS: false
   #SERVER_NAME: localhost
+  SERVER_NAME: dev.gowda.ai
+  PREFERRED_URL_SCHEME: https
+
 

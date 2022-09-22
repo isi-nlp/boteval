@@ -7,6 +7,7 @@ import abc
 from dataclasses import dataclass
 
 from sqlalchemy import orm, sql
+
 import json
 
 from . import db, log
@@ -64,7 +65,7 @@ class BaseModel(db.Model):
 
     def flag_data_modified(self):
         # seql alchemy isnt reliable in recognising modifications to JSON, so we explicitely tell it
-        attributes.flag_modified(self, 'data')
+        orm.attributes.flag_modified(self, 'data')
 
 
 class BaseModelWithExternal(BaseModel):
@@ -146,10 +147,10 @@ class User(BaseModelWithExternal):
 
     @classmethod
     def create_new(cls, id: str, secret: str, name: str = None,
-                   role: str = None, data=None):
+                   role: str = None, data=None, ext_id=None, ext_src=None):
         name = name or cls.ANONYMOUS
         role = role or cls.ROLE_HUMAN
-        user = User(id=id, secret=cls._hash(secret), name=name, role=role, data=data)
+        user = User(id=id, secret=cls._hash(secret), name=name, role=role, data=data, ext_id=ext_id, ext_src=ext_src)
         log.info(f'Creating User {user.id}')
         db.session.add(user)
         db.session.commit()
