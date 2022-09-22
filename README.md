@@ -36,6 +36,22 @@ This starts a service on http://localhost:6060 by default.
 
 Look at `darma-task/conf.yml` for an example
 
+## SSL and HTTPS Notes
+
+* For MTurk integration, running server via HTTPS is required.
+* For HTTPS, an SSL certificate is required
+* You can buy an SSL certificate from trusted agents that all browsers trust 
+  --OR-- you can create a self-signed certificate that some browsers might complain 
+> I recommend getting a certificate that most browsers trust. and install it on server where you deploy this
+* Recommendation: it has been a trouble configuring SSL with uwsgi or other flask runner. 
+> Easy option is don't bother https or ssl at python/flask layer, but instead handle it at a reverse proxy such as nginx.
+* Where to get? How to install ? https://certbot.eff.org/ 
+Follow the steps and install certificate on server.
+> NOTE: we need a publicly accessible domain name. SSL certificate on IP address isnt the way to go. 
+ So buy a cheap domain name and point its DNS record to your server's IP address. 
+> It doesnt have to be top level, you can also configure one of sub domains of your existing domain name.
+
+
 
 ## Development
 

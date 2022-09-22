@@ -3,3 +3,5 @@ model-chat*
 __pycache__
 *.db
 darma-task
+*.egg-info
+*.history*.txt

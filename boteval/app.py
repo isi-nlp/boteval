@@ -2,13 +2,14 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from datetime import datetime
 from pathlib import Path
 import time
+import ssl
 
 import flask
 from flask import Flask, Blueprint, url_for
 from flask_socketio import SocketIO
 from flask_login import LoginManager, login_url
 
-from . import log, __version__, yaml, db
+from . import log, __version__, yaml, db, C
 from .controller import user_controllers, admin_controllers, init_login_manager, register_app_hooks
 from .service import ChatService
 
@@ -54,9 +55,11 @@ def parse_args():
         formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('-c', '--config', type=Path, help='Path to config file',
                         default=Path('conf.yml'))
+    parser.add_argument("-b", "--base", type=str, help="Base path prefix for all urls")
+
     parser.add_argument("-d", "--debug", action="store_true", help="Run Flask server in debug mode")
     parser.add_argument("-a", "--addr", type=str, help="Address to bind to", default='0.0.0.0')
-    parser.add_argument("-p", "--port", type=int, help="port to run server on", default=6060)
+    parser.add_argument("-p", "--port", type=int, help="port to run server on", default=C.DEF_PORT)
     parser.add_argument("-v", "--version", action="version", version=__version__)
     args = vars(parser.parse_args())
     return args
@@ -96,17 +99,15 @@ def init_app(**args):
         app.debug = True
         log.root.setLevel(level=log.DEBUG)
 
+args = parse_args()
+init_app(**args)
+with app.test_request_context():
+    ext_url = flask.url_for('app.index', _external=True)
+    log.info(f'Server URL: {ext_url}')
 
 def main():
-    args = parse_args()
-    init_app(**args)
     #app.run(port=cli_args["port"], host=cli_args.get('addr', '0.0.0.0'))
-    host, port = args.get('addr', '0.0.0.0'), args.get('port', 6060)
-    scheme = 'http'
-    log.info(f'Starting on {scheme}://{host}:{port}')
-    with app.test_request_context():
-        ext_url = flask.url_for('app.index', _external=True)
-        log.info(f'External URL: {ext_url}')
+    host, port = args.get('addr', C.DEF_ADDR), args.get('port', C.DEF_PORT)
     socket.run(app, port=port, host=host, debug=app.debug)
 
 

@@ -1,5 +1,8 @@
 import os
 
+DEF_PORT = 7070
+DEF_ADDR = '0.0.0.0'
+
 ERROR = 'error'
 SUCCESS = 'success'
 
@@ -15,7 +18,7 @@ class Auth:
     DEV_USER = 'dev'
     CONTEXT_USER = 'context'
 
-    # TODO: better way to handle
+    # TODO: find a better way to handle
     ADMIN_SECRET = os.environ.get('ADMIN_USER_SECRET', 'xyza')
     DEV_SECRET = os.environ.get('DEV_USER_SECRET', 'abcd')
 
@@ -23,3 +26,4 @@ class Auth:
 MTURK = 'mturk'
 MTURK_SANDBOX = 'https://mturk-requester-sandbox.us-east-1.amazonaws.com'
 AWS_MAX_RESULTS = 100
+

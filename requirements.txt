@@ -6,3 +6,6 @@ flask-socketio
 #eventlet
 #gunicorn
 flask-login
+flask_sqlalchemy
+#
+transformers

@@ -36,8 +36,7 @@
             <li>{{topic.ext_src, topic.ext_id}}</li>
             {% else %}
             <li>
-              <a href="mturk launch">Create launch</a> </a>
-              {{url_for('app.launch_topic', topic_id=topic.id, _external=True)}}
+              <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name='mturk', topic_id=topic.id)}}">Launch on Mturk</a> 
             </li>
             {% endif %}
           </ul></td>

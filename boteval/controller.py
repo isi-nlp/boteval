@@ -110,6 +110,7 @@ def user_controllers(router, socket, service: ChatService):
     @router.route('/login', methods=['GET', 'POST'])
     def login():
         next = request.values.get('next')
+        log.info(f"login/signup. next={next}")
         if request.method == 'GET':
             return render_template('login.html',
                                    action=request.values.get('action', 'login'),
@@ -331,3 +332,21 @@ def admin_controllers(router, service: ChatService):
     def get_topics():
         topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
         return render_template('admin/topics.html', topics=topics)
+
+    @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
+    @admin_login_required
+    def launch_topic_on_crowd(topic_id, crowd_name):
+        topic = ChatTopic.query.get(topic_id)
+        if not topic:
+            return f'Topic {topic_id} not found', 404
+        if not service.crowd_service or service.crowd_service.name != crowd_name:
+            return f'Crowd backend {crowd_name} is not configured', 400
+
+        if topic.ext_id:
+            return f'Topic {topic_id} already has been launched on {topic.ext_src}'
+        ext_id = service.launch_topic_on_crowd(topic)
+        if ext_id:
+            flask.flash(f'Successfully launched {topic_id} on {crowd_name} as {crowd_id}')
+            return dict(staus='success', ext_id=ext_id), 200
+        else:
+            return 'Error: we couldnt launch on crowd', 400

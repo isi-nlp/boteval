@@ -8,6 +8,7 @@ import functools
 from datetime import datetime
 import copy
 
+import flask
 from sqlalchemy import func
 from sqlalchemy.orm import attributes
 
@@ -112,6 +113,12 @@ class ChatService:
         self.onboarding = config.get('onboarding') and copy.deepcopy(config['onboarding'])
         if  self.onboarding and 'agreement_file' in self.onboarding:
             self.onboarding['agreement_text'] = Path(self.onboarding['agreement_file']).read_text()
+
+        self.crowd_service = None
+        if 'mturk' in self.config:
+            from .mturk import MTurkService
+            self.crowd_service = MTurkService.new(**self.config['mturk'])
+
 
     @property
     def bot_user(self):
@@ -252,3 +259,25 @@ class ChatService:
 
     def get_rating_questions(self):
         return self.ratings
+
+    def launch_topic_on_crowd(self, topic:ChatTopic):
+        if not self.crowd_service:
+            log.warning('Crowd service not configured')
+            return None
+        ext_url = flask.url_for('app.launch_topic', topic_id=topic.id, _external=True)
+
+        ext_id, result = self.crowd_service.create_HIT(ext_url, 
+            max_assignments=self.limits.get('max_threads_per_topic',1),
+            reward=self.limits.get('reward', '0.0'),
+            title=topic.name)
+        if ext_id:
+            thread.ext_id = ext_id
+            thread.ext_src = self.crowd_service.name
+            thread.data[self.crowd_service.name] = dict(
+                is_sabdbox = self.crowd_service.is_sandbox,
+                time_created=datetime.now().isoformat()
+                )
+            thread.flag_data_modified()
+            db.session.merge(thread)
+            db.session.commit()
+        return ext_id

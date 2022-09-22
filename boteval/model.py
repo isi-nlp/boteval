@@ -62,6 +62,11 @@ class BaseModel(db.Model):
         )
 
 
+    def flag_data_modified(self):
+        # seql alchemy isnt reliable in recognising modifications to JSON, so we explicitely tell it
+        attributes.flag_modified(self, 'data')
+
+
 class BaseModelWithExternal(BaseModel):
 
     __abstract__ = True

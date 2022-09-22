@@ -1,5 +1,5 @@
 import copy
-
+from dataclasses import dataclass
 import boto3
 
 from . import C, log
@@ -16,15 +16,19 @@ def get_mturk_client(sandbox=False, endpoint_url=C.MTURK_SANDBOX, profile=None, 
     return boto3.client('mturk', **params)
 
 
+
 class MTurkService:
 
-    def __init__(self, client) -> None:
+    def __init__(self, client, hit_settings=None) -> None:
+        self.name = C.MTURK
         self.client = client
+        self.hit_settings = hit_settings
+        self.is_sandbox = self.endpoint_url == C.MTURK_SANDBOX
 
     @classmethod
-    def new(cls, *args, **kwargs):
-        client = get_mturk_client(*args, **kwargs)
-        return cls(client)
+    def new(cls, client, hit_settings):
+        client = get_mturk_client(**client)
+        return cls(client, hit_settings=hit_settings)
 
     @property
     def endpoint_url(self) -> str:
@@ -81,5 +85,26 @@ class MTurkService:
             Reason=reason
             )
 
-    def create_HIT(self, external_url):
-        raise NotImplementedError()
+    def create_HIT(self, external_url, max_assignments, reward, title, frame_height=640, **kwargs):
+        namespace = 'http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2006-07-14/ExternalQuestion.xsd'
+        question_data = f'''<?xml version="1.0" encoding="UTF-8"?>
+            <ExternalQuestion xmlns="{namespace}">
+            <ExternalURL>{external_url}</ExternalURL>
+            <FrameHeight>{frame_height}</FrameHeight>
+            </ExternalQuestion>'''
+        args = {}
+        if self.hit_settings:
+            args |= copy.deepcopy(self.hit_settings)
+        args |= kwargs
+        args |= dict(
+            Question=question_data,
+            MaxAssignments=max_assignments,
+            Reward=reward
+        )
+        if title and 'Title' in args:
+            args['Title'] = args['Title'] + ' : ' + title
+        log.info(f'creating HIT with args {args}')
+        response = self.client.create_hit(**args)['HIT']
+        hit_id = response['HITId']
+        log.info('HIT created : {hit_id}\n {response}')
+        return hit_id, response

@@ -10,9 +10,10 @@ chatbot:
 
 limits:
   max_threads_per_user: 10
-  max_threads_per_topic: 3
+  max_threads_per_topic: &max_assignments 3
   max_turns_per_thread: 4
-
+  reward: &reward '0.5' # dollars
+  
 onboarding:
   agreement_file: example-chat-task/user-agreement.html
   instructions_file: example-chat-task/instructions.html
@@ -34,8 +35,19 @@ ratings:
     choices: *choices
 
 mturk:
-  profile: default # the [default] profile in ~/.aws/credentials file
-
+  client:
+    profile: default # the [default] profile in ~/.aws/credentials file
+    sandbox: true
+  hit_settings:
+    # https://boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit
+    MaxAssignments: *max_assignments
+    AutoApprovalDelayInSeconds: 604800     # 7 days = 604k sec
+    LifetimeInSeconds: 1209600              # 14 days = 1.2M sec
+    AssignmentDurationInSeconds: 3600      # 1 hour = 3.6k sec
+    Reward: *reward
+    Title: 'Evaluate a chatbot'
+    Keywords: 'chatbot,chat,research'
+    Description: 'Evaluate a chat bot by talking to it for a while and receive a reward'
 
 
 flask_config:
