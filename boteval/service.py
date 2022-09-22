@@ -21,8 +21,9 @@ from . import constants
 
 class ChatManager:
 
-    def __init__(self, thread: ChatThread) -> None:
-        self.thread: ChatThread = thread
+    def __init__(self, thread_id) -> None:
+        self.thread_id = thread_id
+        # Note: dont save/cache thread object here as it will go out of sync with ORM, only save ID
 
     def new_message(self, message):
         raise NotImplementedError()
@@ -34,42 +35,45 @@ class DialogBotChatManager(ChatManager):
 
     def __init__(self, thread: ChatThread, bot_agent:BotAgent,
                  max_turns:int=constants.DEF_MAX_TURNS_PER_THREAD):
-        super().__init__(thread)
+        super().__init__(thread.id)
+        # Note: dont save/cache thread object here as it will go out of sync with ORM, only save ID
         bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
         user_ids = [u.id for u in thread.users]
         assert len(bots) == 1, f'Expect 1 bot in thead {thread.id}; found {len(bots)}; Users: {user_ids}'
-        self.bot_user = bots[0]
+        self.bot_user_id = bots[0].id
         assert bot_agent
         self.bot_agent = bot_agent
 
         humans = [ user for user in thread.users if user.role == User.ROLE_HUMAN ]
         assert len(humans) == 1, f'Expect 1 human in thead {thread.id}; found {len(humans)}; Users: {user_ids}'
-        self.human_user = humans[0]
+        self.human_user_id = humans[0].id
 
         self.max_turns = max_turns
-        self.num_turns = thread.count_turns(self.human_user)
+        self.num_turns = thread.count_turns(humans[0])
 
 
-    def observe_message(self, message: ChatMessage) -> ChatMessage:
+    def observe_message(self, thread: ChatThread, message: ChatMessage) -> ChatMessage:
         # Observe and reply
         # this message is from human
-        assert message.user_id == self.human_user.id
-        self.thread.messages.append(message)
-        reply = self.bot_reply()
-        self.thread.messages.append(reply)
-        #db.session.add(message)
-        #db.session.add(reply)
+        assert thread.id == self.thread_id
+        assert message.user_id == self.human_user_id
+        db.session.add(message)
+        thread.messages.append(message)
+
+        reply = self.bot_reply(message.text)
+
+        db.session.add(reply)
+        thread.messages.append(reply)
         db.session.commit()
         self.num_turns += 1
         episode_done = self.num_turns >= self.max_turns
-        log.info(f'{self.thread.id} turns:{self.num_turns} max:{self.max_turns}')
+        log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
         return reply, episode_done
 
-    def bot_reply(self) -> ChatMessage:
+    def bot_reply(self, context: str) -> ChatMessage:
         # only using last message as context
-        text = self.thread.messages[-1].text if self.thread.messages else ''
-        reply = self.bot_agent.talk(text)
-        msg = ChatMessage(user_id = self.bot_user.id, text=reply, thread_id = self.thread.id)
+        reply = self.bot_agent.talk(context)
+        msg = ChatMessage(user_id = self.bot_user_id, text=reply, thread_id = self.thread_id)
         return msg
 
 
@@ -188,7 +192,7 @@ class ChatService:
     def get_topic(self, topic_id):
         return ChatTopic.query.get(topic_id)
 
-    def get_thread_for_topic(self, user, topic, create_if_missing=True) -> Optional[ChatThread]:
+    def get_thread_for_topic(self, user, topic, create_if_missing=True, ext_id=None, ext_src=None, data=None) -> Optional[ChatThread]:
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
         thread = None
@@ -199,7 +203,8 @@ class ChatService:
 
         if not thread and create_if_missing:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
-            thread = ChatThread(topic_id=topic.id)
+            data = data or {}
+            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data)
             thread.users.append(user)
             thread.users.append(self.bot_user)
             thread.users.append(self.context_user)
@@ -234,6 +239,8 @@ class ChatService:
         return {tid: count for tid, count in thread_counts }
 
     def update_thread_ratings(self, thread: ChatThread, ratings:dict):
+        if thread.data is None:
+            thread.data = {}
         thread.data.update(dict(ratings=ratings, rating_done=True))
         thread.episode_done = True
         # sometimes JSON field updates are not automatically detected.
@@ -254,7 +261,7 @@ class ChatService:
 
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> ChatMessage:
         dialog = self.cached_get(thread)
-        reply, episode_done = dialog.observe_message(msg)
+        reply, episode_done = dialog.observe_message(thread, msg)
         return reply, episode_done
 
     def get_rating_questions(self):
@@ -264,20 +271,25 @@ class ChatService:
         if not self.crowd_service:
             log.warning('Crowd service not configured')
             return None
-        ext_url = flask.url_for('app.launch_topic', topic_id=topic.id, _external=True)
+        my_ext_url = flask.url_for('app.launch_topic', topic_id=topic.id, _external=True, _scheme='https')
 
-        ext_id, result = self.crowd_service.create_HIT(ext_url, 
+        ext_id, task_url, result = self.crowd_service.create_HIT(my_ext_url, 
             max_assignments=self.limits.get('max_threads_per_topic',1),
             reward=self.limits.get('reward', '0.0'),
-            title=topic.name)
+            description=topic.name,
+            title= f'(ChatID={topic.id})')
+        ext_src = self.crowd_service.name
         if ext_id:
-            thread.ext_id = ext_id
-            thread.ext_src = self.crowd_service.name
-            thread.data[self.crowd_service.name] = dict(
+            topic.ext_id = ext_id
+            topic.ext_src = ext_src
+
+            topic.data[ext_src] = dict(
                 is_sabdbox = self.crowd_service.is_sandbox,
-                time_created=datetime.now().isoformat()
+                time_created = datetime.now().isoformat(),
+                hit_id = ext_id,
+                ext_url = task_url
                 )
-            thread.flag_data_modified()
-            db.session.merge(thread)
+            topic.flag_data_modified()
+            db.session.merge(topic)
             db.session.commit()
         return ext_id
