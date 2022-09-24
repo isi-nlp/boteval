@@ -55,6 +55,7 @@
 
 </head>
 
+{% set is_admin_user = cur_user and cur_user.is_authenticated and cur_user.role == 'admin' %}
 <body>
   <div id="wrap">
     <nav class="navbar navbar-expand-lg navbar-light border">
@@ -88,10 +89,12 @@
           <li class="col-2"></li>
         </ul>
       </div>
+      {% if not focus_mode %}
       <a href="https://github.com/isi-nlp/isi_darma" target="_blank">
         <img id="forkme" height="80" src="{{url_for('app.static', filename='img/forkme.svg')}}"
           alt="Fork me on GitHub" />
       </a>
+      {%endif%}
     </nav>
     <div class="container-fluid" style="overflow-y: scroll;">
         {% with messages = get_flashed_messages() %}
@@ -113,10 +116,12 @@
   </div>
 
   <!-- style="position: absolute; bottom: 0; left: 0; right: 0; padding: 2px; margin: 2px"-->
+  {% if not focus_mode %}
   <footer class="pagefooter alert-secondary" style="text-align: center">
-    <p class="font-weight-light float-none" style="margin: 0; padding: 3px"><small>Webapp created by Thamme Gowda
+    <p class="font-weight-light float-none" style="margin: 0; padding: 2px"><small>Webapp created by Thamme Gowda
         (2022)</small></p>
   </footer>
+  {% endif %}
 
 </body>
 

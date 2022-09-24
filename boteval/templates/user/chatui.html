@@ -5,12 +5,15 @@
 {% set max_turns = (limits or {}).get('max_turns_per_thread', 10000) %}
 {% set remaining_turns = namespace(value=max_turns) %}
 <section style="background-color: #eee;">
+    {% if focus_mode %} 
+    {% else %}
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="../">All chats</a></li>
             <li class="breadcrumb-item active" aria-current="page">{{thread.id}}</li>
         </ol>
     </nav>
+    {%endif%}
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-6 col-lg-7 col-xl-8 border-left border-right">
@@ -89,6 +92,7 @@
                         </datalist>
                     </li>
                     {% endfor %}
+                    {% if focus_mode %} <input name="focus_mode" value="True" type="hidden" /> {%endif%}
                     <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}} />
                 </form>
                 <hr />

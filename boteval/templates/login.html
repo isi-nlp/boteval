@@ -50,7 +50,7 @@
                 {%if onboarding.get('checkboxes') %}
                 {%for check_name, check_value in onboarding['checkboxes'].items() %}
                 <div class="form-check my-2">
-                    <input class="form-check-input" type="checkbox" value="" id="{{check_name}}" name="_chk_{{check_name}}" required
+                    <input class="form-check-input" type="checkbox" value="true" id="{{check_name}}" name="checkbox_{{check_name}}" required
                         autofocus>
                     <label class="form-check-label" for="{{check_name}}">
                         {{check_value|safe}}

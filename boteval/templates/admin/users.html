@@ -11,7 +11,7 @@
 
   <h3>{% block title %} Users {% endblock %}</h3>
   <div class="row">
-    <div class="col-8">
+    <div class="col-12">
       <div class="card">
         <div class="card-body">
           <span>Found {{users | length }} users </span>
@@ -24,7 +24,7 @@
           <th scope="col">Name</th>
           <th scope="col">Joined</th>
           <th scope="col">Last Active</th>
-          <th scope="col"></th>
+          <th scope="col">External?</th>
         </tr>
         {% for user in users %}
         <tr>
@@ -33,7 +33,7 @@
           <td> {{user.name}} </td>
           <td> {{user.time_created|ctime}}</td>
           <td> {{user.last_active|ctime}}</td>
-          <td>  </td>
+          <td> {{user.ext_src or ''}} {{user.ext_id or '' }}  </td>
         </tr>
         {% endfor %}
       </table>

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from 'mturk/_macros.html' import render_assignment %}
+{% from 'admin/mturk/_macros.html' import render_assignment %}
 
 {% block content %}
 {% set mturk_where = meta['mturk_where'] %}
@@ -7,7 +7,8 @@
 <div class="container-fluid">
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="../">MTurk ({{mturk_where}})</a></li>
+      <li class="breadcrumb-item"><a href="{{url_for('admin.index')}}">Admin</a></li>
+      <li class="breadcrumb-item"><a href="../">MTurk {{mturk_where}}</a></li>
       <li class="breadcrumb-item active"><a href="./">HITs</a></li>
       <li class="breadcrumb-item active" aria-current="page">{{HIT_id}}</li>
     </ol>

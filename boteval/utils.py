@@ -1,10 +1,17 @@
 import resource
 from typing import Tuple
 import sys
-from . import log
+from . import log, C
+import flask
+import flask_login as FL
 
 
 FLOAT_POINTS = 4
+
+
+def render_template(*args, **kwargs):
+    return flask.render_template(*args, environ=C.ENV,
+        cur_user=FL.current_user, C=C, **kwargs)
 
 
 def max_RSS(who=resource.RUSAGE_SELF) -> Tuple[int, str]:

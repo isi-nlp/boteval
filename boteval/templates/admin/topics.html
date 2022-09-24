@@ -10,17 +10,19 @@
   </nav>
 
   <h3 class="text-center">{% block title %} Topics {% endblock %}</h3>
-  <div class="col-8">
+  <div class="row">
+    <div class="col-12">
     {%set ext_url= url_for('app.index', _external=True, _scheme='https')%}
-        My URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a>
+        External URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a>
     <p class="text-muted">
-      Make sure the above URL is accessible via the (public) Internet so crowd workers can access me from their home computers.
+      Make sure the above URL is accessible via the (public) Internet so crowd workers can access from their home computers.
       <br/>
-      Hint: set <code>flask_config.SERVER_NAME=</code> in config YML file to public server name
+      Hint: set <code>flask_config.SERVER_NAME=</code> in config YML file to public server name. Verify your SSL congigurations are correct for HTTPS connection.
     </p>
   </div>
+  </div>
   <div class="row">
-    <div class="col-8">
+    <div class="col-12">
       <div class="card">
         <div class="card-body">
           <span>Found {{topics | length }} topics </span>
@@ -43,11 +45,11 @@
           <td><ul>
             {% if topic.ext_id %}
               {% set task_url = topic.data.get(topic.ext_src, {}).get('ext_url') %}
-              <li>{{topic.ext_src}} : {{topic.ext_id}}</li>
-              <li>{{task_url}}</li>
+              <li>{{topic.ext_src}}: {{topic.ext_id}}</li>
+              <li><a href="{{task_url}}" target="_blank">Task URL</a></li>
             {% else %}
             <li>
-              <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name='mturk', topic_id=topic.id)}}">Launch on Mturk</a> 
+              <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name=crowd_name, topic_id=topic.id)}}">Launch on Mturk</a> 
             </li>
             {% endif %}
           </ul></td>

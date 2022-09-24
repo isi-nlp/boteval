@@ -16,6 +16,26 @@ function delete_qualification(qual_id, where) {
   });
 }
 
+function delete_resource(url, hide_id){
+  console.log('Going to delete resource ' + url)
+  $.ajax({
+    url: url,
+    type: 'DELETE',
+    success: function (result) {
+      console.log('Delete Success')
+      console.log(result)
+      if (hide_id){
+       $('#' + hide_id).hide()
+      }
+    },
+    error: function (result) {
+      alert("Error while deleting reource at " + url)
+      console.log('Error while deleting HIT')
+      console.log(result)
+    },
+  });
+}
+
 function delete_hit(hit_id, where) {
     console.log('Going to delete HIT ' + hit_id + ' where :' + where)
     $.ajax({

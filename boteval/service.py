@@ -9,13 +9,15 @@ from datetime import datetime
 import copy
 
 import flask
+import requests
 from sqlalchemy import func
 from sqlalchemy.orm import attributes
 
-from  . import log, db
+from  . import log, db, C
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
 from .bots import BotAgent, load_bot_agent
 from .utils import jsonify
+from .mturk import MTurkService
 from . import constants
 
 
@@ -119,16 +121,35 @@ class ChatService:
             self.onboarding['agreement_text'] = Path(self.onboarding['agreement_file']).read_text()
 
         self.crowd_service = None
-        if 'mturk' in self.config:
-            from .mturk import MTurkService
-            self.crowd_service = MTurkService.new(**self.config['mturk'])
+        if C.MTURK in self.config:
+            self.crowd_service = MTurkService.new(**self.config[C.MTURK])
+        
+        #self._external_url_ok = None
 
+    """
+    @property
+    def is_external_url_ok(self):
+        if self._external_url_ok is None:
+            ping_url = flask.url_for('app.ping', _external=True, _scheme='https')
+            log.info(f"Checking external URL {ping_url}")
+            try:
+                reply = requests.get(ping_url)
+                self._external_url_ok = reply and reply.status_code == 200 and reply.json()['reply'] == 'pong'
+            except Exception as e:
+                log.exception(e)
+                self._external_url_ok = False
+        return self._external_url_ok
+    """
 
     @property
     def bot_user(self):
         if not self._bot_user:
             self._bot_user = User.query.get(constants.Auth.BOT_USER)
         return self._bot_user
+
+    @property
+    def crowd_name(self):
+        return self.crowd_service and self.crowd_service.name
 
     @property
     def context_user(self):
@@ -241,11 +262,13 @@ class ChatService:
     def update_thread_ratings(self, thread: ChatThread, ratings:dict):
         if thread.data is None:
             thread.data = {}
+
         thread.data.update(dict(ratings=ratings, rating_done=True))
         thread.episode_done = True
-        # sometimes JSON field updates are not automatically detected.
-        # https://github.com/sqlalchemy/sqlalchemy/discussions/6473
-        attributes.flag_modified(thread, 'data')
+        if self.crowd_service and thread.ext_id:
+            self.crowd_service.task_complete(thread, ratings)
+
+        thread.flag_data_modified()
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
@@ -271,25 +294,31 @@ class ChatService:
         if not self.crowd_service:
             log.warning('Crowd service not configured')
             return None
-        my_ext_url = flask.url_for('app.launch_topic', topic_id=topic.id, _external=True, _scheme='https')
-
-        ext_id, task_url, result = self.crowd_service.create_HIT(my_ext_url, 
-            max_assignments=self.limits.get('max_threads_per_topic',1),
-            reward=self.limits.get('reward', '0.0'),
-            description=topic.name,
-            title= f'(ChatID={topic.id})')
-        ext_src = self.crowd_service.name
-        if ext_id:
-            topic.ext_id = ext_id
-            topic.ext_src = ext_src
-
-            topic.data[ext_src] = dict(
-                is_sabdbox = self.crowd_service.is_sandbox,
-                time_created = datetime.now().isoformat(),
-                hit_id = ext_id,
-                ext_url = task_url
-                )
-            topic.flag_data_modified()
-            db.session.merge(topic)
-            db.session.commit()
-        return ext_id
+        #if not self.is_external_url_ok:
+        #    log.warning('External URL is not configured correctly. ')
+        #    return None
+        if self.crowd_name in (C.MTURK, C.MTURK_SANDBOX):                
+            landing_url = flask.url_for('app.mturk_landing', topic_id=topic.id, _external=True, _scheme='https')
+            log.info(f'mturk landing URL {landing_url}')
+            ext_id, task_url, result = self.crowd_service.create_HIT(landing_url, 
+                max_assignments=self.limits.get('max_threads_per_topic', C.MAX_THREADS_PER_TOPIC),
+                reward=self.limits.get('reward', '0.0'),
+                description=topic.name,
+                title=f'{topic.id}')
+            ext_src = self.crowd_service.name
+            if ext_id:
+                topic.ext_id = ext_id
+                topic.ext_src = ext_src
+                topic.data[ext_src] = dict(
+                    is_sabdbox = self.crowd_service.is_sandbox,
+                    time_created = datetime.now().isoformat(),
+                    hit_id = ext_id,
+                    ext_url = task_url
+                    )
+                topic.flag_data_modified()
+                db.session.merge(topic)
+                db.session.commit()
+            return ext_id
+        else:
+            log.error(f'Crowd name {self.crowd_name} not supported yet')
+            return

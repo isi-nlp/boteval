@@ -5,12 +5,13 @@
 <div class="container-fluid">
   <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{url_for('admin.index')}}">Admin</a></li>
       <li class="breadcrumb-item"><a href="../">MTurk ({{mturk_where}})</a></li>
       <li class="breadcrumb-item active" aria-current="page">HITs</li>
     </ol>
   </nav>
   <div class="row">
-    <div class="col-6">
+    <div class="col-10">
       <h3>HITs</h3>
       <div role="alert" class="alert {% if data['HITs'] %}  alert-success {% else %}  alert-danger {% endif %}">
         Showing {{ data['HITs'] | length }} HITs </div>
@@ -31,7 +32,7 @@
             {% endfor %}
           </details>
           <button type="button" class="btn btn-danger btn-sm float-right"
-            onclick="delete_hit('{{hit_id}}', '{{mturk_where}}')">Delete</button>
+            onclick="delete_resource('../HIT/{{ hit_id }}', hide_id='{{hit_id}}')">Delete</button>
         </li>
         {% endfor %}
         </li>

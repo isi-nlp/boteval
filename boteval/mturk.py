@@ -1,12 +1,22 @@
 import copy
 from dataclasses import dataclass
-import boto3
 import json
+import logging
+
+import boto3
+import requests
 
 from . import C, log
+from .utils import jsonify, render_template
+from .model import ChatThread
 
 
-def get_mturk_client(sandbox=False, endpoint_url=C.MTURK_SANDBOX, profile=None, **props):
+logging.getLogger('boto3').setLevel(C.MTURK_LOG_LEVEL)
+logging.getLogger('botocore').setLevel(C.MTURK_LOG_LEVEL)
+logging.getLogger('nose').setLevel(C.MTURK_LOG_LEVEL)
+
+
+def get_mturk_client(sandbox=False, endpoint_url=C.MTURK_SANDBOX_URL, profile=None, **props):
 
     params = copy.deepcopy(props)
     if sandbox:
@@ -17,14 +27,13 @@ def get_mturk_client(sandbox=False, endpoint_url=C.MTURK_SANDBOX, profile=None, 
     return boto3.client('mturk', **params)
 
 
-
 class MTurkService:
 
     def __init__(self, client, hit_settings=None) -> None:
-        self.name = C.MTURK
         self.client = client
         self.hit_settings = hit_settings
-        self.is_sandbox = self.endpoint_url == C.MTURK_SANDBOX
+        self.is_sandbox = 'sandbox' in self.endpoint_url
+        self.name =  C.MTURK_SANDBOX if self.is_sandbox else C.MTURK
 
     @classmethod
     def new(cls, client, hit_settings):
@@ -34,6 +43,18 @@ class MTurkService:
     @property
     def endpoint_url(self) -> str:
         return self.client.meta.endpoint_url
+
+    @property
+    def external_submit_url(self, subhost=None)-> str:
+        assert subhost in (None, 'live', 'sandbox', 'www', 'workersandbox')
+        if subhost is None:
+            subhost = self.is_sandbox and 'workersandbox' or 'www'
+        elif subhost == 'sandbox':
+            subhost = 'workersandbox'
+        elif subhost == 'live':
+            subhost = 'www'
+
+        return f'https://{subhost}.mturk.com/mturk/externalSubmit'
 
     def get_assignment(self, assignment_id):
         return self.client.get_assignment(AssignmentId=assignment_id)['Assignment']
@@ -107,8 +128,9 @@ class MTurkService:
         )
         if title:
             if 'Title' in args:
-                title += '\n' + args['Title']
-            args['Title'] = title
+                args['Title'] += f' ({title})'
+            else:
+                args['Title'] = title
 
         if description:
             if 'Description' in args:
@@ -125,3 +147,105 @@ class MTurkService:
         
         log.info(f'Task URL: {task_url}')
         return hit_id, task_url, response
+
+    def task_complete(self, thread: ChatThread, result):
+        assert thread.ext_src == self.name
+        assignment_id = thread.ext_id
+        log.info(f'marking Assignment {assignment_id} as compplete')
+        data = { str(key): str(val) for key, val in result.items()}
+        data['assignmentId'] = thread.ext_id
+        requests.post(self.external_submit_url, data=data)
+
+
+class MTurkController:
+
+    def __init__(self, mturk: MTurkService, templates_dir='admin/mturk/'):
+        """Registers mechanical turk controller
+
+        Args:
+            mturk (_type_): MTurk service object
+            where (_type_): live or sandbox
+        """
+        #assert where in ('live', 'sandbox')
+        #self.where = where
+        self.mturk = mturk
+        self.templates_dir = templates_dir
+        self.meta = dict(mturk_endpoint_url=self.mturk.endpoint_url, crowd_name=self.mturk.name)
+        assert mturk.name in (C.MTURK, C.MTURK_SANDBOX)
+
+    def register_routes(self, router, login_decorator=None):
+        log.info(f'Registering mturk routes')
+        rules = [
+            ('/', self.home, dict(methods=["GET"])),
+            ('/qualification/', self.list_qualifications, dict(methods=["GET"])),
+            ('/qualification/<qual_id>', self.get_qualification, dict(methods=["GET"])),
+            ('/qualification/<qual_id>', self.delete_qualification, dict(methods=['DELETE'])),
+            ('/HIT/', self.list_HITs, dict(methods=["GET"])),
+            ('/HIT/<HIT_id>', self.get_HIT,dict(methods=["GET"])),
+            ('/HIT/<HIT_id>', self.delete_hit, dict(methods=['DELETE'])),
+            ('/assignment/<asgn_id>/approve', self.approve_assignment, dict(methods=["POST"])),
+            ('/worker/<worker_id>/qualification', self.qualify_worker, dict(methods=["POST", "PUT"])),
+            ('/worker/<worker_id>/qualification', self.disqualify_worker, dict(methods=["DELETE"])),
+        ]
+        crowd_name = self.mturk.name
+        for path, view_func, opts in rules:
+            endpoint_name = crowd_name + '_' + view_func.__name__
+            #log.info(f'Registering {endpoint_name}')
+            if login_decorator:
+                view_func = login_decorator(view_func)
+            router.add_url_rule(f"/{crowd_name}/{path}", view_func=view_func, endpoint=endpoint_name, **opts)
+
+    def render_template(self, name, *args, **kwargs):
+        return render_template(self.templates_dir + name, *args, meta=self.meta, **kwargs)
+
+    def home(self):
+        return self.render_template('home.html')
+
+    def list_qualifications(self):
+        qtypes = self.mturk.list_qualification_types(max_results=C.AWS_MAX_RESULTS)
+        return self.render_template('qualifications.html', qtypes=qtypes)
+
+    def get_qualification(self, qual_id):
+        HITs = self.mturk.list_HITS(qual_id=qual_id,max_results=C.AWS_MAX_RESULTS)
+        workers = self.mturk.list_workers_for_qualtype(qual_id=qual_id, max_results=C.AWS_MAX_RESULTS)
+        data = dict(HITs=HITs['HITs'], workers=workers['Qualifications'])
+        return self.render_template('qualification.html', data=data, qual_id=qual_id)
+
+    def delete_qualification(self, qual_id):
+        data = self.mturk.mturk.delete_qualification_type(QualificationTypeId=qual_id)
+        return jsonify(data), 200
+
+    def list_HITs(self):
+        data = self.mturk.list_all_hits()
+        return self.render_template('HITs.html', data=data)
+
+    def get_HIT(self, HIT_id):
+        data = self.mturk.list_assignments(HIT_id=HIT_id, max_results=100)
+        print(data)
+        qtypes = None
+        if data['Assignments']:
+            qtypes = self.mturk.list_qualification_types(max_results=100)
+        return self.render_template('HIT.html', data=data, HIT_id=HIT_id, qtypes=qtypes)
+
+    def delete_hit(self, HIT_id):
+        data = self.mturk.client.delete_hit(HITId=HIT_id)
+        return jsonify(data), data.get('HTTPStatusCode', 200)
+
+    def approve_assignment(self, asgn_id):
+        #RequesterFeedback=feedback # any feed back message to worker
+        data = self.mturk.client.approve_assignment(AssignmentId=asgn_id)
+        return jsonify(data), data.get('HTTPStatusCode', 200)
+
+    def qualify_worker(self, worker_id):
+        qual_id = request.form.get('QualificationTypeId')
+        log.info(f"Qualify: worker: {worker_id}  to qualification: {qual_id}")
+        if not qual_id:
+            return 'ERROR: QualificationTypeId argument is requires', 400
+        data = self.mturk.qualify_worker(worker_id=worker_id, qual_id=qual_id)
+        return jsonify(data), data.get('HTTPStatusCode', 200)
+
+    def disqualify_worker(self, worker_id, qual_id):
+        log.info(f"Disqualify: worker: {worker_id} from qualification: {qual_id}")
+        reason = request.values.get('reason', '')
+        data = self.mturk.disqualify_worker(worker_id=worker_id,qual_id=qual_id, reason=reason)
+        return jsonify(data), data.get('HTTPStatusCode', 200)

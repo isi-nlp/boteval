@@ -13,18 +13,9 @@ from boteval.service import ChatService
 #from flask_login import login_user, current_user, login_required, login_url
 
 from . import log, C, db
-from .utils import jsonify
+from .utils import jsonify, render_template
 from .model import ChatMessage, ChatThread, ChatTopic, User
-
-ENV = {}
-for env_key in ['GTAG']:
-    ENV[env_key] = os.environ.get(env_key)
-
-
-def render_template(*args, **kwargs):
-    return flask.render_template(*args, environ=ENV,
-        cur_user=FL.current_user,
-        C=C, **kwargs)
+from .mturk import MTurkController
 
 
 def wrap(body=None, status=C.SUCCESS, description=None):
@@ -108,16 +99,22 @@ def register_app_hooks(app):
 
 def user_controllers(router, socket, service: ChatService):
 
+    @router.route('/ping', methods=['GET', 'POST'])
+    def ping():
+        return jsonify(dict(reply='pong', time=datetime.now().timestamp())), 200
+
     @router.route('/login', methods=['GET', 'POST'])
     def login():
         next_url = request.values.get('next')
+        ext_id = request.values.get('ext_id')
+        ext_src = request.values.get('ext_src')
         tmpl_args = dict(
             action=request.values.get('action', 'login'),
             next=next_url,
-            ext_id=request.values.get('ext_id'),
-            ext_src=request.values.get('ext_src'),
+            ext_id=ext_id,
+            ext_src=ext_src,    
             onboarding=service.onboarding)
-        log.info(f"login/signup. next={next}")
+        log.info(f"login/signup. next={next_url} | ext: src: {ext_src}  id: {ext_id}")
         if request.method == 'GET':
             return render_template('login.html', **tmpl_args)
 
@@ -139,7 +136,7 @@ def user_controllers(router, socket, service: ChatService):
             else:
                 flask.flash('login failed')
                 if not user:
-                    flask.flash('Login Hint: User not found')
+                    flask.flash('Login Hint: no user found with the given user ID')
                 else:
                     flask.flash('Login Hint: password is invalid')
         elif action == 'signup':
@@ -152,7 +149,9 @@ def user_controllers(router, socket, service: ChatService):
                 flask.flash('Password should be atleast 4 chars long')
             else:
                 name = args.pop('name')
-                user = User.create_new(user_id, secret, name=name, data=args)
+                ext_id = args.pop('ext_id', None)
+                ext_src = args.pop('ext_src', None)
+                user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
                 tmpl_args['action'] = 'login'
                 flask.flash(f'Sign up success. Try login with your user ID: {user.id}. Verify that it works and write down the password for future logins.')
                 return render_template('login.html', **tmpl_args)
@@ -221,7 +220,8 @@ def user_controllers(router, socket, service: ChatService):
 
     @router.route('/thread/<thread_id>', methods=['GET'])
     @FL.login_required
-    def get_thread(thread_id):
+    def get_thread(thread_id, focus_mode=False):
+        focus_mode = focus_mode or request.values.get('focus_mode')
         thread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id} found', 404
@@ -231,6 +231,7 @@ def user_controllers(router, socket, service: ChatService):
                                thread=thread,
                                topic=topic,
                                rating_questions=ratings,
+                               focus_mode=focus_mode,
                                data=dict())
 
     @router.route('/thread/<thread_id>/rating', methods=['POST'])
@@ -241,9 +242,14 @@ def user_controllers(router, socket, service: ChatService):
             return f'Thread {thread_id} found', 404
         log.info(f'updating ratings for {thread.id}')
         ratings = {key: val for key, val in request.form.items()}
+        focus_mode = ratings.pop('focus_mode', None)
         service.update_thread_ratings(thread, ratings=ratings)
-        flask.flash('Great job! You have completed a thread!')
-        return flask.redirect(url_for('app.index'))
+        note_text = 'Great job! You have completed a thread!'
+        if focus_mode:
+            return note_text, 200
+        else:
+            flask.flash(note_text)
+            return flask.redirect(url_for('app.index'))
 
 
     ####### Sockets and stuff
@@ -258,6 +264,7 @@ def user_controllers(router, socket, service: ChatService):
     @socket.on('new_message')
     @login_required_socket
     def handle_new_message(msg, methods=['GET', 'POST']):
+        # TODO: bind each client to thread_id and reply messages to thread_id
         log.info('received new_message: ' + str(msg))
 
         text = msg.get('text', '').strip()
@@ -294,17 +301,19 @@ def user_controllers(router, socket, service: ChatService):
             return wrap(status=C.ERROR, description='Something went wrong on server side')
 
     #### M Turk Integration
-    @router.route('/launch-topic-mturk/<topic_id>', methods=['GET'])
-    def launch_topic_mturk( topic_id):
+    @router.route('/mturk-landing/<topic_id>', methods=['GET'])
+    def mturk_landing(topic_id):  # this is where mturk worker should land first
 
         assignmet_id = request.values.get('assignmentId')
-        hit_id = request.values.get('hitId')
-        worker_id = request.values.get('workerId')
-        sumit_url = request.values.get('turkSubmitTo') 
         is_previewing = assignmet_id == 'ASSIGNMENT_ID_NOT_AVAILABLE'
+        hit_id = request.values.get('hitId')
+        worker_id = request.values.get('workerId')          # wont be available while previewing
+        submit_url = request.values.get('turkSubmitTo', '') # wont be available while previewing
+
         #Our mapping: Worker=User; Assignment = ChatThread; HIT=ChatTopic
+        ext_src = C.MTURK_SANDBOX if 'sandbox' in submit_url else C.MTURK 
         # Step 1: map Hit to Topic, so we can perview it
-        topic = ChatTopic.query.find_by(ext_src=C.MTURK, ext_id=hit_id).first()
+        topic = ChatTopic.query.filter_by(ext_id=hit_id).first()
         if not topic:
             return 'Invalid HIT or task', 400
 
@@ -312,34 +321,42 @@ def user_controllers(router, socket, service: ChatService):
             return index() # sending index page for now. We can do better later
 
         # Step2. Find the mapping user
-        user = User.query.filter_by(ext_src=C.MTURK, ext_id=worker_id).first()
-        if not user:
-            # sign up and come back (so set next)
-            return flask.redirect(url_for('app.login', action='signup', ext_id=worker_id, ext_src=C.MTURK, next=request.url))
+        user = User.query.filter_by(ext_src=ext_src, ext_id=worker_id).first()
+        if not user: # sign up and come back (so set next)
+            return flask.redirect(url_for('app.login', action='signup', ext_id=worker_id, ext_src=ext_src, next=request.url))
         elif not FL.current_user or FL.current_user.get_id() != user.id:
-                flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
-                return flask.redirect(url_for('app.login', action='login', next=request.url))
+            FL.logout_user()
+            flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
+            return flask.redirect(url_for('app.login', action='login', next=request.url))
 
         # user exist, logged in => means user already signed up and doing so, gave consent,     
         # Step 3: map assignment to chat thread -- 
         data = {
-            C.MTURK: {
-            'sumit_url': submit_url,
-            'is_sandbox': 'workersandbox' in submit_url,
-            'assignment_id': assignmet_id,
-            'hit_id': hit_id,
-            'worker_id': worker_id
-        }}
+            ext_src : {
+                'sumit_url': submit_url,
+                'is_sandbox': 'workersandbox' in submit_url,
+                'assignment_id': assignmet_id,
+                'hit_id': hit_id,
+                'worker_id': worker_id
+            }
+        }
         chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
-            ext_id=ext_id, ext_src=C.MTURK, data=data)
+            ext_id=assignmet_id, ext_src=ext_src, data=data)
 
         assert chat_thread
-        return get_thread(thread_id=chat_thread)
+        return get_thread(thread_id=chat_thread.id, focus_mode=True)
 
 
 def admin_controllers(router, service: ChatService):
     from .model import User, ChatMessage, ChatThread, ChatTopic
 
+    # attach routes specific to crowd backend e.g. mturk
+    if service.crowd_name in (C.MTURK, C.MTURK_SANDBOX):
+        MTurkController(service.crowd_service).register_routes(router, login_decorator=admin_login_required)
+
+    admin_templ_args = dict(crowd_name = service.crowd_name)
+
+    # all other routes
     @router.route('/')
     @admin_login_required
     def index():
@@ -349,7 +366,7 @@ def admin_controllers(router, service: ChatService):
             topic=ChatTopic.query.count(),
             message=ChatMessage.query.count(),
             )
-        return render_template('admin/index.html', counts=counts)
+        return render_template('admin/index.html', counts=counts, **admin_templ_args)
 
     @router.route('/thread/<thread_id>/export')
     @admin_login_required
@@ -363,19 +380,19 @@ def admin_controllers(router, service: ChatService):
     @admin_login_required
     def get_users():
         users = User.query.order_by(User.last_active.desc()).limit(C.MAX_PAGE_SIZE).all()
-        return render_template('admin/users.html', users=users)
+        return render_template('admin/users.html', users=users, **admin_templ_args)
 
     @router.route('/thread/')
     @admin_login_required
     def get_threads():
         threads = ChatThread.query.order_by(ChatThread.time_updated.desc(), ChatThread.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
-        return render_template('admin/threads.html', threads=threads)
+        return render_template('admin/threads.html', threads=threads, **admin_templ_args)
 
     @router.route('/topic/')
     @admin_login_required
     def get_topics():
         topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
-        return render_template('admin/topics.html', topics=topics)
+        return render_template('admin/topics.html', topics=topics, **admin_templ_args)
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
     @admin_login_required
@@ -383,8 +400,8 @@ def admin_controllers(router, service: ChatService):
         topic = ChatTopic.query.get(topic_id)
         if not topic:
             return f'Topic {topic_id} not found', 404
-        if not service.crowd_service or service.crowd_service.name != crowd_name:
-            return f'Crowd backend {crowd_name} is not configured', 400
+        if crowd_name and service.crowd_name != crowd_name:
+            return f'Crowd backend {crowd_name} is not configured. Currently serving {service.crowd_name}', 400
 
         if topic.ext_id:
             return f'Topic {topic_id} already has been launched on {topic.ext_src}'
@@ -394,3 +411,4 @@ def admin_controllers(router, service: ChatService):
             return dict(staus='success', ext_id=ext_id), 200
         else:
             return 'Error: we couldnt launch on crowd', 400
+
