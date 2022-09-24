@@ -151,10 +151,14 @@ class MTurkService:
     def task_complete(self, thread: ChatThread, result):
         assert thread.ext_src == self.name
         assignment_id = thread.ext_id
-        log.info(f'marking Assignment {assignment_id} as compplete')
+        log.info(f'Marking Assignment {assignment_id} as complete')
         data = { str(key): str(val) for key, val in result.items()}
         data['assignmentId'] = thread.ext_id
-        requests.post(self.external_submit_url, data=data)
+        data['topicId'] = thread.topic_id
+        data['threadId'] = thread.id
+        reply = requests.post(self.external_submit_url, data=data)
+        log.info(f'reply : {reply}')
+        return reply.status_code == 200
 
 
 class MTurkController:

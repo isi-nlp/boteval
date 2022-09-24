@@ -22,7 +22,7 @@
           <span class="text-muted">{{ loop.index }} ― </span>
 
           <a href="../HIT/{{ hit_id }}">
-            {{ hit_id }} | {{ HIT['Title'] }}</a>
+            {{ hit_id }} | {{ HIT['Title'] }}</a> {{ HIT['HITStatus'] }} {{ HIT['HITReviewStatus'] }}
           <details style="display: inline">
             <summary>⤵</summary>
             {% for key, value in HIT.items() %}

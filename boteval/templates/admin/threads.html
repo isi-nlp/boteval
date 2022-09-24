@@ -36,7 +36,20 @@
             <li><a href="{{url_for('admin.thread_export', thread_id=thread.id)}}" target="_blank">Export</a></li>
             <li><a href="{{url_for('app.get_thread', thread_id=thread.id)}}" target="_blank">Open Chat</a></li>
           </ul> </td>
-          <td> {{thread.ext_src or ''}}  {{thread.ext_id or ''}}</td>
+          <td>
+            {% if thread.ext_id %} 
+            <ul>
+              <li>{{thread.ext_src or ''}} ID:  {{thread.ext_id or ''}}</li>
+              <li>
+                {% set ext_done = (thread.data or {}).get(thread.ext_src, {}).get('is_complete') %}
+                {% if ext_done %} <p class="alert-success">{{thread.ext_src}} is informed as this task is complete </p>
+                 {% else %} <p class="alert-warning">{{thread.ext_src}} is not informed</p>
+                 <a class="btn btn-primary btn-sm" href="{{url_for('admin.inform_task_complete', thread_id=thread.id)}}">Inform Task Completion</a> {%endif%}
+              </li>
+            </ul>
+            
+            {%else%} N/A {% endif%}
+          </td>
         </tr>
         {% endfor %}
       </table>

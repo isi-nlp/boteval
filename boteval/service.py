@@ -266,7 +266,8 @@ class ChatService:
         thread.data.update(dict(ratings=ratings, rating_done=True))
         thread.episode_done = True
         if self.crowd_service and thread.ext_id:
-            self.crowd_service.task_complete(thread, ratings)
+            if self.crowd_service.task_complete(thread, ratings):
+                thread.data[thread.ext_src]['is_complete'] = True
 
         thread.flag_data_modified()
         db.session.merge(thread)

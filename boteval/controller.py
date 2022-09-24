@@ -412,3 +412,21 @@ def admin_controllers(router, service: ChatService):
         else:
             return 'Error: we couldnt launch on crowd', 400
 
+    @router.route('/thread/<thread_id>/ext_complete')
+    @admin_login_required
+    def inform_task_complete(thread_id):
+        log.info(f"Inform task complete")
+        thread: ChatThread = ChatThread.query.get(thread_id)
+        if not thread:
+            return f'Invalid request: no thread with {thread_id}  found', 400
+        if not thread.ext_id:
+            return f'Invalid request: {thread_id} has not external counterpart', 400
+
+        if service.crowd_service.task_complete(thread, result=dict()):
+            thread.data[thread.ext_src]['is_complete'] = True
+            thread.flag_data_modified()
+            db.session.merge(thread)
+            db.session.commit()
+            return 'Success', 200
+        else:
+            return 'Something went wrong', 500
