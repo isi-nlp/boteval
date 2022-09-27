@@ -1,7 +1,6 @@
-model-chat*
 **.pyc
 __pycache__
 *.db
-darma-task
 *.egg-info
 *.history*.txt
+build/

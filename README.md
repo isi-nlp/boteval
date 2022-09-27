@@ -6,6 +6,13 @@ This project offers a web interface to admnister darma chats
 
 > Requires Python 3.9 or newer
 
+Create an environment (if there is not one already)
+```bash
+conda create -n boteval python=3.9
+conda activate boteval
+```
+
+
 ```bash
 git clone  https://github.com/thammegowda/boteval
 cd boteval
