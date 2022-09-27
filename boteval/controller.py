@@ -171,6 +171,11 @@ def user_controllers(router, socket, service: ChatService):
     @router.route('/about', methods=['GET'])
     def about():
         return render_template('about.html')
+    
+    @router.route('/instructions', methods=['GET'])
+    def instructions():
+        return render_template('page.html', content=service.instructions)
+
 
     @router.route('/', methods=['GET'])
     @FL.login_required

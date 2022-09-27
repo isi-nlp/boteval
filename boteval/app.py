@@ -2,14 +2,13 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from datetime import datetime
 from pathlib import Path
 import time
-import ssl
 
 import flask
-from flask import Flask, Blueprint, url_for
+from flask import Flask, Blueprint
 from flask_socketio import SocketIO
-from flask_login import LoginManager, login_url
+from flask_login import LoginManager
 
-from . import log, __version__, yaml, db, C
+from . import log, __version__, db, C, TaskConfig
 from .controller import user_controllers, admin_controllers, init_login_manager, register_app_hooks
 from .service import ChatService
 
@@ -53,8 +52,10 @@ def parse_args():
         prog="boteval",
         description="Deploy chat bot evaluation",
         formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-c', '--config', type=Path, help='Path to config file',
-                        default=Path('conf.yml'))
+
+    parser.add_argument('-t', '--task-dir', type=Path, help='Path to task dir.',
+                    required=True)
+    parser.add_argument('-c', '--config', type=Path, help='Path to config file. Default is <task-dir>/conf.yml')
     parser.add_argument("-b", "--base", type=str, help="Base path prefix for all urls")
 
     parser.add_argument("-d", "--debug", action="store_true", help="Run Flask server in debug mode")
@@ -71,12 +72,24 @@ def parse_args():
 
 
 def init_app(**args):
-    config_file: Path = args['config']
+    
+    task_dir: Path = args['task_dir']
+    config_file: Path = args.get('config') or (task_dir / 'conf.yml')
     assert config_file.exists() and config_file.is_file(), f'Expected config YAML file at {config_file}, but it is not found'
-    config = yaml.load(config_file)
+    
+    config = TaskConfig.load(config_file)
     # load flask configs; this includes flask-sqlalchemy
     app.config.from_mapping(config['flask_config'])
-    service = ChatService(config=config)
+    db_uri = app.config.get('SQLALCHEMY_DATABASE_URI')
+    if not db_uri:
+        #relative_path = task_dir.resolve().relative_to(Path('.').resolve())
+        db_file_name = app.config.get('DATABASE_FILE_NAME', C.DEF_DATABSE_FILE)
+        assert  '/' not in db_file_name
+        db_uri = f'sqlite:///{task_dir.resolve()}/{db_file_name}'
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+        log.info(f'>>SQLALCHEMY_DATABASE_URI={db_uri}')
+        
+    service = ChatService(config=config, task_dir=task_dir)
 
     with app.app_context():
         login_manager.init_app(app)

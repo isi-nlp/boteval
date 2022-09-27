@@ -6,6 +6,7 @@ DEF_ADDR = '0.0.0.0'
 
 ERROR = 'error'
 SUCCESS = 'success'
+BOT_DISPLAY_NAME = 'Moderator'
 
 LIMIT_MAX_THREADS_PER_USER = 'max_threads_per_user'
 LIMIT_MAX_THREADS_PER_TOPIC = 'max_threads_per_topic'
@@ -16,11 +17,14 @@ DEF_MAX_THREADS_PER_USER = 10
 DEF_MAX_TURNS_PER_THREAD = 100
 DEF_REWARD = '0.0'
 
-BOT_DISPLAY_NAME = 'Moderator'
 USER_ACTIVE_UPDATE_FREQ = 2 * 60 # seconds
 MAX_PAGE_SIZE = 40
 
 
+DEF_TOPICS_FILE = 'topics.json'
+DEF_INSTRUCTIONS_FILE = 'instructions.html'
+DEF_AGREEMENT_FILE = 'user-agreement.html'
+DEF_DATABSE_FILE = 'boteval.sqlite.db'
 
 ENV = {}
 for env_key in ['GTAG']:
@@ -43,4 +47,5 @@ MTURK_SANDBOX = 'mturk_sandbox'
 MTURK_SANDBOX_URL = 'https://mturk-requester-sandbox.us-east-1.amazonaws.com'
 AWS_MAX_RESULTS = 100 
 MTURK_LOG_LEVEL = logging.INFO
+
 

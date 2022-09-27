@@ -13,7 +13,10 @@ import requests
 from sqlalchemy import func
 from sqlalchemy.orm import attributes
 
-from  . import log, db, C
+from boteval.constants import DEF_INSTRUCTIONS_FILE
+
+
+from  . import log, db, C, TaskConfig
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
 from .bots import BotAgent, load_bot_agent
 from .mturk import MTurkService
@@ -101,13 +104,21 @@ class FileExportService:
 
 class ChatService:
 
-    def __init__(self, config):
+    def __init__(self, config: TaskConfig, task_dir:Path):
         self.config = config
+        self.task_dir = task_dir
+        self.task_dir.mkdir(exist_ok=True, parents=True)
         self._bot_user = None
         self._context_user = None
-        self.topics_file = self.config['chatbot']['topics_file']
+        
+        topics_file = self.config['chatbot'].get('topics_file', C.DEF_TOPICS_FILE)
+        self.topics_file = self.resolve_path(topics_file)
+        instructions_file = self.config['chatbot'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
+        self.instructions_file = self.resolve_path(instructions_file)
+        self._instructions = None
 
-        self.exporter = FileExportService(config['chat_dir'])
+
+        self.exporter = FileExportService(self.resolve_path(config['chat_dir']))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
         self.bot_agent = load_bot_agent(bot_name, bot_args)
@@ -116,13 +127,24 @@ class ChatService:
 
         self.onboarding = config.get('onboarding') and copy.deepcopy(config['onboarding'])
         if  self.onboarding and 'agreement_file' in self.onboarding:
-            self.onboarding['agreement_text'] = Path(self.onboarding['agreement_file']).read_text()
+            self.onboarding['agreement_text'] = self.resolve_path(self.onboarding['agreement_file']).read_text()
 
         self.crowd_service = None
         if C.MTURK in self.config:
             self.crowd_service = MTurkService.new(**self.config[C.MTURK])
-        
         #self._external_url_ok = None
+        
+    def resolve_path(self, *args):
+        return Path(self.task_dir, *args)
+
+    @property
+    def instructions(self) -> str:
+        if not self._instructions:
+            if self.instructions_file.exists():
+                self._instructions = self.instructions_file.read_text()
+            else:
+                self._instructions = 'No instructions have been found for this task'
+        return self._instructions
 
     """
     @property
@@ -157,7 +179,6 @@ class ChatService:
 
 
     def init_db(self, init_topics=True):
-
         
         if not User.query.get(C.Auth.ADMIN_USER):
             User.create_new(
@@ -183,7 +204,7 @@ class ChatService:
 
         if init_topics:
             assert self.topics_file
-            topics_file = Path(self.topics_file).resolve()
+            topics_file = self.topics_file.resolve()
             topics_file.exists(), f'{topics_file} not found'
 
             with open(topics_file, encoding='utf-8') as out:
@@ -213,7 +234,6 @@ class ChatService:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
             if topic_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_TOPIC]:
                 return True, 'This topic has exceeded maximum permissible threads'
-
         return False, ''
 
     def get_topics(self):
