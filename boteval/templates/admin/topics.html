@@ -13,8 +13,7 @@
   <div class="row">
     <div class="col-12">
     {%set ext_url= url_for('app.index', _external=True, _scheme='https')%}
-        External URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a>
-
+        External URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a> Okay? {{external_url_ok and 'Yes' or 'No'}}
     <div class="alert {%if external_url_ok %} alert-info {%else%} alert-warning {%endif%}">
     If you are planning to crowdsource tasks on platfoprms like MTurk, make sure to have the above URL is accessible via the (public) Internet.      <br/>
       <details>

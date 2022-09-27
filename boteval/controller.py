@@ -439,7 +439,8 @@ def admin_controllers(router, service: ChatService):
         topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
         thread_counts = service.get_thread_counts(episode_done=True)
         topics = [(topic, thread_counts.get(topic.id, 0)) for topic in topics]
-        return render_template('admin/topics.html', topics=topics, ext_url_ok=service.is_external_url_ok, **admin_templ_args)
+        return render_template('admin/topics.html', topics=topics,
+                               external_url_ok=service.is_external_url_ok, **admin_templ_args)
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
     @admin_login_required
