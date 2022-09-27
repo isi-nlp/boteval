@@ -9,7 +9,7 @@
     </ol>
   </nav>
 
-  <h1 class="text-center">{% block title %} Chat Admin {% endblock %}</h1>
+  <h3 class="text-center">{% block title %} Chat Admin {% endblock %}</h3>
   <div class="row">
     <div class="col-12">
       <div class="card">
@@ -20,17 +20,19 @@
       <table class="table table-striped">
         <tr>
           <th scope="col">ID</th>
+          <th scope="col">Topic</th>
           <th scope="col">Users</th>
-          <th scope="col">Episode|Ratings</th>
+          <th scope="col">Episode | Ratings</th>
           <th scope="col">Time</th>
           <th scope="col">Actions</th>
           <th scope="col">Ext</th>
         </tr>
         {% for thread in threads %}
         <tr>
-          <td scope="row"> {{thread.id}}  </td>
+          <td scope="row"> {{thread.id}} </td>
+          <td> {{thread.topic_id}} </td>
           <td scope="row"> {% for user in thread.users %} <code>{{user.id}}</code>,  {%endfor%}</td>
-          <td> Done: {{thread.episode_done}} | {{thread.data.get('rating_done', '')}} </td>
+          <td> {{thread.episode_done}}, {{thread.data.get('rating_done', '')}} </td>
           <td> {{thread.time_created|ctime}} {{thread.time_modified|ctime}}  </td>
           <td> <ul>
             <li><a href="{{url_for('admin.thread_export', thread_id=thread.id)}}" target="_blank">Export</a></li>
@@ -39,13 +41,7 @@
           <td>
             {% if thread.ext_id %} 
             <ul>
-              <li>{{thread.ext_src or ''}} ID:  {{thread.ext_id or ''}}</li>
-              <li>
-                {% set ext_done = (thread.data or {}).get(thread.ext_src, {}).get('is_complete') %}
-                {% if ext_done %} <p class="alert-success">{{thread.ext_src}} is informed as this task is complete </p>
-                 {% else %} <p class="alert-warning">{{thread.ext_src}} is not informed</p>
-                 <a class="btn btn-primary btn-sm" href="{{url_for('admin.inform_task_complete', thread_id=thread.id)}}">Inform Task Completion</a> {%endif%}
-              </li>
+              <li>{{thread.ext_src or ''}}   ID:  {{thread.ext_id or ''}} </li>
             </ul>
             
             {%else%} N/A {% endif%}

@@ -88,7 +88,7 @@ def init_app(**args):
 
     bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
     user_controllers(router=bp, socket=socket, service=service)
-    base_prefix = args.get('base', '')
+    base_prefix = args.get('base') or ''
     app.register_blueprint(bp, url_prefix=base_prefix)
 
     admin_bp = Blueprint('admin', __name__, template_folder='templates', static_folder='static')

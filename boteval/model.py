@@ -114,6 +114,10 @@ class User(BaseModelWithExternal):
     @property
     def is_authenticated(self):
         return self.is_active
+    
+    @property
+    def is_admin(self):
+        return self.role == self.ROLE_ADMIN
 
     @property
     def is_anonymous(self):
@@ -224,6 +228,10 @@ class ChatThread(BaseModelWithExternal):
             users=[u.as_dict() for u in self.users],
             messages=[m.as_dict() for m in self.messages]
         )
+        
+    @property
+    def socket_name(self):
+        return f'sock4thread_{self.id}'
 
 
 class ChatTopic(BaseModelWithExternal):

@@ -52,10 +52,9 @@ mturk:
 
 flask_config:
   # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
-  SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev3.db
+  SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev-01.db
   SQLALCHEMY_TRACK_MODIFICATIONS: false
   #SERVER_NAME: localhost
   SERVER_NAME: dev.gowda.ai
   PREFERRED_URL_SCHEME: https
-
 

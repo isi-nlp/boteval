@@ -70,32 +70,36 @@
                 </div>
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
-            <div {% if cur_user.role !='admin' and remaining_turns.value> 0 %} style="display:none" {%endif%}
-                id="ratings-view" class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
-                {%set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
-
-                <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
-                    class="form">
-                    <b>Rate this conversation:</b>
-                    {% for q in rating_questions %}
-                    {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
-                    <li class="list-group-item">
-                        <i>{{q['question']}}</i>
-                        <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"
-                            max="{{q['choices']|length}}" name="{{q['question']}}"
-                            value="{{prev_ratings.get(q['question'])}}" {{is_disabled}}>
-                        <datalist id="tickmarks-{{loop.index}}"
-                            style="display: flex; justify-content: space-between; width: 100%;">
-                            {% for ch in q['choices'] %}
-                            <option>{{ch}}</option>
-                            {%endfor%}
-                        </datalist>
-                    </li>
-                    {% endfor %}
-                    {% if focus_mode %} <input name="focus_mode" value="True" type="hidden" /> {%endif%}
-                    <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}} />
-                </form>
-                <hr />
+            <div class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left"> 
+                <p class="text-muted">
+                    {{thread.ext_src}} {{thread.ext_id}}
+                </p>
+                <div {% if not cur_user.is_admin and remaining_turns.value > 0 %} style="display:none" {%endif%}
+                    id="ratings-view">
+                    {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
+                    <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
+                        class="form">
+                        <b>Rate this conversation:</b>
+                        {% for q in rating_questions %}
+                        {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
+                        <li class="list-group-item">
+                            <i>{{q['question']}}</i>
+                            <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"
+                                max="{{q['choices']|length}}" name="{{q['question']}}"
+                                value="{{prev_ratings.get(q['question'])}}" {{is_disabled}}>
+                            <datalist id="tickmarks-{{loop.index}}"
+                                style="display: flex; justify-content: space-between; width: 100%;">
+                                {% for ch in q['choices'] %}
+                                <option>{{ch}}</option>
+                                {%endfor%}
+                            </datalist>
+                        </li>
+                        {% endfor %}
+                        {% if focus_mode %} <input name="focus_mode" value="True" type="hidden" /> {%endif%}
+                        <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}} />
+                    </form>
+                    <hr/>
+                </div>
             </div>
         </div>
     </div>
@@ -103,6 +107,7 @@
     <script type="text/javascript">
 
         var remaining_turns = {{ remaining_turns.value }};
+        let socket_name = '{{socket_name}}';
 
         function show_new_message(msg, side) {
             let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
@@ -146,17 +151,32 @@
             socket.on('disconnect', () => {
                 console.log('socket disconnected')
                 $('#status_info').text('Disconnected').attr('class', 'btn btn-sm btn-danger')
-                //socket.emit('my event', {data: 'User Dis Connected'})
+                socket.emit('user_connect', { message: 'User disconnected', user: user_data })
             });
 
-            // TODO: register socket on {{thread.id}}
             // catch all event listener
             socket.prependAny((event, ...args) => {
                 console.log(`got ${event} \t args:`);
                 console.log(args)
             });
 
-            $("#next_msg_text").keyup(event => {
+            // new message from server; this is specific to chat thread
+            socket.on(socket_name, (reply) => {
+                console.log('got reply in ' + socket_name)
+                console.log(reply)
+                if (reply['head']['status'] == 'success') {
+                    if (reply['body']['episode_done']) {
+                        $('#ratings-view').show()
+                        remaining_turns = 0
+                    }
+                    msg_id = show_new_message(reply['body'], side = 'left')
+                    $('#next_msg_text').val('')
+                } else {
+                    alert('Something went wrong. See logs.')
+                }
+            });
+
+            $("#next_msg_text").keyup(event => {  // submit on enter key
                 if (event.which === 13) {
                     $("#next_msg_form").submit();
                 }
@@ -176,18 +196,8 @@
                 msg_id = show_new_message(data, side = 'right')
                 console.log(data)
                 socket.emit('new_message', data, (reply) => {
-                    console.log('server reply:')
-                    console.log(reply)
-                    if (reply['head']['status'] == 'success') {
-                        if (reply['body']['episode_done']) {
-                            $('#ratings-view').show()
-                            remaining_turns = 0
-                        }
-                        msg_id = show_new_message(reply['body'], side = 'left')
-                        $('#next_msg_text').val('')
-                    } else {
-                        alert('Something went wrong. See logs.')
-                    }
+                    console.log('server reply:' + reply)
+                    // TODO: show delivered check mark
                 })
             })
             refresh_view()

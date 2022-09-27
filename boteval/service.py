@@ -3,7 +3,7 @@
 from pathlib import Path
 import json
 from threading import Thread
-from typing import List, Mapping, Optional, Union
+from typing import List, Mapping, Optional, Tuple, Union
 import functools
 from datetime import datetime
 import copy
@@ -204,6 +204,10 @@ class ChatService:
                 db.session.add_all(objs)
         db.session.commit()
 
+    def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
+        # TODO: implement
+        return False, ''
+
     def get_topics(self):
         return ChatTopic.query.all()
 
@@ -221,6 +225,7 @@ class ChatService:
             if any(user.id == tu.id for tu in tt.users):
                 log.info('Topic thread alredy exists; reusing it')
                 thread = tt
+                break
 
         if not thread and create_if_missing:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
@@ -265,16 +270,12 @@ class ChatService:
 
         thread.data.update(dict(ratings=ratings, rating_done=True))
         thread.episode_done = True
-        if self.crowd_service and thread.ext_id:
-            if self.crowd_service.task_complete(thread, ratings):
-                thread.data[thread.ext_src]['is_complete'] = True
 
         thread.flag_data_modified()
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
         self.exporter.export_thread(thread, rating_questions=self.ratings)
-
 
     @functools.lru_cache(maxsize=256)
     def cached_get(self, thread):

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- We have to submit to Mturk from client browser 
+I (TG) tried doing this on server side, but mturk didnt accept it. 
+They probably need some headers and cookies of logged in user (and ensure no other user can mark task as complete). 
+The simple thing is justy redirect 
+-->
+<div class="row">
+    {% set assignment_id = thread.ext_id %}
+    {% set submit_url = thread.data[thread.ext_src]['submit_url'] %}
+
+    <div class="col-12">
+        <p class="text"> Great job! This HIT is now complete.<br/>
+            <br/>
+            One last thing..., we are going to inform Mechanical Turk about the task completion. 
+            This should happen automatically, otherwise, please click "Inform .." button below.
+    </div>
+    <form class="form col-12" id="external-submit" action="{{submit_url}}" method="POST">
+        <input type="hidden" name="assignmentId" value="{{assignment_id}}">
+        <input type="hidden" name="threadId" value="{{thread.id}}">
+        <input type="hidden" name="topicId" value="{{thread.topic_id}}">
+        <input type="hidden" name="userId" value="{{user.id}}">
+        <input class="btn btn-primary" type="submit" value="Inform MTurk about the task completion">
+    </form>
+    <script type="text/javascript">
+        document.onload = function() {
+            console.log('Automatically submitting the form.')
+            document.getElementById('external-submit').submit()
+        }
+    </script>
+</div>
+
+{%endblock%}

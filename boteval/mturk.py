@@ -5,6 +5,8 @@ import logging
 
 import boto3
 import requests
+from flask import request
+import datetime
 
 from . import C, log
 from .utils import jsonify, render_template
@@ -88,7 +90,10 @@ class MTurkService:
 
     def list_assignments(self, HIT_id: str, max_results=C.AWS_MAX_RESULTS):
         return self.client.list_assignments_for_hit(
-            HITId=HIT_id, MaxResults=max_results)
+            HITId=HIT_id,
+            MaxResults=max_results,
+            AssignmentStatuses=['Submitted', 'Approved', 'Rejected']
+        )
 
     def qualify_worker(self, worker_id: str, qual_id: str, send_email=True):
         log.info(f"Qualifying worker: {worker_id} for {qual_id}")
@@ -107,7 +112,7 @@ class MTurkService:
             Reason=reason
             )
 
-    def create_HIT(self, external_url, max_assignments, reward, description, title=None, frame_height=640, **kwargs):
+    def create_HIT(self, external_url, max_assignments, reward, description, title=None, frame_height=800, **kwargs):
         if not external_url.startswith('https://'):
             raise Exception(f"MTurk requires HTTPS URL")
 
@@ -151,12 +156,15 @@ class MTurkService:
     def task_complete(self, thread: ChatThread, result):
         assert thread.ext_src == self.name
         assignment_id = thread.ext_id
-        log.info(f'Marking Assignment {assignment_id} as complete')
+        
         data = { str(key): str(val) for key, val in result.items()}
         data['assignmentId'] = thread.ext_id
         data['topicId'] = thread.topic_id
         data['threadId'] = thread.id
-        reply = requests.post(self.external_submit_url, data=data)
+        url = self.external_submit_url + f'?assignmentId={thread.ext_id}'
+        log.info(f'Marking Assignment {assignment_id} as complete; url={url}')
+        headers = {'Content-Type': 'application/x-www-form-urlencoded',}
+        reply = requests.post(url, data=data, headers=headers)
         log.info(f'reply : {reply}')
         return reply.status_code == 200
 
@@ -172,11 +180,13 @@ class MTurkController:
         """
         #assert where in ('live', 'sandbox')
         #self.where = where
-        self.mturk = mturk
+        self.mturk: MTurkService = mturk
         self.templates_dir = templates_dir
-        self.meta = dict(mturk_endpoint_url=self.mturk.endpoint_url, crowd_name=self.mturk.name)
+        self.meta = dict(mturk_endpoint_url=self.mturk.endpoint_url,
+                         crowd_name=self.mturk.name)
         assert mturk.name in (C.MTURK, C.MTURK_SANDBOX)
-
+        self.meta['mturk_where'] = {C.MTURK: 'live', C.MTURK_SANDBOX: 'sandbox'}[mturk.name]
+        self.meta['crowd_name'] = mturk.name
     def register_routes(self, router, login_decorator=None):
         log.info(f'Registering mturk routes')
         rules = [
@@ -185,8 +195,9 @@ class MTurkController:
             ('/qualification/<qual_id>', self.get_qualification, dict(methods=["GET"])),
             ('/qualification/<qual_id>', self.delete_qualification, dict(methods=['DELETE'])),
             ('/HIT/', self.list_HITs, dict(methods=["GET"])),
-            ('/HIT/<HIT_id>', self.get_HIT,dict(methods=["GET"])),
+            ('/HIT/<HIT_id>', self.get_HIT, dict(methods=["GET"])),
             ('/HIT/<HIT_id>', self.delete_hit, dict(methods=['DELETE'])),
+            ('/HIT/<HIT_id>/expire', self.expire_HIT, dict(methods=['DELETE'])),
             ('/assignment/<asgn_id>/approve', self.approve_assignment, dict(methods=["POST"])),
             ('/worker/<worker_id>/qualification', self.qualify_worker, dict(methods=["POST", "PUT"])),
             ('/worker/<worker_id>/qualification', self.disqualify_worker, dict(methods=["DELETE"])),
@@ -252,4 +263,11 @@ class MTurkController:
         log.info(f"Disqualify: worker: {worker_id} from qualification: {qual_id}")
         reason = request.values.get('reason', '')
         data = self.mturk.disqualify_worker(worker_id=worker_id,qual_id=qual_id, reason=reason)
+        return jsonify(data), data.get('HTTPStatusCode', 200)
+
+    def expire_HIT(self, HIT_id):
+        log.info(f"Expiring HIT: {HIT_id}")
+        data = self.mturk.client.update_expiration_for_hit(
+                HITId=HIT_id, ExpireAt=datetime.datetime(2021, 1, 1)
+            )
         return jsonify(data), data.get('HTTPStatusCode', 200)

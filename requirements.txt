@@ -7,5 +7,6 @@ flask-socketio
 #gunicorn
 flask-login
 flask_sqlalchemy
-#
+
+requests
 transformers

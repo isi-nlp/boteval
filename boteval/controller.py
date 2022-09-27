@@ -210,11 +210,15 @@ def user_controllers(router, socket, service: ChatService):
     @router.route('/launch-topic/<topic_id>', methods=['GET'])
     @FL.login_required
     def launch_topic(topic_id):
-        if FL.current_user.role == User.ROLE_ADMIN:
+        user = FL.current_user
+        if user.is_admin:
             return 'Wait, Admin! Create or use normal user a/c to chat.', 400
         topic = service.get_topic(topic_id=topic_id)
         if not topic:
             return f'Topic {topic} not found', 400
+        if user.ext_id:  # create thread via crowd-source interface, or we dont know how to pay back to them
+            return f'Error: Wait! You should launch a new task via {user.ext_src} interface to receive payments.', 400
+
         thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
         return flask.redirect(url_for('app.get_thread', thread_id=thread.id))
 
@@ -230,6 +234,7 @@ def user_controllers(router, socket, service: ChatService):
         return render_template('user/chatui.html', limits=service.limits,
                                thread=thread,
                                topic=topic,
+                               socket_name=thread.socket_name,
                                rating_questions=ratings,
                                focus_mode=focus_mode,
                                data=dict())
@@ -244,6 +249,9 @@ def user_controllers(router, socket, service: ChatService):
         ratings = {key: val for key, val in request.form.items()}
         focus_mode = ratings.pop('focus_mode', None)
         service.update_thread_ratings(thread, ratings=ratings)
+        if thread.ext_src in (C.MTURK, C.MTURK_SANDBOX):
+            return render_template('user/mturk_submit.html', thread=thread,
+                                   user=FL.current_user, focus_mode=focus_mode)
         note_text = 'Great job! You have completed a thread!'
         if focus_mode:
             return note_text, 200
@@ -264,7 +272,6 @@ def user_controllers(router, socket, service: ChatService):
     @socket.on('new_message')
     @login_required_socket
     def handle_new_message(msg, methods=['GET', 'POST']):
-        # TODO: bind each client to thread_id and reply messages to thread_id
         log.info('received new_message: ' + str(msg))
 
         text = msg.get('text', '').strip()
@@ -295,7 +302,11 @@ def user_controllers(router, socket, service: ChatService):
                 'thread_id': reply.thread_id,
                 'episode_done': episode_done
             }
-            return wrap(body=reply_dict)
+            #return wrap(body=reply_dict)
+            socket.emit(thread.socket_name, wrap(reply_dict))
+            
+            # TODO: make this asynchronous
+            return dict(status=C.SUCCESS)
         except Exception as e:
             log.exception(e)
             return wrap(status=C.ERROR, description='Something went wrong on server side')
@@ -309,9 +320,14 @@ def user_controllers(router, socket, service: ChatService):
         hit_id = request.values.get('hitId')
         worker_id = request.values.get('workerId')          # wont be available while previewing
         submit_url = request.values.get('turkSubmitTo', '') # wont be available while previewing
+        if not hit_id:
+            return 'HITId not found. This URL is reserved for Mturk users only', 400
 
-        #Our mapping: Worker=User; Assignment = ChatThread; HIT=ChatTopic
         ext_src = C.MTURK_SANDBOX if 'sandbox' in submit_url else C.MTURK 
+        if submit_url:
+            submit_url = submit_url.rstrip('/') + '/mturk/externalSubmit'
+        
+        #Our mapping: Worker=User; Assignment = ChatThread; HIT=ChatTopic
         # Step 1: map Hit to Topic, so we can perview it
         topic = ChatTopic.query.filter_by(ext_id=hit_id).first()
         if not topic:
@@ -323,17 +339,26 @@ def user_controllers(router, socket, service: ChatService):
         # Step2. Find the mapping user
         user = User.query.filter_by(ext_src=ext_src, ext_id=worker_id).first()
         if not user: # sign up and come back (so set next)
-            return flask.redirect(url_for('app.login', action='signup', ext_id=worker_id, ext_src=ext_src, next=request.url))
+            return flask.redirect(
+                url_for('app.login', action='signup', ext_id=worker_id,
+                        ext_src=ext_src, next=request.url))
         elif not FL.current_user or FL.current_user.get_id() != user.id:
             FL.logout_user()
             flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
             return flask.redirect(url_for('app.login', action='login', next=request.url))
 
+        # 
+        limit_exceeded, msg = service.limit_check(topic=topic, user=user)
+        if limit_exceeded:
+            return msg, 400
+        
+        if limit_exceeded:
+            return 'You are unable to '
         # user exist, logged in => means user already signed up and doing so, gave consent,     
         # Step 3: map assignment to chat thread -- 
         data = {
             ext_src : {
-                'sumit_url': submit_url,
+                'submit_url': submit_url,
                 'is_sandbox': 'workersandbox' in submit_url,
                 'assignment_id': assignmet_id,
                 'hit_id': hit_id,
@@ -343,7 +368,6 @@ def user_controllers(router, socket, service: ChatService):
         chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
             ext_id=assignmet_id, ext_src=ext_src, data=data)
 
-        assert chat_thread
         return get_thread(thread_id=chat_thread.id, focus_mode=True)
 
 
@@ -392,6 +416,8 @@ def admin_controllers(router, service: ChatService):
     @admin_login_required
     def get_topics():
         topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
+        thread_counts = service.get_thread_counts(episode_done=True)
+        topics = [(topic, thread_counts.get(topic.id, 0)) for topic in topics]
         return render_template('admin/topics.html', topics=topics, **admin_templ_args)
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
@@ -408,25 +434,6 @@ def admin_controllers(router, service: ChatService):
         ext_id = service.launch_topic_on_crowd(topic)
         if ext_id:
             flask.flash(f'Successfully launched {topic_id} on {crowd_name} as {ext_id}')
-            return dict(staus='success', ext_id=ext_id), 200
+            return flask.redirect(flask.url_for('admin.get_topics'))
         else:
             return 'Error: we couldnt launch on crowd', 400
-
-    @router.route('/thread/<thread_id>/ext_complete')
-    @admin_login_required
-    def inform_task_complete(thread_id):
-        log.info(f"Inform task complete")
-        thread: ChatThread = ChatThread.query.get(thread_id)
-        if not thread:
-            return f'Invalid request: no thread with {thread_id}  found', 400
-        if not thread.ext_id:
-            return f'Invalid request: {thread_id} has not external counterpart', 400
-
-        if service.crowd_service.task_complete(thread, result=dict()):
-            thread.data[thread.ext_src]['is_complete'] = True
-            thread.flag_data_modified()
-            db.session.merge(thread)
-            db.session.commit()
-            return 'Success', 200
-        else:
-            return 'Something went wrong', 500
