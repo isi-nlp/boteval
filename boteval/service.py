@@ -16,9 +16,7 @@ from sqlalchemy.orm import attributes
 from  . import log, db, C
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
 from .bots import BotAgent, load_bot_agent
-from .utils import jsonify
 from .mturk import MTurkService
-from . import constants
 
 
 class ChatManager:
@@ -36,7 +34,7 @@ class DialogBotChatManager(ChatManager):
     # 1-on-1 dialog between human and a bot
 
     def __init__(self, thread: ChatThread, bot_agent:BotAgent,
-                 max_turns:int=constants.DEF_MAX_TURNS_PER_THREAD):
+                 max_turns:int=C.DEF_MAX_TURNS_PER_THREAD):
         super().__init__(thread.id)
         # Note: dont save/cache thread object here as it will go out of sync with ORM, only save ID
         bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
@@ -144,7 +142,7 @@ class ChatService:
     @property
     def bot_user(self):
         if not self._bot_user:
-            self._bot_user = User.query.get(constants.Auth.BOT_USER)
+            self._bot_user = User.query.get(C.Auth.BOT_USER)
         return self._bot_user
 
     @property
@@ -154,30 +152,31 @@ class ChatService:
     @property
     def context_user(self):
         if not self._context_user:
-            self._context_user = User.query.get(constants.Auth.CONTEXT_USER)
+            self._context_user = User.query.get(C.Auth.CONTEXT_USER)
         return self._context_user
 
 
     def init_db(self, init_topics=True):
 
-        if not User.query.get(constants.Auth.ADMIN_USER):
+        
+        if not User.query.get(C.Auth.ADMIN_USER):
             User.create_new(
-                id=constants.Auth.ADMIN_USER, name='Chat Admin',
-                secret=constants.Auth.ADMIN_SECRET, role=User.ROLE_ADMIN)
+                id=C.Auth.ADMIN_USER, name='Chat Admin',
+                secret=C.Auth.ADMIN_SECRET, role=User.ROLE_ADMIN)
 
-        if not User.query.get(constants.Auth.DEV_USER): # for development
-            User.create_new(id=constants.Auth.DEV_USER, name='Developer',
-                            secret=constants.Auth.DEV_SECRET,
+        if not User.query.get(C.Auth.DEV_USER): # for development
+            User.create_new(id=C.Auth.DEV_USER, name='Developer',
+                            secret=C.Auth.DEV_SECRET,
                             role=User.ROLE_HUMAN)
 
-        if not User.query.get(constants.Auth.BOT_USER):
+        if not User.query.get(C.Auth.BOT_USER):
             # login not enabled. directly insert with empty string as secret
-            db.session.add(User(id=constants.Auth.BOT_USER, name='Chat Bot',
+            db.session.add(User(id=C.Auth.BOT_USER, name=C.BOT_DISPLAY_NAME or 'Chat Bot',
                                 secret='', role=User.ROLE_BOT))
 
-        if not User.query.get(constants.Auth.CONTEXT_USER):
+        if not User.query.get(C.Auth.CONTEXT_USER):
             # for loading context messages
-            db.session.add(User(id=constants.Auth.CONTEXT_USER,
+            db.session.add(User(id=C.Auth.CONTEXT_USER,
                                 name='Context User', secret='',
                                 role=User.ROLE_HIDDEN))
 
@@ -205,7 +204,16 @@ class ChatService:
         db.session.commit()
 
     def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
-        # TODO: implement
+        # total_threads = db.session.query(func.count(ChatThread.id)).scalar()
+        if user and self.limits.get(C.LIMIT_MAX_THREADS_PER_USER, 0) > 0:
+            user_thread_count = ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).count()
+            if user_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_USER]:
+                return True, 'User has exceeded maximum permissible threads'
+        if topic and self.limits.get(C.LIMIT_MAX_THREADS_PER_TOPIC, 0):
+            topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
+            if topic_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_TOPIC]:
+                return True, 'This topic has exceeded maximum permissible threads'
+
         return False, ''
 
     def get_topics(self):
@@ -279,8 +287,8 @@ class ChatService:
 
     @functools.lru_cache(maxsize=256)
     def cached_get(self, thread):
-        max_turns = self.config.get('limits', {}).get('max_turns_per_thread',
-                                                      constants.DEF_MAX_TURNS_PER_THREAD)
+        max_turns = self.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD,
+                                    C.DEF_MAX_TURNS_PER_THREAD)
         return DialogBotChatManager(thread=thread, bot_agent=self.bot_agent,
                                     max_turns=max_turns)
 
@@ -292,7 +300,7 @@ class ChatService:
     def get_rating_questions(self):
         return self.ratings
 
-    def launch_topic_on_crowd(self, topic:ChatTopic):
+    def launch_topic_on_crowd(self, topic: ChatTopic):
         if not self.crowd_service:
             log.warning('Crowd service not configured')
             return None
@@ -300,11 +308,12 @@ class ChatService:
         #    log.warning('External URL is not configured correctly. ')
         #    return None
         if self.crowd_name in (C.MTURK, C.MTURK_SANDBOX):                
-            landing_url = flask.url_for('app.mturk_landing', topic_id=topic.id, _external=True, _scheme='https')
+            landing_url = flask.url_for('app.mturk_landing', topic_id=topic.id,
+                                        _external=True, _scheme='https')
             log.info(f'mturk landing URL {landing_url}')
             ext_id, task_url, result = self.crowd_service.create_HIT(landing_url, 
-                max_assignments=self.limits.get('max_threads_per_topic', C.MAX_THREADS_PER_TOPIC),
-                reward=self.limits.get('reward', '0.0'),
+                max_assignments=self.limits.get(C.LIMIT_MAX_THREADS_PER_TOPIC, C.DEF_MAX_THREADS_PER_TOPIC),
+                reward=self.limits.get(C.LIMIT_REWARD, C.DEF_REWARD),
                 description=topic.name,
                 title=f'{topic.id}')
             ext_src = self.crowd_service.name

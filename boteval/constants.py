@@ -7,13 +7,19 @@ DEF_ADDR = '0.0.0.0'
 ERROR = 'error'
 SUCCESS = 'success'
 
+LIMIT_MAX_THREADS_PER_USER = 'max_threads_per_user'
+LIMIT_MAX_THREADS_PER_TOPIC = 'max_threads_per_topic'
+LIMIT_MAX_TURNS_PER_THREAD = 'max_turns_per_thread'
+LIMIT_REWARD = 'reward'
+DEF_MAX_THREADS_PER_TOPIC = 3
+DEF_MAX_THREADS_PER_USER = 10
 DEF_MAX_TURNS_PER_THREAD = 100
-BOT_DISPLAY_NAME = 'Moderator'
+DEF_REWARD = '0.0'
 
+BOT_DISPLAY_NAME = 'Moderator'
 USER_ACTIVE_UPDATE_FREQ = 2 * 60 # seconds
 MAX_PAGE_SIZE = 40
 
-MAX_THREADS_PER_TOPIC = 3
 
 
 ENV = {}

@@ -219,6 +219,10 @@ def user_controllers(router, socket, service: ChatService):
         if user.ext_id:  # create thread via crowd-source interface, or we dont know how to pay back to them
             return f'Error: Wait! You should launch a new task via {user.ext_src} interface to receive payments.', 400
 
+        limit_exceeded, msg = service.limit_check(topic=topic, user=user)
+        if limit_exceeded:
+            return msg, 400
+
         thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
         return flask.redirect(url_for('app.get_thread', thread_id=thread.id))
 
@@ -231,6 +235,7 @@ def user_controllers(router, socket, service: ChatService):
             return f'Thread {thread_id} found', 404
         ratings = service.get_rating_questions()
         topic = service.get_topic(thread.topic_id)
+        
         return render_template('user/chatui.html', limits=service.limits,
                                thread=thread,
                                topic=topic,
@@ -331,7 +336,11 @@ def user_controllers(router, socket, service: ChatService):
         # Step 1: map Hit to Topic, so we can perview it
         topic = ChatTopic.query.filter_by(ext_id=hit_id).first()
         if not topic:
-            return 'Invalid HIT or task', 400
+            return 'Invalid HIT or topic ID.', 400
+
+        limit_exceeded, msg = service.limit_check(topic=topic, user=None)
+        if limit_exceeded:
+            return msg, 400
 
         if is_previewing: 
             return index() # sending index page for now. We can do better later
@@ -347,7 +356,6 @@ def user_controllers(router, socket, service: ChatService):
             flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
             return flask.redirect(url_for('app.login', action='login', next=request.url))
 
-        # 
         limit_exceeded, msg = service.limit_check(topic=topic, user=user)
         if limit_exceeded:
             return msg, 400
