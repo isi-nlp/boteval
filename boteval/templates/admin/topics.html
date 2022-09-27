@@ -14,18 +14,25 @@
     <div class="col-12">
     {%set ext_url= url_for('app.index', _external=True, _scheme='https')%}
         External URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a>
-    <p class="text-muted">
-      Make sure the above URL is accessible via the (public) Internet so crowd workers can access from their home computers.
-      <br/>
-      Hint: set <code>flask_config.SERVER_NAME=</code> in config YML file to public server name. Verify your SSL congigurations are correct for HTTPS connection.
-    </p>
+
+    <div class="alert {%if external_url_ok %} alert-info {%else%} alert-warning {%endif%}">
+    If you are planning to crowdsource tasks on platfoprms like MTurk, make sure to have the above URL is accessible via the (public) Internet.      <br/>
+      <details>
+        <summary>More Info:</summary>
+        <ol>
+          <li>set <code>flask_config.SERVER_NAME=</code> in config YML file to publicly visible server name/address.</li>
+          <li>Install and verify your SSL certificate are correct for HTTPS connection. Example: <a href="https://certbot.eff.org/" target="_blank">https://certbot.eff.org/</a> makes it easy. However, you need a domain name for your server.</li>
+          <li>Setup reverse proxy to serve this app. Example: see <code>docs/nginx-conf.adoc</code> file in git repository for an example Nginx config.</li>
+        </ol> 
+      </details>
+    </div>
   </div>
   </div>
   <div class="row">
     <div class="col-12">
       <div class="card">
         <div class="card-body">
-          <span>Found {{topics | length }} topics </span>
+          <span>Found {{ topics | length }} topics </span>
         </div>
       </div>
       <table class="table table-striped">
@@ -51,10 +58,12 @@
               <li><a href="{{url_for('admin.' + topic.ext_src + '_get_HIT', HIT_id=topic.ext_id)}}">See MTurk Assignments</a> </li>
               {%endif%}
 
-            {% else %}
+            {% elif crowd_name %}
             <li>
               <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name=crowd_name, topic_id=topic.id)}}">Launch on Mturk</a> 
             </li>
+            {% else %}
+            <li>N/A</li>
             {% endif %}
           </ul></td>
         </tr>

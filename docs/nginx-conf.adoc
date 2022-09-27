@@ -1,0 +1,101 @@
+= Nginx as Reverse Proxy: A sample config
+
+
+.Summary:
+* Running https://certbot.eff.org/instructions?ws=nginx&os=ubuntufocal[Certbot^] generated a sample nginx config at `/etc/nginx/sites-enabled/default` with `ssl_*` fields configured. 
+* I have added reverse proxy for location `/boteval` -> `http://127.0.0.1:7070/boteval` along with necessary proxy headers to make session/logins work.
+- Similarly, location `/socket.io` is also forwarded for the websockets to work.
+
+The below nginx setting was tested to be working when flask app is bound to `http://127.0.0.1:7070/boteval` on an AWS/EC2 instance whose IP is mapped (via DNS A-record) to `dev.gowda.ai`, and ports 80(HTTP), 443(HTTPS) are open to the public.
+
+[source,bash]
+----
+# Default server configuration
+server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+
+        root /var/www/html;
+
+        # Add index.php to the list if you are using PHP
+        index index.html index.htm index.nginx-debian.html;
+
+        server_name _;
+
+        location / {
+                # First attempt to serve request as file, then
+                # as directory, then fall back to displaying a 404.
+                try_files $uri $uri/ =404;
+        }
+
+        location /boteval {
+                proxy_pass http://127.0.0.1:7070/boteval ;
+                proxy_set_header Host $http_host;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # this is required for webscokets
+        location /socket.io {
+          include proxy_params;
+          proxy_http_version 1.1;
+          proxy_buffering off;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "Upgrade";
+          proxy_pass http://127.0.0.1:7070/socket.io;
+      }
+}
+
+
+server {
+        root /var/www/html;
+        # Add index.php to the list if you are using PHP
+        index index.html index.htm index.nginx-debian.html;
+        server_name dev.gowda.ai; # managed by Certbot
+
+        location / {
+                # First attempt to serve request as file, then
+                # as directory, then fall back to displaying a 404.
+                try_files $uri $uri/ =404;
+        }
+
+        location /boteval {
+                proxy_pass http://127.0.0.1:7070/boteval;
+                proxy_set_header Host $http_host;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_redirect http://$http_host/ https://$http_host/;
+        }
+
+        # this is required for webscokets
+        location /socket.io {
+          include proxy_params;
+          proxy_http_version 1.1;
+          proxy_buffering off;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "Upgrade";
+          proxy_pass http://127.0.0.1:7070/socket.io;
+      }
+
+    listen [::]:443 ssl ipv6only=on; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/dev.gowda.ai/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/dev.gowda.ai/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = dev.gowda.ai) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+        listen 80 ;
+        listen [::]:80 ;
+    server_name dev.gowda.ai;
+    return 404; # managed by Certbot
+
+}
+----
