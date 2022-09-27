@@ -7,6 +7,7 @@ from typing import List, Mapping, Optional, Tuple, Union
 import functools
 from datetime import datetime
 import copy
+import time
 
 import flask
 import requests
@@ -132,11 +133,28 @@ class ChatService:
         self.crowd_service = None
         if C.MTURK in self.config:
             self.crowd_service = MTurkService.new(**self.config[C.MTURK])
-        #self._external_url_ok = None
+        self._external_url_ok = None
         
     def resolve_path(self, *args):
         return Path(self.task_dir, *args)
 
+    def check_ext_url(self, ping_url, wait_time=C.PING_WAIT_TIME):
+        # this will be called by app hook before_first_request
+        log.info(f"Pinging URL {ping_url} in {wait_time} secs")
+        if wait_time and  wait_time > 0:
+            time.sleep(wait_time)
+        try:
+            reply = requests.get(ping_url)
+            self._external_url_ok = reply and reply.status_code == 200 and reply.json()['reply'] == 'pong'
+            log.info(f'{reply=} {self._external_url_ok=}')
+        except Exception as e:
+            log.exception(e)
+            self._external_url_ok = False
+       
+    @property
+    def is_external_url_ok(self):
+        return self._external_url_ok
+    
     @property
     def instructions(self) -> str:
         if not self._instructions:
@@ -146,20 +164,6 @@ class ChatService:
                 self._instructions = 'No instructions have been found for this task'
         return self._instructions
 
-    """
-    @property
-    def is_external_url_ok(self):
-        if self._external_url_ok is None:
-            ping_url = flask.url_for('app.ping', _external=True, _scheme='https')
-            log.info(f"Checking external URL {ping_url}")
-            try:
-                reply = requests.get(ping_url)
-                self._external_url_ok = reply and reply.status_code == 200 and reply.json()['reply'] == 'pong'
-            except Exception as e:
-                log.exception(e)
-                self._external_url_ok = False
-        return self._external_url_ok
-    """
 
     @property
     def bot_user(self):
@@ -200,7 +204,6 @@ class ChatService:
             db.session.add(User(id=C.Auth.CONTEXT_USER,
                                 name='Context User', secret='',
                                 role=User.ROLE_HIDDEN))
-
 
         if init_topics:
             assert self.topics_file
@@ -245,7 +248,8 @@ class ChatService:
     def get_topic(self, topic_id):
         return ChatTopic.query.get(topic_id)
 
-    def get_thread_for_topic(self, user, topic, create_if_missing=True, ext_id=None, ext_src=None, data=None) -> Optional[ChatThread]:
+    def get_thread_for_topic(self, user, topic, create_if_missing=True,
+                             ext_id=None, ext_src=None, data=None) -> Optional[ChatThread]:
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
         thread = None
@@ -324,9 +328,11 @@ class ChatService:
         if not self.crowd_service:
             log.warning('Crowd service not configured')
             return None
-        #if not self.is_external_url_ok:
-        #    log.warning('External URL is not configured correctly. ')
-        #    return None
+        if not self.is_external_url_ok:
+            msg = 'External URL is not configured correctly. Skipping.'
+            log.warning(msg)
+            flask.flash(msg)
+            return None
         if self.crowd_name in (C.MTURK, C.MTURK_SANDBOX):                
             landing_url = flask.url_for('app.mturk_landing', topic_id=topic.id,
                                         _external=True, _scheme='https')

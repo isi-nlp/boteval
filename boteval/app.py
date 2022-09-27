@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 
 import flask
-from flask import Flask, Blueprint
+from flask import Flask, Blueprint, appcontext_pushed
 from flask_socketio import SocketIO
 from flask_login import LoginManager
 
@@ -53,10 +53,12 @@ def parse_args():
         description="Deploy chat bot evaluation",
         formatter_class=ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('-t', '--task-dir', type=Path, help='Path to task dir.',
-                    required=True)
-    parser.add_argument('-c', '--config', type=Path, help='Path to config file. Default is <task-dir>/conf.yml')
-    parser.add_argument("-b", "--base", type=str, help="Base path prefix for all urls")
+    parser.add_argument('task_dir', type=Path, metavar='DIR',
+                        help='Path to task dir. See "example-chat-task"')
+    parser.add_argument('-c', '--config', type=Path, metavar='FILE',
+                        help='Path to config file. Default is <task-dir>/conf.yml')
+    parser.add_argument("-b", "--base", type=str, metavar='/prefix',
+                        help="Base path prefix for all url routes. Eg: /boteval")
 
     parser.add_argument("-d", "--debug", action="store_true", help="Run Flask server in debug mode")
     parser.add_argument("-a", "--addr", type=str, help="Address to bind to", default='0.0.0.0')
@@ -91,13 +93,14 @@ def init_app(**args):
         
     service = ChatService(config=config, task_dir=task_dir)
 
+
     with app.app_context():
         login_manager.init_app(app)
         db.init_app(app)
         db.create_all(app=app)
         service.init_db()
         init_login_manager(login_manager=login_manager)
-        register_app_hooks(app)
+        register_app_hooks(app, service)
 
     bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
     user_controllers(router=bp, socket=socket, service=service)

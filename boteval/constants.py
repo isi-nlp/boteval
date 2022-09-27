@@ -20,6 +20,8 @@ DEF_REWARD = '0.0'
 USER_ACTIVE_UPDATE_FREQ = 2 * 60 # seconds
 MAX_PAGE_SIZE = 40
 
+PING_WAIT_TIME = 4 # secs
+
 
 DEF_TOPICS_FILE = 'topics.json'
 DEF_INSTRUCTIONS_FILE = 'instructions.html'

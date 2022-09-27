@@ -7,6 +7,6 @@ flask-socketio
 #gunicorn
 flask-login
 flask_sqlalchemy
-
+blinker>=1.5
 requests
 transformers

@@ -33,10 +33,11 @@ ratings:
   - question: 'To what degree did the bot convince you to change your behavior?'
     choices: *choices
 
-mturk:
+# rename _mturk -> mturk to enable crowd backend
+_mturk: 
   client:
     profile: default # the [default] profile in ~/.aws/credentials file
-    sandbox: true
+    sandbox: true  # sandbox: false to go live
   hit_settings:
     # https://boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit
     MaxAssignments: *max_assignments

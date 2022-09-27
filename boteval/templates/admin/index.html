@@ -27,16 +27,19 @@
     </div>
 
     <div class="col-4">
+      {% if crowd_name %}
       <div class="card class-12">
-          <div class="card-body">
-              <p><b>Endpoint: </b><code> {{mturk_endpoint_url}}</code></p>
-          </div>
+        <div class="card-body">
+          <p><b>Endpoint: </b><code> {{mturk_endpoint_url}}</code></p>
+        </div>
       </div>
       <ul class="list-group col-12">
-        <li class="list-group-item"><a href="{{url_for('admin.' + crowd_name + '_list_HITs')}}">All Hits</li>  
-        <li class="list-group-item"><a href="{{url_for('admin.' + crowd_name +'_list_qualifications')}}">All Qualifications</li>
+        <li class="list-group-item"><a href="{{url_for('admin.' + crowd_name + '_list_HITs')}}">All Hits</li>
+        <li class="list-group-item"><a href="{{url_for('admin.' + crowd_name +'_list_qualifications')}}">All
+            Qualifications</li>
       </ul>
-  </div>
+      {%endif%}
+    </div>
   </div>
 </div>
 {% endblock %}

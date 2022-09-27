@@ -3,6 +3,7 @@ import functools
 from typing import List
 import random
 from datetime import datetime
+from threading import Thread
 
 import flask
 from flask import request, url_for
@@ -10,7 +11,7 @@ import flask_login as FL
 import flask_socketio as FS
 
 from boteval.service import ChatService
-#from flask_login import login_user, current_user, login_required, login_url
+import requests
 
 from . import log, C, db
 from .utils import jsonify, render_template
@@ -84,7 +85,7 @@ def is_safe_url(url):
     # TODO: validate url
     return True
 
-def register_app_hooks(app):
+def register_app_hooks(app, service: ChatService):
 
     @app.before_request
     def update_last_active():
@@ -95,6 +96,12 @@ def register_app_hooks(app):
                 user.last_active = datetime.now()
                 db.session.merge(user)  # update
                 db.session.commit()
+    
+    @app.before_first_request
+    def before_first_request():
+        log.info('Before first request')
+        ping_url = flask.url_for('app.ping', _external=True, _scheme='https')
+        Thread(target=service.check_ext_url, args=(ping_url,)).start()
 
 
 def user_controllers(router, socket, service: ChatService):
@@ -397,6 +404,7 @@ def admin_controllers(router, service: ChatService):
     @router.route('/')
     @admin_login_required
     def index():
+
         counts = dict(
             user=User.query.count(),
             thread=ChatThread.query.count(),
@@ -431,7 +439,7 @@ def admin_controllers(router, service: ChatService):
         topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
         thread_counts = service.get_thread_counts(episode_done=True)
         topics = [(topic, thread_counts.get(topic.id, 0)) for topic in topics]
-        return render_template('admin/topics.html', topics=topics, **admin_templ_args)
+        return render_template('admin/topics.html', topics=topics, ext_url_ok=service.is_external_url_ok, **admin_templ_args)
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
     @admin_login_required
