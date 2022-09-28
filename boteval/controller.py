@@ -1,9 +1,10 @@
-import os
+
 import functools
 from typing import List
 import random
 from datetime import datetime
 from threading import Thread
+import json
 
 import flask
 from flask import request, url_for
@@ -11,7 +12,7 @@ import flask_login as FL
 import flask_socketio as FS
 
 from boteval.service import ChatService
-import requests
+
 
 from . import log, C, db
 from .utils import jsonify, render_template
@@ -249,7 +250,7 @@ def user_controllers(router, socket, service: ChatService):
         topic = service.get_topic(thread.topic_id)
         
         return render_template('user/chatui.html', limits=service.limits,
-                               thread=thread,
+                               thread=json.dumps(thread.as_dict(), ensure_ascii=False),
                                topic=topic,
                                socket_name=thread.socket_name,
                                rating_questions=ratings,
@@ -307,6 +308,7 @@ def user_controllers(router, socket, service: ChatService):
             return wrap(status=C.ERROR, description=f'thread_id {thread_id} is invalid')
         if user not in thread.users:
             return wrap(status=C.ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
+
 
         msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
         try:
@@ -459,3 +461,4 @@ def admin_controllers(router, service: ChatService):
             return flask.redirect(flask.url_for('admin.get_topics'))
         else:
             return 'Error: we couldnt launch on crowd', 400
+

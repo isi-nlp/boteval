@@ -1,6 +1,7 @@
 chat_dir: data
 
 chatbot:
+  display_name: 'Moderator'
   topics_file: chat_topics.json
   #bot_name: transformers
   bot_name: dummybot

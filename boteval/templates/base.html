@@ -119,8 +119,10 @@
   <!-- style="position: absolute; bottom: 0; left: 0; right: 0; padding: 2px; margin: 2px"-->
   {% if not focus_mode %}
   <footer class="pagefooter alert-secondary" style="text-align: center">
-    <p class="font-weight-light float-none" style="margin: 0; padding: 2px"><small>Webapp created by Thamme Gowda
-        (2022)</small></p>
+    <p class="font-weight-light float-none" style="margin: 0; padding: 1px">
+      <small><a href="https://github.com/thammegowda/boteval" target="_blank">Boteval</a></small>
+    </p>
+    <!--Note: if this footer is not at the bottom of page, your HTML DOM is broken; hint: you may have missed closing one of DIV tags-->
   </footer>
   {% endif %}
 

@@ -2,7 +2,7 @@
 
 
 import argparse
-from typing import Mapping
+from typing import Any
 
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -23,6 +23,7 @@ class BotAgent:
         self.name = name or self.NAME
         self.signature = {} # for reproducibility
         self.update_signature(agent_name=name)
+        self.last_msg = None
 
     def get_name(self) -> str:
         raise NotImplementedError()
@@ -30,8 +31,11 @@ class BotAgent:
     def update_signature(self, **kwargs):
         self.signature.update(kwargs)
 
-    def talk(self, *ags, **kwargs):
-        raise NotImplementedError()
+    def hear(self, msg: dict[str, Any]):
+        self.last_msg = msg
+
+    def talk(self):
+        raise NotImplementedError(f'{type(self)} must implement talk() method')
 
     def interactive_shell(self):
         log.info(f'Launching an interactive shell with {type(self)}.\n'
@@ -56,10 +60,11 @@ class DummyBot(BotAgent):
 
     NAME = 'dummybot'
 
-    def talk(self, context):
+    def talk(self):
+        context = (self.last_msg or {}).get('text', '')
         if context.lower() == 'ping':
             return 'pong'
-        return "dummybot reply --" + context[-30:]
+        return dict(text="dummybot reply --" + context[-30:])
 
 
 @R.register(R.BOT, 'transformers')
@@ -77,14 +82,15 @@ class TransformerBot(BotAgent):
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
 
-    def talk(self, context: str):
+    def talk(self) -> str:
+        context = (self.last_msg or {}) .get('text', '[start]')
         inputs = self.tokenizer([context], return_tensors="pt")
         reply_ids = self.model.generate(**inputs)
         reply = self.tokenizer.batch_decode(reply_ids, skip_special_tokens=True)[0]
         return reply
 
 
-def load_bot_agent(name: str, args: Mapping) -> BotAgent:
+def load_bot_agent(name: str, args: dict[str, Any]) -> BotAgent:
     log.info(f'Going to load bot {name} with args: {args}')
     bot_engines = R.registry[R.BOT]
     assert name in bot_engines, f'{name} not found; found={bot_engines.keys()}'

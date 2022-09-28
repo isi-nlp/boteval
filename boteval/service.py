@@ -69,7 +69,7 @@ class DialogBotChatManager(ChatManager):
         db.session.add(message)
         thread.messages.append(message)
 
-        reply = self.bot_reply(message.text)
+        reply = self.bot_reply(message)
         if self.bot_transforms:
             reply = self.bot_transforms(reply)
 
@@ -81,10 +81,13 @@ class DialogBotChatManager(ChatManager):
         log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
         return reply, episode_done
 
-    def bot_reply(self, context: str) -> ChatMessage:
+    def bot_reply(self, msg: ChatMessage) -> ChatMessage:
         # only using last message as context
-        reply = self.bot_agent.talk(context)
-        msg = ChatMessage(user_id = self.bot_user_id, text=reply, thread_id = self.thread_id, data={})
+        self.bot_agent.hear(msg.as_dict())
+
+        reply: dict = self.bot_agent.talk()
+        reply_text = reply.pop('text')
+        msg = ChatMessage(user_id = self.bot_user_id, text=reply_text, thread_id = self.thread_id, data=reply)
         return msg
 
 
@@ -211,8 +214,9 @@ class ChatService:
                             role=User.ROLE_HUMAN)
 
         if not User.query.get(C.Auth.BOT_USER):
+            bot_name = self.config.get('chatbot', {}).get('display_name') or C.BOT_DISPLAY_NAME
             # login not enabled. directly insert with empty string as secret
-            db.session.add(User(id=C.Auth.BOT_USER, name=C.BOT_DISPLAY_NAME or 'Chat Bot',
+            db.session.add(User(id=C.Auth.BOT_USER, name=bot_name,
                                 secret='', role=User.ROLE_BOT))
 
         if not User.query.get(C.Auth.CONTEXT_USER):

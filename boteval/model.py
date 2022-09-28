@@ -137,6 +137,8 @@ class User(BaseModelWithExternal):
         return hashlib.sha3_256(secret.encode()).hexdigest()
 
     def verify_secret(self, secret):
+        if not self.secret: # empty secret => login disabled
+            return False
         return self.secret == self._hash(secret)
 
     @classmethod

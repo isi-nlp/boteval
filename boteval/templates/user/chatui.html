@@ -4,6 +4,7 @@
 
 {% set max_turns = (limits or {}).get('max_turns_per_thread', 10000) %}
 {% set remaining_turns = namespace(value=max_turns) %}
+{% set show_text_orig = True %}
 <section style="background-color: #eee;">
     {% if focus_mode %} 
     {% else %}
@@ -24,7 +25,9 @@
                 <div class="alert alert-info p-1 text-center"> You are replying as <b>Speaker
                         {{topic.data['target_user']}}</b></div>
                 {% endif %}
+
                 <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; height:640px">
+                    {% if false %}
                     {% for msg in thread.messages %}
                     {% if msg.user_id == cur_user.id %}
                     {% set remaining_turns.value = remaining_turns.value - 1 %}
@@ -46,14 +49,18 @@
                                 </p>
                             </div>
                             <div class="card-body" style="padding: 0.5em">
-                                <p class="mb-0">{{ msg.text }}</p>
-                                {% if msg.data.get('text_orig') %}
-                                <p class="mb-0 text-muted">{{ msg.data['text_orig'] }}</p>
-                                {% endif %}
+                                {% if show_text_orig and msg.data.get('text_orig') %}
+                                <details><summary class="mb-0">{{ msg.text }}</summary>
+                                    <p class="mb-0 text-muted">{{ msg.data['text_orig'] }}</p>
+                                </details>
+                                {%else%}
+                                    <p class="mb-0">{{ msg.text }}</p>
+                                {%endif%}
                             </div>
                         </div>
                     </li>
                     {% endfor %}
+                    {%endif%}
                 </ul>
                 <form id="next_msg_form" class="form" action="#" method="POST">
                     <div class="form-group basic-textarea" style="display: flex">
@@ -71,9 +78,6 @@
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
             <div class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left"> 
-                <p class="text-muted">
-                    {{thread.ext_src}} {{thread.ext_id}}
-                </p>
                 <div {% if not cur_user.is_admin and remaining_turns.value > 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
@@ -107,22 +111,40 @@
     <script type="text/javascript">
 
         var remaining_turns = {{ remaining_turns.value }};
-        let socket_name = '{{socket_name}}';
+        const socket_name = '{{socket_name}}'
+        const cur_user_id = '{{cur_user.id}}'
+        const reply_as_user = '{{topic.data["target_user"]}}'
+        const thread = {{thread|safe}}  // json data
+        const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
 
         function show_new_message(msg, side) {
-            let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
+            //let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
+            let display_user = msg['data']['fake_start'] ? msg['data']['speaker_id'] : user_to_name.get(msg['user_id'])
+
+            let theme = ''
+            if (msg['user_id'] == cur_user_id ||  msg['data']['speaker_id'] == reply_as_user) {
+                theme = 'alert-primary'
+                side = 'right'
+            } else if (msg['user_id'] == 'bot01') {
+                theme = 'alert-warning'
+            }
+            let details = ''
+            if (msg['data']['text_orig']) {
+                details += `<details><summary></summary>${msg['data']['text_orig']}</details>`
+            } 
             let chat_html = `
             <li style="width:100%">
                 <div class="card ${theme} mb-4" style="float:${side}; width:75%">
                     <div class="card-header d-flex justify-content-between p-2">
-                        <p class="fw-bold mb-0"> ${msg['user_id']} </p>
-                        <p class="text-muted small mb-0"><i class="far fa-clock"></i>${msg['time']}</p>
+                        <p class="fw-bold mb-0"> ${display_user} </p>
+                        <p class="text-muted small mb-0"><i class="far fa-clock"></i>${msg['time_created']}</p>
                     </div>
                     <div class="card-body" style="padding: 0.5em">
                         <p class="mb-0">${msg['text']}</p>
+                        ${details}
                     </div>
                 </div>
-            </li> <li></li>`
+            </li>`
             $('#chat-thread').append($.parseHTML(chat_html))
             refresh_view()
         }
@@ -139,7 +161,11 @@
         }
 
         window.onload = () => {
+            
             let user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
+            for (const msg of thread['messages']){
+                show_new_message(msg, side='left')
+            }
 
             const socket = io()
             socket.on('connect', () => {

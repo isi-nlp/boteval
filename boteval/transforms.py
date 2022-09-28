@@ -76,7 +76,8 @@ class SpacySplitter():
 @R.register(kind=R.TRANSFORM, name='huggingface-mt')
 class HuggingfaceMT(BaseTransform):
     
-    def __init__(self, model_name: str) -> None:
+    
+    def __init__(self, model_name: str, max_length=256) -> None:
         super().__init__()
         from transformers import AutoTokenizer, AutoModelForSeq2SeqLM 
         self.model_name = model_name
@@ -84,6 +85,7 @@ class HuggingfaceMT(BaseTransform):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
         self.sentence_splitter = SpacySplitter.get_instance()
+        self.max_length = max_length or 256
 
     def transform(self, msg: ChatMessage):
         text = msg.text
@@ -94,7 +96,8 @@ class HuggingfaceMT(BaseTransform):
     def translate(self, text: str) -> str:
         log.debug(f"Translating {text}...")
         sents: list[str] = self.sentence_splitter(text)
-        batch = self.tokenizer(sents, return_tensors="pt")
+        batch = self.tokenizer(sents, return_tensors="pt", padding=True,
+         max_length=self.max_length)
         gen = self.model.generate(**batch)
         outputs = self.tokenizer.batch_decode(
             gen, skip_special_tokens=True)

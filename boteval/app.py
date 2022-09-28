@@ -1,10 +1,12 @@
+import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from datetime import datetime
 from pathlib import Path
 import time
+import importlib
 
 import flask
-from flask import Flask, Blueprint, appcontext_pushed
+from flask import Flask, Blueprint
 from flask_socketio import SocketIO
 from flask_login import LoginManager
 
@@ -79,8 +81,7 @@ def init_app(**args):
 
     task_dir: Path = args['task_dir']
     config_file: Path = args.get('config') or (task_dir / 'conf.yml')
-    assert config_file.exists() and config_file.is_file(), f'Expected config YAML file at {config_file}, but it is not found'
-    
+    assert config_file.exists() and config_file.is_file(), f'Expected config YAML file at {config_file}, but it is not found'    
     config = TaskConfig.load(config_file)
     # load flask configs; this includes flask-sqlalchemy
     app.config.from_mapping(config['flask_config'])
@@ -92,6 +93,19 @@ def init_app(**args):
         db_uri = f'sqlite:///{task_dir.resolve()}/{db_file_name}'
         app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
         log.info(f'SQLALCHEMY_DATABASE_URI = {db_uri}')
+
+    if (task_dir / '__init__.py').exists(): # task dir has python code
+        log.info(f'{task_dir} is a python module. Going to import it.')
+        task_dir_parent = task_dir.resolve().parent
+        module_name = task_dir.name
+        log.info(f'adding "{task_dir_parent}" to PYTHONPATH and importing "{module_name}"')
+        assert module_name not in sys.modules, f'{module_name} collide with existing module. please rename dir to something else'
+        sys.path.append(str(task_dir.resolve().parent))
+
+        _module = importlib.import_module(module_name)
+        log.info(f'import success {_module}')
+
+
     service = ChatService(config=config, task_dir=task_dir)
 
     with app.app_context():

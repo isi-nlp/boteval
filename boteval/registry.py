@@ -9,16 +9,14 @@ from typing import Any
 
 
 BOT = 'bot'
-BOTS: dict[str, Any] = {}
-
 TRANSFORM = 'transform'
-TRANSFORMS: dict[str, Any] = {}
+
 
 global registry
 
 registry = {
-    BOT: BOTS,
-    TRANSFORM: TRANSFORMS,
+    BOT: dict(),
+    TRANSFORM: dict(),
 }
 
 
@@ -46,6 +44,7 @@ def _register_all():
     from importlib import import_module
     modules = [
         'boteval.bots',
+        'boteval.transforms',
     ]
     for name in modules:
         import_module(name)
