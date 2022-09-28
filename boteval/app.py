@@ -8,7 +8,7 @@ from flask import Flask, Blueprint, appcontext_pushed
 from flask_socketio import SocketIO
 from flask_login import LoginManager
 
-from . import log, __version__, db, C, TaskConfig
+from . import log, __version__, db, C, TaskConfig, R
 from .controller import user_controllers, admin_controllers, init_login_manager, register_app_hooks
 from .service import ChatService
 
@@ -74,7 +74,9 @@ def parse_args():
 
 
 def init_app(**args):
-    
+
+    R._register_all()  # register all modules
+
     task_dir: Path = args['task_dir']
     config_file: Path = args.get('config') or (task_dir / 'conf.yml')
     assert config_file.exists() and config_file.is_file(), f'Expected config YAML file at {config_file}, but it is not found'
@@ -86,13 +88,11 @@ def init_app(**args):
     if not db_uri:
         #relative_path = task_dir.resolve().relative_to(Path('.').resolve())
         db_file_name = app.config.get('DATABASE_FILE_NAME', C.DEF_DATABSE_FILE)
-        assert  '/' not in db_file_name
+        assert '/' not in db_file_name
         db_uri = f'sqlite:///{task_dir.resolve()}/{db_file_name}'
         app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
-        log.info(f'>>SQLALCHEMY_DATABASE_URI={db_uri}')
-        
+        log.info(f'SQLALCHEMY_DATABASE_URI = {db_uri}')
     service = ChatService(config=config, task_dir=task_dir)
-
 
     with app.app_context():
         login_manager.init_app(app)

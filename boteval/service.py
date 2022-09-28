@@ -2,7 +2,6 @@
 
 from pathlib import Path
 import json
-from threading import Thread
 from typing import List, Mapping, Optional, Tuple, Union
 import functools
 from datetime import datetime
@@ -12,14 +11,12 @@ import time
 import flask
 import requests
 from sqlalchemy import func
-from sqlalchemy.orm import attributes
-
-from boteval.constants import DEF_INSTRUCTIONS_FILE
 
 
 from  . import log, db, C, TaskConfig
 from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
 from .bots import BotAgent, load_bot_agent
+from .transforms import load_transforms, Transforms
 from .mturk import MTurkService
 
 
@@ -38,7 +35,9 @@ class DialogBotChatManager(ChatManager):
     # 1-on-1 dialog between human and a bot
 
     def __init__(self, thread: ChatThread, bot_agent:BotAgent,
-                 max_turns:int=C.DEF_MAX_TURNS_PER_THREAD):
+                 max_turns:int=C.DEF_MAX_TURNS_PER_THREAD,
+                 human_transforms: Optional[Transforms]=None,
+                 bot_transforms: Optional[Transforms]=None):
         super().__init__(thread.id)
         # Note: dont save/cache thread object here as it will go out of sync with ORM, only save ID
         bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
@@ -54,17 +53,25 @@ class DialogBotChatManager(ChatManager):
 
         self.max_turns = max_turns
         self.num_turns = thread.count_turns(humans[0])
+        
+        self.bot_transforms = bot_transforms
+        self.human_transforms = human_transforms
 
 
     def observe_message(self, thread: ChatThread, message: ChatMessage) -> ChatMessage:
         # Observe and reply
         # this message is from human
         assert thread.id == self.thread_id
-        assert message.user_id == self.human_user_id
+        assert message.user_id == self.human_user_id        
+        if self.human_transforms:
+            message = self.human_transforms(message)
+
         db.session.add(message)
         thread.messages.append(message)
 
         reply = self.bot_reply(message.text)
+        if self.bot_transforms:
+            reply = self.bot_transforms(reply)
 
         db.session.add(reply)
         thread.messages.append(reply)
@@ -77,7 +84,7 @@ class DialogBotChatManager(ChatManager):
     def bot_reply(self, context: str) -> ChatMessage:
         # only using last message as context
         reply = self.bot_agent.talk(context)
-        msg = ChatMessage(user_id = self.bot_user_id, text=reply, thread_id = self.thread_id)
+        msg = ChatMessage(user_id = self.bot_user_id, text=reply, thread_id = self.thread_id, data={})
         return msg
 
 
@@ -118,7 +125,15 @@ class ChatService:
         self.instructions_file = self.resolve_path(instructions_file)
         self._instructions = None
 
+        transforms_conf = self.config['chatbot'].get('transforms', {})
 
+        self.human_transforms = None
+        if transforms_conf.get('human'):
+            self.human_transforms = load_transforms(transforms_conf['human'])
+        self.bot_transforms = None
+        if transforms_conf.get('bot'):
+            self.bot_transforms = load_transforms(transforms_conf['bot'])
+        
         self.exporter = FileExportService(self.resolve_path(config['chat_dir']))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
@@ -127,8 +142,9 @@ class ChatService:
         self.ratings = config['ratings']
 
         self.onboarding = config.get('onboarding') and copy.deepcopy(config['onboarding'])
-        if  self.onboarding and 'agreement_file' in self.onboarding:
+        if self.onboarding and 'agreement_file' in self.onboarding:
             self.onboarding['agreement_text'] = self.resolve_path(self.onboarding['agreement_file']).read_text()
+
 
         self.crowd_service = None
         if C.MTURK in self.config:
@@ -314,7 +330,9 @@ class ChatService:
         max_turns = self.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD,
                                     C.DEF_MAX_TURNS_PER_THREAD)
         return DialogBotChatManager(thread=thread, bot_agent=self.bot_agent,
-                                    max_turns=max_turns)
+                                    max_turns=max_turns,
+                                    bot_transforms=self.bot_transforms,
+                                    human_transforms=self.human_transforms)
 
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> ChatMessage:
         dialog = self.cached_get(thread)

@@ -308,7 +308,7 @@ def user_controllers(router, socket, service: ChatService):
         if user not in thread.users:
             return wrap(status=C.ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
 
-        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id)
+        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
         try:
             reply, episode_done = service.new_message(msg, thread)
             reply_dict = {

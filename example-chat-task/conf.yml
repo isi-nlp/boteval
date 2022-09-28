@@ -6,6 +6,17 @@ chatbot:
   bot_name: dummybot
   #bot_args:
   #  model_name: facebook/blenderbot_small-90M
+  transforms:
+    human:
+      - name: huggingface-mt
+        args:
+          model_name: Helsinki-NLP/opus-mt-en-fr
+      - name: dummy # so we can test multiple
+    bot:
+      - name: huggingface-mt
+        args:
+          model_name: Helsinki-NLP/opus-mt-fr-en
+      - name: dummy # so we can test multiple
 
 limits:
   max_threads_per_user: 10

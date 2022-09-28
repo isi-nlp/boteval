@@ -1,5 +1,7 @@
 import os
 import logging
+from typing import Any
+
 
 DEF_PORT = 7070
 DEF_ADDR = '0.0.0.0'
@@ -49,5 +51,4 @@ MTURK_SANDBOX = 'mturk_sandbox'
 MTURK_SANDBOX_URL = 'https://mturk-requester-sandbox.us-east-1.amazonaws.com'
 AWS_MAX_RESULTS = 100 
 MTURK_LOG_LEVEL = logging.INFO
-
 

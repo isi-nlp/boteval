@@ -1,23 +1,24 @@
 
 
-from lib2to3.pgen2.token import NAME
-import sys
+
 import argparse
-from pathlib import Path
 from typing import Mapping
 
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-from . import log
+from . import log, C, R
 
 
 # here are other models https://huggingface.co/models?pipeline_tag=conversational&sort=downloads
 BLENDERBOT_400M = "facebook/blenderbot-400M-distill"
 BLENDERBOT_90M = "facebook/blenderbot_small-90M"
 
-class BotAgent:
 
+class BotAgent:
+    
+    NAME = None
+    
     def __init__(self, *args, name=None, **kwargs) -> None:
         self.name = name or self.NAME
         self.signature = {} # for reproducibility
@@ -50,6 +51,7 @@ class BotAgent:
             print(f"[Bot]: {reply}")
 
 
+@R.register(R.BOT, 'dummybot')
 class DummyBot(BotAgent):
 
     NAME = 'dummybot'
@@ -60,6 +62,7 @@ class DummyBot(BotAgent):
         return "dummybot reply --" + context[-30:]
 
 
+@R.register(R.BOT, 'transformers')
 class TransformerBot(BotAgent):
 
     NAME = 'transformers'
@@ -81,16 +84,12 @@ class TransformerBot(BotAgent):
         return reply
 
 
-registry = {
-    'transformers': TransformerBot,
-    'dummybot': DummyBot
-}
-
-
 def load_bot_agent(name: str, args: Mapping) -> BotAgent:
     log.info(f'Going to load bot {name} with args: {args}')
-    assert name in registry, f'{name} not found'
-    return registry[name](**args)
+    bot_engines = R.registry[R.BOT]
+    assert name in bot_engines, f'{name} not found; found={bot_engines.keys()}'
+    return R.registry[R.BOT][name](**args)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="launch interactive shell",
@@ -109,7 +108,7 @@ def main(**args):
          log.debug('Debug mode enabled')
     model_name = args.pop('model')
 
-    bot = TransformerBot(model_name=model_name)
+    bot = load_bot_agent("transformers", args=dict(model_name=model_name))
     bot.interactive_shell()
 
 
