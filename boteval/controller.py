@@ -15,7 +15,7 @@ from boteval.service import ChatService
 
 
 from . import log, C, db
-from .utils import jsonify, render_template
+from .utils import jsonify, render_template, register_template_filters
 from .model import ChatMessage, ChatThread, ChatTopic, User
 from .mturk import MTurkController
 
@@ -251,6 +251,7 @@ def user_controllers(router, socket, service: ChatService):
         
         return render_template('user/chatui.html', limits=service.limits,
                                thread=json.dumps(thread.as_dict(), ensure_ascii=False),
+                               thread_id=thread_id,
                                topic=topic,
                                socket_name=thread.socket_name,
                                rating_questions=ratings,
@@ -297,35 +298,33 @@ def user_controllers(router, socket, service: ChatService):
         user_id = msg.get('user_id')
         user = FL.current_user
         if not thread_id or not user_id:
+            log.warning('Either thread_id or user_id is missing')
             return wrap(status=C.ERROR, description='both thread_id and user_id are required')
         if user.id != user_id:
+            log.warning('user id is not same as logged in user')
             return wrap(status=C.ERROR, description='user_id mismatch with login user. Try logout and login')
         if not text:
+            log.warning('message doesnt have text field it is empty')
             return wrap(status=C.ERROR, description='text is empty or null')
 
         thread = service.get_thread(thread_id=thread_id)
         if not thread:
+            log.warning('thread id is ivalid; no thread found')
             return wrap(status=C.ERROR, description=f'thread_id {thread_id} is invalid')
         if user not in thread.users:
+            log.warning('user is not part of thread')
             return wrap(status=C.ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
-
 
         msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
         try:
             reply, episode_done = service.new_message(msg, thread)
-            reply_dict = {
-                'id': reply.id,
-                'text': reply.text,
-                'time': (reply.time or datetime.now()).isoformat(),
-                'user_id': reply.user_id,
-                'thread_id': reply.thread_id,
-                'episode_done': episode_done
-            }
+            reply_dict = reply.as_dict() | dict(episode_done=episode_done)
+            log.info(f'Send reply : {reply_dict}')
             #return wrap(body=reply_dict)
             socket.emit(thread.socket_name, wrap(reply_dict))
             
             # TODO: make this asynchronous
-            return dict(status=C.SUCCESS)
+            return wrap(status=C.SUCCESS, description="message recieved")
         except Exception as e:
             log.exception(e)
             return wrap(status=C.ERROR, description='Something went wrong on server side')

@@ -1,14 +1,7 @@
-from enum import unique
-from typing import Dict, List, Mapping, Optional, Any
-from dataclasses import dataclass, field
-import time
+from typing import Dict, List, Optional, Any
 import hashlib
-import abc
-from dataclasses import dataclass
-
 from sqlalchemy import orm, sql
 
-import json
 
 from . import db, log
 
@@ -57,7 +50,7 @@ class BaseModel(db.Model):
     def as_dict(self) -> Dict[str, Any]:
         return dict(
             id = self.id,
-            data = self.data,
+            data = self.data if self.data is not None else dict(),
             time_created=self.time_created and self.time_created.isoformat(),
             time_updated=self.time_updated and self.time_updated.isoformat(),
         )

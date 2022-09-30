@@ -1,8 +1,6 @@
 import sys
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from datetime import datetime
 from pathlib import Path
-import time
 import importlib
 
 import flask
@@ -13,6 +11,7 @@ from flask_login import LoginManager
 from . import log, __version__, db, C, TaskConfig, R
 from .controller import user_controllers, admin_controllers, init_login_manager, register_app_hooks
 from .service import ChatService
+from .utils import register_template_filters
 
 
 log.basicConfig(level=log.INFO)
@@ -23,30 +22,6 @@ app.config['JSON_AS_ASCII'] = False
 app.config['SECRET_KEY'] = 'abcd1234'
 socket = SocketIO(app)
 login_manager = LoginManager()
-
-@app.template_filter('ctime')
-def timectime(s) -> str:
-    if isinstance(s, datetime):
-        return str(s)
-    elif isinstance(s, int):
-        return time.ctime(s) # datetime.datetime.fromtimestamp(s)
-    elif s is None:
-        return ''
-    else:
-        return str(s)
-
-
-@app.template_filter('flat_single')
-def flatten_singleton(obj):
-    res = obj
-    try:
-        if len(obj) == 0:
-            res = ''
-        elif len(obj) == 1:
-            res = obj[0]
-    except:
-        pass
-    return res
 
 
 def parse_args():
@@ -69,10 +44,17 @@ def parse_args():
     args = vars(parser.parse_args())
     return args
 
+def load_dir_as_module(dir_path: Path):
+    log.info(f'Going tot import {dir_path} as a python module.')
+    module_name = dir_path.name
+    parent_dir = dir_path.resolve().parent
 
-# uwsgi can take CLI args too
-# uwsgi --http 127.0.0.1:5000 --module boteval.app:app # --pyargv "--foo=bar"
+    log.info(f'adding "{parent_dir}" to PYTHONPATH and importing "{module_name}"')
+    assert module_name not in sys.modules, f'{module_name} collide with existing module. please rename dir to something else'
+    sys.path.append(str(parent_dir))
 
+    _module = importlib.import_module(module_name)
+    log.info(f'import success! {_module=}')
 
 
 def init_app(**args):
@@ -96,15 +78,7 @@ def init_app(**args):
 
     if (task_dir / '__init__.py').exists(): # task dir has python code
         log.info(f'{task_dir} is a python module. Going to import it.')
-        task_dir_parent = task_dir.resolve().parent
-        module_name = task_dir.name
-        log.info(f'adding "{task_dir_parent}" to PYTHONPATH and importing "{module_name}"')
-        assert module_name not in sys.modules, f'{module_name} collide with existing module. please rename dir to something else'
-        sys.path.append(str(task_dir.resolve().parent))
-
-        _module = importlib.import_module(module_name)
-        log.info(f'import success {_module}')
-
+        load_dir_as_module(task_dir)
 
     service = ChatService(config=config, task_dir=task_dir)
 
@@ -115,6 +89,8 @@ def init_app(**args):
         service.init_db()
         init_login_manager(login_manager=login_manager)
         register_app_hooks(app, service)
+        register_template_filters(app)
+
 
     bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
     user_controllers(router=bp, socket=socket, service=service)
@@ -129,12 +105,18 @@ def init_app(**args):
         app.debug = True
         log.root.setLevel(level=log.DEBUG)
 
+
 args = parse_args()
 init_app(**args)
 with app.test_request_context():
     ext_url = flask.url_for('app.index', _external=True)
     log.info(f'Server URL: {ext_url}')
     app.config['EXT_URL_BASE'] = ext_url
+
+
+
+# uwsgi can take CLI args too
+# uwsgi --http 127.0.0.1:5000 --module boteval.app:app # --pyargv "--foo=bar"
 
 
 def main():

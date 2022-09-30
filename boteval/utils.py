@@ -1,9 +1,13 @@
 import resource
 from typing import Tuple
 import sys
-from . import log, C
+import time
+from datetime import datetime
+
 import flask
 import flask_login as FL
+
+from . import log, C
 
 
 FLOAT_POINTS = 4
@@ -58,3 +62,30 @@ def jsonify(obj):
     else:
         log.warning(f"Type {type(obj)} maybe not be json serializable")
         return obj
+
+
+def register_template_filters(app):
+
+    @app.template_filter('ctime')
+    def timectime(s) -> str:
+        if isinstance(s, datetime):
+            return str(s)
+        elif isinstance(s, int):
+            return time.ctime(s) # datetime.datetime.fromtimestamp(s)
+        elif s is None:
+            return ''
+        else:
+            return str(s)
+
+
+    @app.template_filter('flat_single')
+    def flatten_singleton(obj):
+        res = obj
+        try:
+            if len(obj) == 0:
+                res = ''
+            elif len(obj) == 1:
+                res = obj[0]
+        except:
+            pass
+        return res

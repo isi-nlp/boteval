@@ -59,7 +59,7 @@
 
             {% elif crowd_name %}
             <li>
-              <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name=crowd_name, topic_id=topic.id)}}">Launch on Mturk</a> 
+              <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name=crowd_name, topic_id=topic.id)}}">Launch on {{crowd_name}}</a> 
             </li>
             {% else %}
             <li>N/A</li>

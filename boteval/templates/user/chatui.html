@@ -26,42 +26,7 @@
                         {{topic.data['target_user']}}</b></div>
                 {% endif %}
 
-                <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; height:640px">
-                    {% if false %}
-                    {% for msg in thread.messages %}
-                    {% if msg.user_id == cur_user.id %}
-                    {% set remaining_turns.value = remaining_turns.value - 1 %}
-                    {% endif %}
-
-                    {% set display_user = "You" if msg.user_id == cur_user.id else (msg.data['speaker_id'] if
-                    msg.data.get('fake_start') else msg.user_id) %}
-                    {% set display_right_side = msg.user_id == cur_user.id or (msg.data.get('fake_start') and
-                    msg.data.get('speaker_id') == topic.data.get('target_user')) %}
-
-                    <li class="d-flex justify-content-between mb-1">
-                        <div class="card {% if display_right_side %} alert-info {% endif %} {% if msg.user_id == 'bot01' %} alert-warning {% endif %}"
-                            {% if display_right_side %} style="float:right;" {%endif%}>
-                            <div class="card-header d-flex justify-content-between p-2">
-                                <p class="fw-bold mb-0"> {{display_user}}</p>
-                                <p class="text-muted small mb-0"><i class="far fa-clock"></i>
-                                    {% if msg.time %} {{ msg.time | ctime }}
-                                    {% else %} (time not found) {%endif %}
-                                </p>
-                            </div>
-                            <div class="card-body" style="padding: 0.5em">
-                                {% if show_text_orig and msg.data.get('text_orig') %}
-                                <details><summary class="mb-0">{{ msg.text }}</summary>
-                                    <p class="mb-0 text-muted">{{ msg.data['text_orig'] }}</p>
-                                </details>
-                                {%else%}
-                                    <p class="mb-0">{{ msg.text }}</p>
-                                {%endif%}
-                            </div>
-                        </div>
-                    </li>
-                    {% endfor %}
-                    {%endif%}
-                </ul>
+                <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; max-height: 600px;"></ul>
                 <form id="next_msg_form" class="form" action="#" method="POST">
                     <div class="form-group basic-textarea" style="display: flex">
                         <textarea id="next_msg_text" class="form-control pl-2 my-0" rows="2"
@@ -81,7 +46,7 @@
                 <div {% if not cur_user.is_admin and remaining_turns.value > 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
-                    <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
+                    <form action="{{url_for('app.thread_rating', thread_id=thread_id)}}" method="POST" id="ratings-form"
                         class="form">
                         <b>Rate this conversation:</b>
                         {% for q in rating_questions %}
@@ -115,33 +80,46 @@
         const cur_user_id = '{{cur_user.id}}'
         const reply_as_user = '{{topic.data["target_user"]}}'
         const thread = {{thread|safe}}  // json data
+        const user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread_id}}' }
+        const BOT_ID = 'bot01'
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
 
-        function show_new_message(msg, side) {
+        function show_new_message(msg) {
+            if (!msg['data']){
+                msg['data'] = new Object()
+            }
             //let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
             let display_user = msg['data']['fake_start'] ? msg['data']['speaker_id'] : user_to_name.get(msg['user_id'])
 
             let theme = ''
+            let side= 'left'
             if (msg['user_id'] == cur_user_id ||  msg['data']['speaker_id'] == reply_as_user) {
                 theme = 'alert-primary'
                 side = 'right'
-            } else if (msg['user_id'] == 'bot01') {
+            } else if (msg['user_id'] == BOT_ID) {
                 theme = 'alert-warning'
             }
-            let details = ''
-            if (msg['data']['text_orig']) {
-                details += `<details><summary></summary>${msg['data']['text_orig']}</details>`
-            } 
-            let chat_html = `
-            <li style="width:100%">
+
+            let text_display =  msg['text']
+            let text_extra = msg['data']['text_orig']
+            if (text_extra && msg['user_id'] != BOT_ID) {
+                [text_extra, text_display] = [text_display, text_extra]
+            }
+
+            if (text_extra) {
+                text_display = `<details>
+                    <summary>${text_display}</summary>
+                    <i class="text-muted">${text_extra}</i>
+                </details>`
+            }  
+            let chat_html = `<li style="width:100%">
                 <div class="card ${theme} mb-4" style="float:${side}; width:75%">
                     <div class="card-header d-flex justify-content-between p-2">
                         <p class="fw-bold mb-0"> ${display_user} </p>
                         <p class="text-muted small mb-0"><i class="far fa-clock"></i>${msg['time_created']}</p>
                     </div>
                     <div class="card-body" style="padding: 0.5em">
-                        <p class="mb-0">${msg['text']}</p>
-                        ${details}
+                        ${text_display}
                     </div>
                 </div>
             </li>`
@@ -160,9 +138,13 @@
             }
         }
 
+        function play_beep(){
+            new Audio('{{url_for("app.static", filename="img/beep.mp3")}}').play();
+        }
+
         window.onload = () => {
             
-            let user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
+
             for (const msg of thread['messages']){
                 show_new_message(msg, side='left')
             }
@@ -188,15 +170,15 @@
 
             // new message from server; this is specific to chat thread
             socket.on(socket_name, (reply) => {
-                console.log('got reply in ' + socket_name)
+                console.log('got reply in socket: ' + socket_name)
                 console.log(reply)
                 if (reply['head']['status'] == 'success') {
                     if (reply['body']['episode_done']) {
                         $('#ratings-view').show()
                         remaining_turns = 0
                     }
-                    msg_id = show_new_message(reply['body'], side = 'left')
-                    $('#next_msg_text').val('')
+                    msg_id = show_new_message(reply['body'])
+                    play_beep();
                 } else {
                     alert('Something went wrong. See logs.')
                 }
@@ -222,8 +204,13 @@
                 msg_id = show_new_message(data, side = 'right')
                 console.log(data)
                 socket.emit('new_message', data, (reply) => {
-                    console.log('server reply:' + reply)
+                    console.log('server reply:')
+                    console.log(JSON.stringify(reply))
+                    if (reply['head']['status'] != 'success') {
+                        alert(`Something went wrong. See logs.\nHint: ${reply["description"]}` )
+                    }
                     // TODO: show delivered check mark
+                    $('#next_msg_text').val('')
                 })
             })
             refresh_view()

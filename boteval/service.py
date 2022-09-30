@@ -57,6 +57,10 @@ class DialogBotChatManager(ChatManager):
         self.bot_transforms = bot_transforms
         self.human_transforms = human_transforms
 
+        if thread.messages and thread.messages[-1].user_id == self.human_user_id:
+            # TODO: bot reply here. Lats one was human
+            pass
+
 
     def observe_message(self, thread: ChatThread, message: ChatMessage) -> ChatMessage:
         # Observe and reply
