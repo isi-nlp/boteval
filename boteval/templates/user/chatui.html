@@ -2,9 +2,6 @@
 
 {% block content %}
 
-{% set max_turns = (limits or {}).get('max_turns_per_thread', 10000) %}
-{% set remaining_turns = namespace(value=max_turns) %}
-{% set show_text_orig = True %}
 <section style="background-color: #eee;">
     {% if focus_mode %} 
     {% else %}
@@ -38,23 +35,28 @@
                     </div>
                 </form>
                 <div id="end_info" class="p-4 alert alert-info">
-                    This chat has already reached the sufficient number of turns. So futher replies are disabled.
+                    This chat has already reached the sufficient number of turns and hence futher replies are disabled. 
+                    Thank you for your time! Please submit your ratings to complete this task and receive compensation.
                 </div>
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
             <div class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left"> 
-                <div {% if not cur_user.is_admin and remaining_turns.value > 0 %} style="display:none" {%endif%}
+                {%if instructions_html %}
+                    <button type="button" class="btn btn-info my-3" data-toggle="modal" data-target="#instructionsmodal">Open Instructions</button>
+                {%endif%}
+                <div {% if not cur_user.is_admin and remaining_turns > 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
-                    <form action="{{url_for('app.thread_rating', thread_id=thread_id)}}" method="POST" id="ratings-form"
+                    <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
                         class="form">
-                        <b>Rate this conversation:</b>
+
+                        Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
                         {% for q in rating_questions %}
                         {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
                         <li class="list-group-item">
                             <i>{{q['question']}}</i>
                             <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"
-                                max="{{q['choices']|length}}" name="{{q['question']}}"
+                                max="{{q['choices']|length}}" name="{{q['question']}}" required
                                 value="{{prev_ratings.get(q['question'])}}" {{is_disabled}}>
                             <datalist id="tickmarks-{{loop.index}}"
                                 style="display: flex; justify-content: space-between; width: 100%;">
@@ -75,13 +77,14 @@
 
     <script type="text/javascript">
 
-        var remaining_turns = {{ remaining_turns.value }};
+        var remaining_turns = {{remaining_turns}};
         const socket_name = '{{socket_name}}'
         const cur_user_id = '{{cur_user.id}}'
         const reply_as_user = '{{topic.data["target_user"]}}'
-        const thread = {{thread|safe}}  // json data
-        const user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread_id}}' }
+        const thread = {{thread_json|safe}}  // json data
+        const user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
         const BOT_ID = 'bot01'
+        const show_text_extra = Boolean({{'true' if show_text_extra else 'false'}})
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
 
         function show_new_message(msg) {
@@ -106,7 +109,7 @@
                 [text_extra, text_display] = [text_display, text_extra]
             }
 
-            if (text_extra) {
+            if (text_extra && show_text_extra) {
                 text_display = `<details>
                     <summary>${text_display}</summary>
                     <i class="text-muted">${text_extra}</i>
@@ -144,7 +147,6 @@
 
         window.onload = () => {
             
-
             for (const msg of thread['messages']){
                 show_new_message(msg, side='left')
             }
@@ -217,4 +219,26 @@
         }
     </script>
 </section>
+
+{%if instructions_html  %}
+<div class="modal fade" id="instructionsmodal" data-backdrop="static" data-keyboard="false" tabindex="-1"
+    aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staticBackdropLabel">Instructions</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                {{instructions_html |safe}}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock%}

@@ -7,7 +7,7 @@ from threading import Thread
 import json
 
 import flask
-from flask import request, url_for
+from flask import flash, request, url_for
 import flask_login as FL
 import flask_socketio as FS
 
@@ -116,11 +116,19 @@ def user_controllers(router, socket, service: ChatService):
         next_url = request.values.get('next')
         ext_id = request.values.get('ext_id')
         ext_src = request.values.get('ext_src')
+
+        seemless_login = bool(service.config.is_seemless_crowd_login)
+        if seemless_login and (not ext_id or not ext_src):
+            log.warning(f'seemless login both {ext_id=} and {ext_src=}')
+            seemless_login = False
+
+        # for seemless login, we still have to show terms and conditions,
         tmpl_args = dict(
             action=request.values.get('action', 'login'),
             next=next_url,
             ext_id=ext_id,
-            ext_src=ext_src,    
+            ext_src=ext_src,
+            seemless_login=seemless_login,
             onboarding=service.onboarding)
         log.info(f"login/signup. next={next_url} | ext: src: {ext_src}  id: {ext_id}")
         if request.method == 'GET':
@@ -156,10 +164,17 @@ def user_controllers(router, socket, service: ChatService):
             elif len(secret) < 4:
                 flask.flash('Password should be atleast 4 chars long')
             else:
-                name = args.pop('name')
+                name = args.pop('name', None)
                 ext_id = args.pop('ext_id', None)
                 ext_src = args.pop('ext_src', None)
                 user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
+                if seemless_login:
+                    FL.login_user(user, remember=True, force=True)
+                    flask.flash('Logged in automatically')
+                    if next_url and is_safe_url(next_url):
+                        return flask.redirect(next_url)
+                    return flask.redirect(flask.url_for('app.index'))
+
                 tmpl_args['action'] = 'login'
                 flask.flash(f'Sign up success. Try login with your user ID: {user.id}. Verify that it works and write down the password for future logins.')
                 return render_template('login.html', **tmpl_args)
@@ -248,14 +263,20 @@ def user_controllers(router, socket, service: ChatService):
             return f'Thread {thread_id} found', 404
         ratings = service.get_rating_questions()
         topic = service.get_topic(thread.topic_id)
-        
+        max_turns = service.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD, C.DEF_MAX_TURNS_PER_THREAD)
+        remaining_turns = max_turns - thread.count_turns(FL.current_user)
+
+
         return render_template('user/chatui.html', limits=service.limits,
-                               thread=json.dumps(thread.as_dict(), ensure_ascii=False),
-                               thread_id=thread_id,
+                               thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
+                               thread=thread,
                                topic=topic,
                                socket_name=thread.socket_name,
                                rating_questions=ratings,
                                focus_mode=focus_mode,
+                               remaining_turns=remaining_turns,
+                               instructions_html=service.instructions,
+                               show_text_extra = FL.current_user.is_admin,
                                data=dict())
 
     @router.route('/thread/<thread_id>/rating', methods=['POST'])
@@ -329,7 +350,7 @@ def user_controllers(router, socket, service: ChatService):
             log.exception(e)
             return wrap(status=C.ERROR, description='Something went wrong on server side')
 
-    #### M Turk Integration
+    ########### M Turk Integration #########################
     @router.route('/mturk-landing/<topic_id>', methods=['GET'])
     def mturk_landing(topic_id):  # this is where mturk worker should land first
 
@@ -340,6 +361,9 @@ def user_controllers(router, socket, service: ChatService):
         submit_url = request.values.get('turkSubmitTo', '') # wont be available while previewing
         if not hit_id:
             return 'HITId not found. This URL is reserved for Mturk users only', 400
+        
+        # because Jon suggested we make it seemless for mturk users
+        seemless_login = service.config.is_seemless_crowd_login
 
         ext_src = C.MTURK_SANDBOX if 'sandbox' in submit_url else C.MTURK 
         if submit_url:
@@ -356,7 +380,7 @@ def user_controllers(router, socket, service: ChatService):
             return msg, 400
 
         if is_previewing: 
-            return index() # sending index page for now. We can do better later
+            return instructions() # sending index page for now. We can do better later
 
         # Step2. Find the mapping user
         user = User.query.filter_by(ext_src=ext_src, ext_id=worker_id).first()
@@ -366,15 +390,16 @@ def user_controllers(router, socket, service: ChatService):
                         ext_src=ext_src, next=request.url))
         elif not FL.current_user or FL.current_user.get_id() != user.id:
             FL.logout_user()
-            flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
-            return flask.redirect(url_for('app.login', action='login', next=request.url))
+            if seemless_login: # auto login
+                FL.login_user(user, remember=True, force=True)
+            else: # login and return back here
+                flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
+                return flask.redirect(url_for('app.login', action='login', next=request.url))
 
         limit_exceeded, msg = service.limit_check(topic=topic, user=user)
-        if limit_exceeded:
+        if limit_exceeded: # we may need to block user i.e. change user qualification
             return msg, 400
-        
-        if limit_exceeded:
-            return 'You are unable to '
+
         # user exist, logged in => means user already signed up and doing so, gave consent,     
         # Step 3: map assignment to chat thread -- 
         data = {
@@ -392,6 +417,8 @@ def user_controllers(router, socket, service: ChatService):
         return get_thread(thread_id=chat_thread.id, focus_mode=True)
 
 
+
+###################### ADMIN STUFF #####################
 def admin_controllers(router, service: ChatService):
     from .model import User, ChatMessage, ChatThread, ChatTopic
 

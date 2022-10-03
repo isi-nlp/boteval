@@ -35,15 +35,14 @@
           <td> {{thread.episode_done}}, {{thread.data.get('rating_done', '')}} </td>
           <td> {{thread.time_created|ctime}} {{thread.time_modified|ctime}}  </td>
           <td> <ul>
-            <li><a href="{{url_for('admin.thread_export', thread_id=thread.id)}}" target="_blank">Export</a></li>
             <li><a href="{{url_for('app.get_thread', thread_id=thread.id)}}" target="_blank">Open Chat</a></li>
+            <li><a href="{{url_for('admin.thread_export', thread_id=thread.id)}}" target="_blank">Export as JSON</a></li>
           </ul> </td>
           <td>
             {% if thread.ext_id %} 
             <ul>
               <li>{{thread.ext_src or ''}}   ID:  {{thread.ext_id or ''}} </li>
             </ul>
-            
             {%else%} N/A {% endif%}
           </td>
         </tr>
