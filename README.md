@@ -23,20 +23,45 @@ python -m boteval -h
 
 ## Start Server
 
+```bash
+python -m boteval -h
+usage: boteval [-h] [-c FILE] [-b /prefix] [-d] [-a ADDR] [-p PORT] [-v] DIR
+
+Deploy chat bot evaluation
+
+positional arguments:
+  DIR                   Path to task dir. See "example-chat-task"
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c FILE, --config FILE
+                        Path to config file. Default is <task-dir>/conf.yml (default: None)
+  -b /prefix, --base /prefix
+                        Base path prefix for all url routes. Eg: /boteval (default: None)
+  -d, --debug           Run Flask server in debug mode (default: False)
+  -a ADDR, --addr ADDR  Address to bind to (default: 0.0.0.0)
+  -p PORT, --port PORT  port to run server on (default: 7070)
+  -v, --version         show program's version number and exit
+
+```
+
 ### Development mode
 
 ```bash
 
-# add -d for debug
-python -m boteval -d -c example-chat-task/conf.yml
+# add -d for debug;
+python -m boteval -d example-chat-task
 ```
+`-d` enables live reload mode of server, which means when you edit files (and save) and hit refresh webpage it automatically reloads new changes. 
+
 
 # Deployment
 ```bash
-python -m boteval -c example-chat-task/conf.yml
+python -m boteval example-chat-task
+# TODO: uwsgi 
 ```
 
-This starts a service on http://localhost:6060 by default.
+This starts a service on http://localhost:7070 by default.
 
 
 ## Config file
