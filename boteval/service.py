@@ -120,7 +120,7 @@ class FileExportService:
 class ChatService:
 
     def __init__(self, config: TaskConfig, task_dir:Path):
-        self.config = config
+        self.config: TaskConfig = config
         self.task_dir = task_dir
         self.task_dir.mkdir(exist_ok=True, parents=True)
         self._bot_user = None
@@ -163,6 +163,11 @@ class ChatService:
 
     def check_ext_url(self, ping_url, wait_time=C.PING_WAIT_TIME):
         # this will be called by app hook before_first_request
+        if not self.config['flask_config'].get('SERVER_NAME'):
+            log.warning('flask_config.SERVER_NAME is not set. crowd launching feature is disabled')
+            self._external_url_ok = None
+            return
+
         log.info(f"Pinging URL {ping_url} in {wait_time} secs")
         if wait_time and  wait_time > 0:
             time.sleep(wait_time)
@@ -171,7 +176,8 @@ class ChatService:
             self._external_url_ok = reply and reply.status_code == 200 and reply.json()['reply'] == 'pong'
             log.info(f'{reply=} {self._external_url_ok=}')
         except Exception as e:
-            log.exception(e)
+            log.warning(str(e))
+            log.warning('Looks like external URL is not configured as HTTPs. Crowd launching is disabled')
             self._external_url_ok = False
        
     @property

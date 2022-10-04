@@ -110,7 +110,7 @@ args = parse_args()
 init_app(**args)
 with app.test_request_context():
     ext_url = flask.url_for('app.index', _external=True)
-    log.info(f'Server URL: {ext_url}')
+    log.info(f'External server URL: {ext_url}')
     app.config['EXT_URL_BASE'] = ext_url
 
 
@@ -122,6 +122,8 @@ with app.test_request_context():
 def main():
     #app.run(port=cli_args["port"], host=cli_args.get('addr', '0.0.0.0'))
     host, port = args.get('addr', C.DEF_ADDR), args.get('port', C.DEF_PORT)
+    base_prefix = args.get('base') or '/'
+    print(f'Internal URL http://{host}:{port}{base_prefix}')
     socket.run(app, port=port, host=host, debug=app.debug)
 
 

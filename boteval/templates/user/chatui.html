@@ -1,10 +1,27 @@
 {% extends "base.html" %}
-
+{%block head%}
+<style type="text/css">
+    .dot {
+        opacity: 0;
+        animation: showHideDot 2s ease-in-out infinite;
+        font-size: 1rem;
+    }
+    .dot.one {animation-delay: 0.2s;}
+    .dot.two {animation-delay: 0.4s;}
+    .dot.three {animation-delay: 0.6s;}
+    
+    @keyframes showHideDot {
+        0% { opacity: 0; }
+        50% { opacity: 1; }
+        60% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+</style>
+{%endblock%}
 {% block content %}
-
+{% set reply_as_user = topic.data.get('target_user') %}
 <section style="background-color: #eee;">
-    {% if focus_mode %} 
-    {% else %}
+    {% if not focus_mode %}
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="../">All chats</a></li>
@@ -18,9 +35,9 @@
                 <div class="text-right disabled">
                     <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
                 </div>
-                {% if topic.data.get('target_user') %}
+                {% if reply_as_user %}
                 <div class="alert alert-info p-1 text-center"> You are replying as <b>Speaker
-                        {{topic.data['target_user']}}</b></div>
+                        {{reply_as_user}}</b></div>
                 {% endif %}
 
                 <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; max-height: 600px;"></ul>
@@ -34,17 +51,25 @@
                         </div>
                     </div>
                 </form>
+                <div id="waiting_info" class="text-center alert alert-primary" style="display: none;">
+                        Wait for reply 
+                        <span class="dot one">⦿</span>
+                        <span class="dot two">⦿</span>
+                        <span class="dot three">⦿</span>
+                 </div>
+                
                 <div id="end_info" class="p-4 alert alert-info">
-                    This chat has already reached the sufficient number of turns and hence futher replies are disabled. 
+                    This chat has already reached the sufficient number of turns and hence futher replies are disabled.
                     Thank you for your time! Please submit your ratings to complete this task and receive compensation.
                 </div>
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
-            <div class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left"> 
+            <div class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
                 {%if instructions_html %}
-                    <button type="button" class="btn btn-info my-3" data-toggle="modal" data-target="#instructionsmodal">Open Instructions</button>
+                <button type="button" class="btn btn-info my-3" data-toggle="modal"
+                    data-target="#instructionsmodal">Open Instructions</button>
                 {%endif%}
-                <div {% if not cur_user.is_admin and remaining_turns > 0 %} style="display:none" {%endif%}
+                <div {% if not cur_user.is_admin and remaining_turns> 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
                     <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
@@ -69,7 +94,7 @@
                         {% if focus_mode %} <input name="focus_mode" value="True" type="hidden" /> {%endif%}
                         <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}} />
                     </form>
-                    <hr/>
+                    <hr />
                 </div>
             </div>
         </div>
@@ -77,33 +102,38 @@
 
     <script type="text/javascript">
 
-        var remaining_turns = {{remaining_turns}};
+        var remaining_turns = {{ remaining_turns }};
         const socket_name = '{{socket_name}}'
         const cur_user_id = '{{cur_user.id}}'
-        const reply_as_user = '{{topic.data["target_user"]}}'
-        const thread = {{thread_json|safe}}  // json data
+        const reply_as_user = '{{reply_as_user}}'
+        const thread = {{ thread_json| safe}}  // json data
         const user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
         const BOT_ID = 'bot01'
-        const show_text_extra = Boolean({{'true' if show_text_extra else 'false'}})
+        const show_text_extra = Boolean({{ 'true' if show_text_extra else 'false' }})
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
 
+        let waiting_for_bot_reply = false
+
         function show_new_message(msg) {
-            if (!msg['data']){
+            if (!msg['data']) {
                 msg['data'] = new Object()
             }
             //let theme = side == 'right' ? 'alert-primary' : 'alert-warning'
             let display_user = msg['data']['fake_start'] ? msg['data']['speaker_id'] : user_to_name.get(msg['user_id'])
+            if (msg['user_id'] == cur_user_id && reply_as_user )  {
+                display_user = `<i>Your reply as</i> ${reply_as_user}`
+            }
 
             let theme = ''
-            let side= 'left'
-            if (msg['user_id'] == cur_user_id ||  msg['data']['speaker_id'] == reply_as_user) {
+            let side = 'left'
+            if (msg['user_id'] == cur_user_id || msg['data']['speaker_id'] == reply_as_user) {
                 theme = 'alert-primary'
                 side = 'right'
             } else if (msg['user_id'] == BOT_ID) {
                 theme = 'alert-warning'
             }
 
-            let text_display =  msg['text']
+            let text_display = msg['text']
             let text_extra = msg['data']['text_orig']
             if (text_extra && msg['user_id'] != BOT_ID) {
                 [text_extra, text_display] = [text_display, text_extra]
@@ -114,7 +144,7 @@
                     <summary>${text_display}</summary>
                     <i class="text-muted">${text_extra}</i>
                 </details>`
-            }  
+            }
             let chat_html = `<li style="width:100%">
                 <div class="card ${theme} mb-4" style="float:${side}; width:75%">
                     <div class="card-header d-flex justify-content-between p-2">
@@ -133,22 +163,29 @@
         function refresh_view() {
             $('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
             if (remaining_turns < 1) {
+                $('#end_info').show() // show end info
                 $('#next_msg_form').hide()
-                $('#end_info').show()
-            } else {
-                $('#next_msg_form').show()
+                $('#waiting_info').hide()
+            } else { // ongoing conversation
                 $('#end_info').hide()
+                if (waiting_for_bot_reply) { // but wating for bot reply
+                    $('#next_msg_form').hide()  // dont let human reply
+                    $('#waiting_info').show()  // waiting animation show
+                } else {
+                    $('#next_msg_form').show() // let human reply
+                    $('#waiting_info').hide() // waiting animation hide
+                }
             }
         }
 
-        function play_beep(){
+        function play_beep() {
             new Audio('{{url_for("app.static", filename="img/beep.mp3")}}').play();
         }
 
         window.onload = () => {
-            
-            for (const msg of thread['messages']){
-                show_new_message(msg, side='left')
+
+            for (const msg of thread['messages']) {
+                show_new_message(msg, side = 'left')
             }
 
             const socket = io()
@@ -179,6 +216,7 @@
                         $('#ratings-view').show()
                         remaining_turns = 0
                     }
+                    waiting_for_bot_reply = false
                     msg_id = show_new_message(reply['body'])
                     play_beep();
                 } else {
@@ -199,7 +237,7 @@
                     console.log('No text to send')
                     return
                 }
-
+                waiting_for_bot_reply = true
                 data = { 'text': text, time: new Date().toISOString() }
                 data = { ...user_data, ...data }  //combine two
 
@@ -209,7 +247,7 @@
                     console.log('server reply:')
                     console.log(JSON.stringify(reply))
                     if (reply['head']['status'] != 'success') {
-                        alert(`Something went wrong. See logs.\nHint: ${reply["description"]}` )
+                        alert(`Something went wrong. See logs.\nHint: ${reply["description"]}`)
                     }
                     // TODO: show delivered check mark
                     $('#next_msg_text').val('')
@@ -220,7 +258,7 @@
     </script>
 </section>
 
-{%if instructions_html  %}
+{%if instructions_html %}
 <div class="modal fade" id="instructionsmodal" data-backdrop="static" data-keyboard="false" tabindex="-1"
     aria-labelledby="staticBackdropLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">

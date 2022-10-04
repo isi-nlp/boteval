@@ -488,3 +488,9 @@ def admin_controllers(router, service: ChatService):
         else:
             return 'Error: we couldnt launch on crowd', 400
 
+    @router.route(f'/config')
+    @admin_login_required
+    def get_config():
+        config_yaml = service.config.as_yaml_str()
+        return render_template('admin/config.html', config_yaml=config_yaml)
+
