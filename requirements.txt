@@ -10,3 +10,5 @@ flask_sqlalchemy
 blinker>=1.5
 requests
 transformers
+openai
+spacy
