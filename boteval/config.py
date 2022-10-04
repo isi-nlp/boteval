@@ -16,10 +16,10 @@ class TaskConfig(dict):
         super().__init__(data, **kwargs)
         self._path = _path
         #self._data = data
-        self.is_seemless_crowd_login = False
+        self.is_seamless_crowd_login = False
         if C.MTURK in self:
-            self.is_seemless_crowd_login = self[C.MTURK].get('seemless_login', False)
-            log.info(f'seemless crowd login enabled? {self.is_seemless_crowd_login}')
+            self.is_seamless_crowd_login = self[C.MTURK].get('seamless_login', False)
+            log.info(f'seamless crowd login enabled? {self.is_seamless_crowd_login}')
 
 
     @classmethod

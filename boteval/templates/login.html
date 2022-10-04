@@ -32,7 +32,7 @@
         <div class="tab-pane fade col-8" id="signup" role="tabpanel" aria-labelledby="profile-tab">
             <form action="{{url_for('app.login')}}" method="POST" class="form">           
                 <input type="hidden" name="action" value="signup">
-                {% if seemless_login %}
+                {% if seamless_login %}
                 <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Sign Up</h1>
                     <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Review Agreement</h1>
                     <input type="hidden" name="user_id" id="s_user_id" class="form-control mt-2" value="{{ext_id}}" >

@@ -117,18 +117,18 @@ def user_controllers(router, socket, service: ChatService):
         ext_id = request.values.get('ext_id')
         ext_src = request.values.get('ext_src')
 
-        seemless_login = bool(service.config.is_seemless_crowd_login)
-        if seemless_login and (not ext_id or not ext_src):
-            log.warning(f'seemless login both {ext_id=} and {ext_src=}')
-            seemless_login = False
+        seamless_login = bool(service.config.is_seamless_crowd_login)
+        if seamless_login and (not ext_id or not ext_src):
+            log.warning(f'seamless login both {ext_id=} and {ext_src=}')
+            seamless_login = False
 
-        # for seemless login, we still have to show terms and conditions,
+        # for seamless login, we still have to show terms and conditions,
         tmpl_args = dict(
             action=request.values.get('action', 'login'),
             next=next_url,
             ext_id=ext_id,
             ext_src=ext_src,
-            seemless_login=seemless_login,
+            seamless_login=seamless_login,
             onboarding=service.onboarding)
         log.info(f"login/signup. next={next_url} | ext: src: {ext_src}  id: {ext_id}")
         if request.method == 'GET':
@@ -168,7 +168,7 @@ def user_controllers(router, socket, service: ChatService):
                 ext_id = args.pop('ext_id', None)
                 ext_src = args.pop('ext_src', None)
                 user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
-                if seemless_login:
+                if seamless_login:
                     FL.login_user(user, remember=True, force=True)
                     flask.flash('Logged in automatically')
                     if next_url and is_safe_url(next_url):
@@ -362,8 +362,8 @@ def user_controllers(router, socket, service: ChatService):
         if not hit_id:
             return 'HITId not found. This URL is reserved for Mturk users only', 400
         
-        # because Jon suggested we make it seemless for mturk users
-        seemless_login = service.config.is_seemless_crowd_login
+        # because Jon suggested we make it seamless for mturk users
+        seamless_login = service.config.is_seamless_crowd_login
 
         ext_src = C.MTURK_SANDBOX if 'sandbox' in submit_url else C.MTURK 
         if submit_url:
@@ -390,7 +390,7 @@ def user_controllers(router, socket, service: ChatService):
                         ext_src=ext_src, next=request.url))
         elif not FL.current_user or FL.current_user.get_id() != user.id:
             FL.logout_user()
-            if seemless_login: # auto login
+            if seamless_login: # auto login
                 FL.login_user(user, remember=True, force=True)
             else: # login and return back here
                 flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
