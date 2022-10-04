@@ -1,6 +1,5 @@
 import os
 import logging
-from typing import Any
 
 
 DEF_PORT = 7070

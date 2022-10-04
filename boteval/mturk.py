@@ -1,6 +1,4 @@
 import copy
-from dataclasses import dataclass
-import json
 import logging
 
 import boto3
@@ -38,7 +36,7 @@ class MTurkService:
         self.name =  C.MTURK_SANDBOX if self.is_sandbox else C.MTURK
 
     @classmethod
-    def new(cls, client, hit_settings):
+    def new(cls, client, hit_settings, **kwargs):
         client = get_mturk_client(**client)
         return cls(client, hit_settings=hit_settings)
 

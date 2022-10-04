@@ -113,6 +113,10 @@ class User(BaseModelWithExternal):
         return self.role == self.ROLE_ADMIN
 
     @property
+    def is_bot(self):
+        return self.role == self.ROLE_BOT
+
+    @property
     def is_anonymous(self):
         return False
 

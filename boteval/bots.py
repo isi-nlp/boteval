@@ -34,7 +34,7 @@ class BotAgent:
     def hear(self, msg: dict[str, Any]):
         self.last_msg = msg
 
-    def talk(self):
+    def talk(self) -> dict[str, Any]:
         raise NotImplementedError(f'{type(self)} must implement talk() method')
 
     def interactive_shell(self):
@@ -67,7 +67,7 @@ class DummyBot(BotAgent):
         return dict(text="dummybot reply --" + context[-30:])
 
 
-@R.register(R.BOT, 'transformers')
+@R.register(R.BOT, 'hf-transformers')
 class TransformerBot(BotAgent):
 
     NAME = 'transformers'
@@ -87,7 +87,7 @@ class TransformerBot(BotAgent):
         inputs = self.tokenizer([context], return_tensors="pt")
         reply_ids = self.model.generate(**inputs)
         reply = self.tokenizer.batch_decode(reply_ids, skip_special_tokens=True)[0]
-        return reply
+        return dict(text=reply)
 
 
 def load_bot_agent(name: str, args: dict[str, Any]) -> BotAgent:

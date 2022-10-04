@@ -15,6 +15,7 @@
     <div class="tab-content row" id="myTabContent">
         <div class="tab-pane fade show active col-8" id="login" role="tabpanel" aria-labelledby="home-tab">
             <form action="{{url_for('app.login')}}" method="POST" class="form">
+                <input type="hidden" name="action" value="login">
                 <h1 class="h3 mb-3 mt-4 font-weight-normal mt-2">Please Sign In</h1>
                 <small class="text-muted">Dont have an account? Click 'Sign Up' </small>
                 <input type="text" name="user_id" id="user_id" class="form-control mt-2" placeholder="UserId" required
@@ -24,16 +25,24 @@
                 {% if next %}
                     <input type="hidden" name="next" value="{{next}}">
                 {%endif%}
-                <input type="hidden" name="action" value="login">
+
                 <button class="btn btn-lg btn-primary btn-block col-3 mt-3" type="submit">Log in</button>
             </form>
         </div>
         <div class="tab-pane fade col-8" id="signup" role="tabpanel" aria-labelledby="profile-tab">
-            <form action="{{url_for('app.login')}}" method="POST" class="form">
+            <form action="{{url_for('app.login')}}" method="POST" class="form">           
+                <input type="hidden" name="action" value="signup">
+                {% if seemless_login %}
                 <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Sign Up</h1>
-                <input type="text" name="user_id" id="s_user_id" class="form-control mt-2" placeholder="ID" required value="{{user_id}}">
-                <input type="password" name="secret" id="s_password" class="form-control mt-2" placeholder="Password"
-                required>
+                    <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Review Agreement</h1>
+                    <input type="hidden" name="user_id" id="s_user_id" class="form-control mt-2" value="{{ext_id}}" >
+                    <input type="hidden" name="secret" id="s_password" class="form-control mt-2" value="{{ext_id}}">
+                {%else%}
+                    <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Sign Up</h1>
+                    <input type="text" name="user_id" id="s_user_id" class="form-control mt-2" placeholder="ID" required value="{{user_id}}">
+                    <input type="password" name="secret" id="s_password" class="form-control mt-2" placeholder="Password"
+                    required>
+                {%endif%}
                 {% if ext_id %} <input type="hidden" name="ext_id" value="{{ext_id}}"> {%endif%}
                 {% if ext_src %} <input type="hidden" name="ext_src" value="{{ext_src}}"> {%endif%}
                 <!--
@@ -59,9 +68,11 @@
                 {%endfor%}
                 {%endif%}
                 {%endif%}
+                <!-- Name not required; favor anonymity
                 <input type="text" name="name" id="name" class="form-control mt-2" placeholder="Name" required>
+                -->
                 {% if next %} <input type="hidden" name="next" value="{{next}}"> {%endif%}
-                <input type="hidden" name="action" value="signup">
+              
                 <button class="btn btn-lg btn-primary btn-block col-4 mt-2" type="submit">Agree and Sign Up</button>
             </form>
         </div>
