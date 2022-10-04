@@ -3,20 +3,26 @@ chat_dir: data
 chatbot:
   display_name: 'Moderator'
   topics_file: chat_topics.json
-  #bot_name: transformers
-  bot_name: dummybot
+  #bot_name: my-dummy-bot
   #bot_args:
-  #  model_name: facebook/blenderbot_small-90M
+  #  key1: val1
+  #  key2: val2
+  #  some_flag: true
+  bot_name: hf-transformers   # use this for huggingface models
+  bot_args:
+    model_name: facebook/blenderbot_small-90M
+
   transforms:
     human:
-      - name: huggingface-mt
+      - name: my-transform
         args:
-          model_name: Helsinki-NLP/opus-mt-en-fr
-      - name: dummy # so we can test multiple
+          arg1: val1
+          arg2: [val2, val3]
     bot:
-      - name: huggingface-mt
+      - name: my-transform
         args:
-          model_name: Helsinki-NLP/opus-mt-fr-en
+          arg1: val1
+          arg2: [val2, val3]
       - name: dummy # so we can test multiple
 
 limits:
@@ -65,9 +71,9 @@ _mturk:
 flask_config:
   # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
   #SQLALCHEMY_DATABASE_URI: sqlite:///sqlite-dev-01.db
-  DATABASE_FILE_NAME: 'sqlite-dev-02.db'   # this will be placed in task dir
+  DATABASE_FILE_NAME: 'sqlite-dev-01.db'   # this will be placed in task dir
   SQLALCHEMY_TRACK_MODIFICATIONS: false
-  #SERVER_NAME: localhost
-  SERVER_NAME: dev.gowda.ai
-  PREFERRED_URL_SCHEME: https
+  #SERVER_NAME: localhost  <-- do not use localhost as SERVER_NAME
+  #SERVER_NAME: dev.gowda.ai   # set a reak domain name for mturk integration
+  #PREFERRED_URL_SCHEME: https
 
