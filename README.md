@@ -12,7 +12,6 @@ conda create -n boteval python=3.9
 conda activate boteval
 ```
 
-
 ```bash
 git clone https://github.com/isi-nlp/boteval
 cd boteval
@@ -20,6 +19,8 @@ pip install -e .
 
 python -m boteval -h
 ```
+
+Install PyTorch / Tensorflow / Flax. 
 
 ## Start Server
 
