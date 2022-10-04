@@ -7,7 +7,7 @@ from threading import Thread
 import json
 
 import flask
-from flask import flash, request, url_for
+from flask import request, url_for
 import flask_login as FL
 import flask_socketio as FS
 

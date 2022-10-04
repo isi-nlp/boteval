@@ -1,6 +1,3 @@
-
-
-import imp
 from textwrap import indent
 from ruamel.yaml import YAML
 from ruamel.yaml.compat import StringIO

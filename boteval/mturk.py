@@ -1,6 +1,4 @@
 import copy
-from dataclasses import dataclass
-import json
 import logging
 
 import boto3
