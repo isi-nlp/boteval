@@ -49,27 +49,18 @@ optional arguments:
 ### Development mode
 
 ```bash
-
-<<<<<<< HEAD
-# add -d for debug;
-python -m boteval -d example-chat-task
-=======
 # add -d for debug
 BASE_URL_PATH="/boteval" # prefix to use for url paths
 python -m boteval example-chat-task -d -b BASE_URL_PATH
->>>>>>> 1323862 (fix small typo (tipics->topics) and fix command given in readme. #5)
 ```
 `-d` enables live reload mode of server, which means when you edit files (and save) and hit refresh webpage it automatically reloads new changes. 
 
 
 # Deployment
 ```bash
-<<<<<<< HEAD
 python -m boteval example-chat-task
 # TODO: uwsgi 
-=======
 python -m boteval example-chat-task -b BASE_URL_PATH
->>>>>>> 1323862 (fix small typo (tipics->topics) and fix command given in readme. #5)
 ```
 
 This starts a service on http://localhost:7070 by default.
