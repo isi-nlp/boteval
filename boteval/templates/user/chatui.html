@@ -74,7 +74,7 @@
                 <div {% if not cur_user.is_admin and remaining_turns> 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
-                    <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
+                    <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form"
                         class="form">
 
                         Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
@@ -190,6 +190,15 @@
             }
             refresh_view()
 
+            // include cross-origin session details with ajax calls
+            $.ajaxSetup({
+                crossDomain: true,
+                xhrFields: {
+                    withCredentials: true
+                },
+            });
+
+
             $("#next_msg_text").keyup(event => {  // submit on enter key
                 if (event.which === 13) {
                     $("#next_msg_form").submit();
@@ -203,13 +212,14 @@
                     return
                 }
                 waiting_for_bot_reply = true
-                data = { 'text': text, time: new Date().toISOString() }
+                data = { 'text': text, time_created: new Date().toISOString() }
                 data = { ...user_data, ...data }  //combine two
 
                 msg_id = show_new_message(data, side = 'right')
                 console.log(data)
-                $.post('{{url_for("app.post_new_message", thread_id=thread.id)}}', {text: text})
-                .done(reply => {
+                var post_url = '{{url_for("app.post_new_message", thread_id=thread.id, user_id=cur_user.id)}}'
+                $.post(post_url, {text: text}).done(reply => {
+                    $('#next_msg_text').val('')
                     try {
                         if (reply['episode_done']) {
                             $('#ratings-view').show()
@@ -224,8 +234,7 @@
                 }).fail(function(){
                     alert('Something went wrong. Could not send message.')
                 })
-            })
-            
+            })   
         }
     </script>
 </section>

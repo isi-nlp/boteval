@@ -263,14 +263,15 @@ def user_controllers(router, service: ChatService):
                                show_text_extra = FL.current_user.is_admin,
                                data=dict())
 
-    @router.route('/thread/<thread_id>/message', methods=['POST'])
-    @FL.login_required
-    def post_new_message(thread_id):
+    @router.route('/thread/<thread_id>/<user_id>/message', methods=['POST'])
+    #@FL.login_required  <-- login didnt work in iframe in mturk
+    def post_new_message(thread_id, user_id):
         thread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
-        user = FL.current_user
-        if user not in thread.users:
+        #user = FL.current_user
+        user = User.get(user_id)
+        if not user  or user not in thread.users:
             log.warning('user is not part of thread')
             reply = dict(status=C.ERROR,
                          description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
@@ -292,19 +293,24 @@ def user_controllers(router, service: ChatService):
             log.exception(e)
             return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
 
-    @router.route('/thread/<thread_id>/rating', methods=['POST'])
-    @FL.login_required
-    def thread_rating(thread_id):
+    @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
+    #@FL.login_required   <-- login didnt work in iframe in mturk
+    def thread_rating(thread_id, user_id):
         thread = service.get_thread(thread_id)
+        user = User.get(user_id)   # FL.current_user
         if not thread:
-            return f'Thread {thread_id} found', 404
+            return f'Thread {thread_id} NOT found', 404
+        if not user:
+            return f'User {user_id} NOT found', 404
+        if user not in thread.users:
+            return f'User {user_id} is NOT part of thread', 403
         log.info(f'updating ratings for {thread.id}')
         ratings = {key: val for key, val in request.form.items()}
         focus_mode = ratings.pop('focus_mode', None)
         service.update_thread_ratings(thread, ratings=ratings)
         if thread.ext_src in (C.MTURK, C.MTURK_SANDBOX):
             return render_template('user/mturk_submit.html', thread=thread,
-                                   user=FL.current_user, focus_mode=focus_mode)
+                                   user=user, focus_mode=focus_mode)
         note_text = 'Great job! You have completed a thread!'
         if focus_mode:
             return note_text, 200
@@ -357,7 +363,7 @@ def user_controllers(router, service: ChatService):
             else: # login and return back here
                 flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
                 return flask.redirect(url_for('app.login', action='login', next=request.url))
-
+        
         limit_exceeded, msg = service.limit_check(topic=topic, user=user)
         if limit_exceeded: # we may need to block user i.e. change user qualification
             return msg, 400
