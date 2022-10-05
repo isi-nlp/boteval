@@ -1,5 +1,5 @@
-= Nginx as Reverse Proxy: A sample config
-
+= Nginx Reverse Proxy
+include::_head.adoc[]
 
 .Summary:
 * Running https://certbot.eff.org/instructions?ws=nginx&os=ubuntufocal[Certbot^] generated a sample nginx config at `/etc/nginx/sites-enabled/default` with `ssl_*` fields configured. 
@@ -8,7 +8,7 @@
 
 The below nginx setting was tested to be working when flask app is bound to `http://127.0.0.1:7070/boteval` on an AWS/EC2 instance whose IP is mapped (via DNS A-record) to `dev.gowda.ai`, and ports 80(HTTP), 443(HTTPS) are open to the public.
 
-[source,bash]
+[source,nginx]
 ----
 # Default server configuration
 server {

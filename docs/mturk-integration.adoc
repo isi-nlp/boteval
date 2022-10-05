@@ -1,5 +1,5 @@
 = MTurk Integration
 
-* We use ExternalQuestionfootnote:[https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html] 
-* ExternalQuestion requires hosting our webservice over HTTPS, which requires SSL certificate.
+* MTurk integration is achieved via link:https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html[ExternalQuestion^]
+* ExternalQuestion requires hosting our webservice over HTTPS, which requires SSL certificate. See 
 * When the task is done, we need to submit a form back to MTurk informing the completion.

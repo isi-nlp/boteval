@@ -1,0 +1,13 @@
+= BotEval
+include::_head.adoc[]
+:leveloffset: +1
+:docinfo2: 
+
+Bot Evaluation 
+
+include::01-getting-started.adoc[]
+
+include::mturk-integration.adoc[]
+
+include::nginx-conf.adoc[]
+

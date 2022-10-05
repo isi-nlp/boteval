@@ -1,0 +1,179 @@
+= Setup
+include::_head.adoc[]
+
+
+NOTE: 1. Python 3.9 or newer is required to run this project. +
+
+.Install
+[source,shell]
+----
+conda create env -n boteval python=3.9
+conda activate boteval
+pip install boteval
+boteval -h
+----
+
+
+If you plan to edit/update `boteval` code or wants to use latest unreleased version of code, then clone the source code from github and install in development mode
+
+NOTE: GitHub URL: https://github.com/isi-nlp/boteval 
+
+
+.Development setup
+[source,shell]
+----
+#create a python-3.9 environment (if necessary) and activate
+git clone git@github.com:isi-nlp/boteval.git
+cd boteval
+pip install -e .
+boteval -h
+----
+
+The `-e` flag enables editable mode i.e., you can keep editing files without having to reinstall. 
+
+
+= Quick Start
+
+The `boteval` is structured around  _task directory_, which has `conf.yml` file. 
+
+
+== Task Directory
+
+Here is the structure of an example chat task directory:
+
+[source,plain]
+----
+example-chat-task/
+├── conf.yml
+├── chat_topics.json
+├── __init__.py
+├── bots.py
+├── transforms.py
+├── instructions.html
+└── user-agreement.html
+----
+
+[#conf]
+== Config file
+
+[#conf-sample]
+.Sample `conf.yml` file
+[source,yaml,linenums]
+----
+chatbot:
+  display_name: 'Moderator'
+  topics_file: chat_topics.json
+  bot_name: hf-transformers   # <1>
+  bot_args:                   # <1>
+    model_name: facebook/blenderbot_small-90M
+
+onboarding: #<2> 
+  agreement_file: user-agreement.html
+  instructions_file: instructions.html
+  checkboxes:
+    instructions_read: I have read the instructions.
+    iam_adult: I am 18 years or older and I understand that I may have to read and write using toxic language.
+  
+ratings: #<3>
+  - question: 'How Coherent was the conversation?'
+    choices: &choices
+      - Not at all
+      - Mostly not
+      - So-so
+      - Somewhat
+      - Very
+  - question: 'How likely are you going to continue the conversation with the bot?'
+    choices: *choices
+  - question: 'To what degree did the bot convince you to change your behavior?'
+    choices: *choices
+
+limits:  #<4>
+  max_threads_per_user: 10
+  max_threads_per_topic: &max_assignments 3
+  max_turns_per_thread: 4
+  reward: &reward '0.01' # dollars
+
+flask_config: #<4>
+  # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
+  DATABASE_FILE_NAME: 'sqlite-dev-01.db'   # this will be placed in task dir
+  SQLALCHEMY_TRACK_MODIFICATIONS: false
+
+mturk: #<6>
+  client:
+    profile: default # the [default] profile in ~/.aws/credentials file
+    sandbox: true  # sandbox: false to go live
+  seamless_login: true
+  hit_settings:
+    # https://boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit
+    MaxAssignments: *max_assignments
+    AutoApprovalDelayInSeconds: 604800      # 7 days  = 604k sec
+    LifetimeInSeconds: 1209600              # 14 days = 1.2M sec
+    AssignmentDurationInSeconds: 3600       # 1 hour  = 3.6k sec
+    Reward: *reward
+    Title: 'Evaluate a chatbot'
+    Keywords: 'chatbot,chat,research'
+    Description: 'Evaluate a chat bot by talking to it for a while and receive a reward'
+----
+:xrefstyle: full
+<1> See <<#conf-bot>>
+<2> See <<#conf-onboarding>>
+<3> See <<#conf-ratings>>
+<4> See <<#conf-limits>>
+<5> See <<#conf-flask>>
+<6> See <<#conf-mturk>>
+
+[#conf-bot]
+=== Bot Settings
+
+* `bot_name` (str) and `bot_args` (dict) are required to enable chatbot backend.
+* `bot_name` is a string where as `bot_args` is dictionary which is provided as key-word arguments. `bot_args` can be optional (i.e. missing) for bots that require no arguments.
+
+.Example Bot
+[source,python,linenums]
+----
+from boteval import log, C, registry as R
+from boteval.bots import BotAgent
+
+BLENDERBOT_90M = "facebook/blenderbot_small-90M"
+
+@R.register(R.BOT, 'hf-transformers')
+class TransformerBot(BotAgent):
+
+    NAME = 'transformers'
+
+    def __init__(self, model_name=BLENDERBOT_90M, **kwargs) -> None:
+        super().__init__(name=f'{self.NAME}:{model_name}')
+        self.model_name = model_name
+----
+Here `bot_name='hf-transformers'`.  `bot_args` are optional as there are no arguments of `__init__` that require value. However, if we want to change `model_name`, here is an example for how to provide it:
+[source,yaml]
+----
+chatbot:
+  #(other args)
+  bot_name: hf-transformers 
+  bot_args:
+    model_name: facebook/blenderbot_small-90M
+----
+
+Seed Conversation::
+`chatbot.topics_file` is required to provide seed conversation. 
+ see `example-chat-dir/chat_topics.json` for an example. 
+
+ Bot Name::
+ Set `chatbot.displayname` property
+
+ 
+[#conf-onboarding]
+=== Onboarding Settings
+
+[#conf-ratings]
+=== Ratings Settings
+
+[#conf-limits]
+=== Limits Settings
+
+[#conf-flask]
+=== Flask Server Settings
+
+[#conf-mturk]
+=== Crowd: MTurk Settings
