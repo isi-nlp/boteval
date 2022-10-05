@@ -4,7 +4,6 @@
 .Summary:
 * Running https://certbot.eff.org/instructions?ws=nginx&os=ubuntufocal[Certbot^] generated a sample nginx config at `/etc/nginx/sites-enabled/default` with `ssl_*` fields configured. 
 * I have added reverse proxy for location `/boteval` -> `http://127.0.0.1:7070/boteval` along with necessary proxy headers to make session/logins work.
-- Similarly, location `/socket.io` is also forwarded for the websockets to work.
 
 The below nginx setting was tested to be working when flask app is bound to `http://127.0.0.1:7070/boteval` on an AWS/EC2 instance whose IP is mapped (via DNS A-record) to `dev.gowda.ai`, and ports 80(HTTP), 443(HTTPS) are open to the public.
 
@@ -36,15 +35,6 @@ server {
                 proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        # this is required for webscokets
-        location /socket.io {
-          include proxy_params;
-          proxy_http_version 1.1;
-          proxy_buffering off;
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection "Upgrade";
-          proxy_pass http://127.0.0.1:7070/socket.io;
-      }
 }
 
 
@@ -69,15 +59,6 @@ server {
                 proxy_redirect http://$http_host/ https://$http_host/;
         }
 
-        # this is required for webscokets
-        location /socket.io {
-          include proxy_params;
-          proxy_http_version 1.1;
-          proxy_buffering off;
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection "Upgrade";
-          proxy_pass http://127.0.0.1:7070/socket.io;
-      }
 
     listen [::]:443 ssl ipv6only=on; # managed by Certbot
     listen 443 ssl; # managed by Certbot
