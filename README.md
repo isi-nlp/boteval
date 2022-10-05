@@ -20,7 +20,7 @@ pip install -e .
 python -m boteval -h
 ```
 
-Make sure to nstall PyTorch / Tensorflow / Flax. 
+Make sure to install PyTorch / Tensorflow / Flax. 
 
 ## Start Server
 
@@ -58,8 +58,6 @@ python -m boteval example-chat-task -d -b BASE_URL_PATH
 
 # Deployment
 ```bash
-python -m boteval example-chat-task
-# TODO: uwsgi 
 python -m boteval example-chat-task -b BASE_URL_PATH
 ```
 
