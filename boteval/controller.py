@@ -214,7 +214,6 @@ def user_controllers(router, socket, service: ChatService):
         thread_counts = service.get_thread_counts(episode_done=True) # completed threads
         for thread in threads:
             data[thread.topic_id][1] = thread
-            print(thread, thread.episode_done)
 
         for topic_id, n_threads in thread_counts.items():
             data[topic_id][2] = n_threads
@@ -260,7 +259,7 @@ def user_controllers(router, socket, service: ChatService):
         focus_mode = focus_mode or request.values.get('focus_mode')
         thread = service.get_thread(thread_id)
         if not thread:
-            return f'Thread {thread_id} found', 404
+            return f'Thread {thread_id}  NOT found', 404
         ratings = service.get_rating_questions()
         topic = service.get_topic(thread.topic_id)
         max_turns = service.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD, C.DEF_MAX_TURNS_PER_THREAD)
