@@ -82,7 +82,6 @@ Look at `example-chat-task/conf.yml` for an example
   * If you do not know how Dabase and ORM works or how you could use them, then this could be most complex piece of the system. Good news is that we build on top of battele-tested SqlAlchemy. See its documentation at https://docs.sqlalchemy.org/en/14/
   * Some examples for CRUD ops https://flask-sqlalchemy.palletsprojects.com/en/2.x/queries/
 
-* Sockets and stuff: https://flask-socketio.readthedocs.io/en/latest/intro.html
 * Themes and styles via Bootstrap : https://getbootstrap.com/docs/4.5/getting-started/introduction/
 * jQuery: for DOM manipulation and client side templating
 

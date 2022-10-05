@@ -2,9 +2,8 @@ Flask==2.1
 ruamel.yaml>=0.17
 boto3>=1.24
 cachetools>=5.2
-flask-socketio
-eventlet
-#gunicorn
+#flask-socketio
+#eventlet
 flask-login
 flask_sqlalchemy
 blinker>=1.5
