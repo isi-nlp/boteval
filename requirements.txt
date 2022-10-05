@@ -3,10 +3,12 @@ ruamel.yaml>=0.17
 boto3>=1.24
 cachetools>=5.2
 flask-socketio
-#eventlet
+eventlet
 #gunicorn
 flask-login
 flask_sqlalchemy
 blinker>=1.5
 requests
 transformers
+openai
+spacy

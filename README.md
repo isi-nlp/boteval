@@ -12,7 +12,6 @@ conda create -n boteval python=3.9
 conda activate boteval
 ```
 
-
 ```bash
 git clone https://github.com/isi-nlp/boteval
 cd boteval
@@ -20,6 +19,8 @@ pip install -e .
 
 python -m boteval -h
 ```
+
+Make sure to nstall PyTorch / Tensorflow / Flax. 
 
 ## Start Server
 
@@ -48,9 +49,9 @@ optional arguments:
 ### Development mode
 
 ```bash
-
-# add -d for debug;
-python -m boteval -d example-chat-task
+# add -d for debug
+BASE_URL_PATH="/boteval" # prefix to use for url paths
+python -m boteval example-chat-task -d -b BASE_URL_PATH
 ```
 `-d` enables live reload mode of server, which means when you edit files (and save) and hit refresh webpage it automatically reloads new changes. 
 
@@ -59,6 +60,7 @@ python -m boteval -d example-chat-task
 ```bash
 python -m boteval example-chat-task
 # TODO: uwsgi 
+python -m boteval example-chat-task -b BASE_URL_PATH
 ```
 
 This starts a service on http://localhost:7070 by default.

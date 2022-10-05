@@ -71,3 +71,15 @@ function disqualify(worker_id, qual_id, where){
     },
   });
 }
+
+async function copy_to_clipboard(text){
+  // reference: https://web.dev/async-clipboard/
+  try {
+    await navigator.clipboard.writeText(text);
+    console.log("copied text to clipboard: " + text); 
+    alert("Copied text to clipboard: " + text);
+  } catch (err) {
+    console.error('Failed to copy: ', err);
+  }
+
+}
