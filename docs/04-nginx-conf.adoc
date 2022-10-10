@@ -1,4 +1,5 @@
-= Nginx Reverse Proxy
+[#nginx]
+= HTTPS with Nginx Reverse Proxy
 include::_head.adoc[]
 
 .Summary:

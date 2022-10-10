@@ -1,7 +1,7 @@
-:doctype: book
+:doctype: article
 :author: Thamme Gowda
-//:orgname: University of Southern California
-:email: tgowdan@gmail.com
+:orgname: University of Southern California
+//:email: tgowdan@gmail.com
 :revnumber: 1.0
 :revdate: Oct 1st, 2022
 :encoding: utf-8

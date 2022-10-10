@@ -32,29 +32,76 @@ boteval -h
 The `-e` flag enables editable mode i.e., you can keep editing files without having to reinstall. 
 
 
+[#quickstart]
 = Quick Start
 
 The `boteval` is structured around  _task directory_, which has `conf.yml` file. 
+These concepts will be introduced in the later sections; for now lets see if we can blindly run a demo task.
 
+[source,bash]
+----
+python -m boteval -h 
+usage: boteval [-h] [-c FILE] [-b /prefix] [-d] [-a ADDR] [-p PORT] [-v] DIR
 
-== Task Directory
+Deploy chat bot evaluation
+
+positional arguments:
+  DIR                   Path to task dir. See "example-chat-task"
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c FILE, --config FILE
+                        Path to config file. Default is <task-dir>/conf.yml (default: None)
+  -b /prefix, --base /prefix
+                        Base path prefix for all url routes. Eg: /boteval (default: None)
+  -d, --debug           Run Flask server in debug mode (default: False)
+  -a ADDR, --addr ADDR  Address to bind to (default: 0.0.0.0)
+  -p PORT, --port PORT  port to run server on (default: 7070)
+  -v, --version         show version number and exit
+----
+
+We have provided `example-chat-task` as a demo chat task. Run this command to start a demo:
+
+[source,bash]
+python -m boteval -d example-chat-task/
+
+It should print http://127.0.0.1:7070 on a successful launch. Now let's access this URL in a web browser. 
+You will be granted with a login screen!
+Wait! Creating user account for the development sake is not necessary, as we have preloaded two accounts. 
+These are the two accounts preloaded by default (UserIDs are shown):
+
+. `dev` -- an user account for you to test as a worker
+. `admin` -- an account with administrator privileges. 
+
+TIP: Where are the passwords for these accounts? See https://github.com/isi-nlp/boteval/blob/2473ef8d5743657c857525174d43ef5732ee7ce3/boteval/constants.py#L44-L45[boteval/constants.py#L44-L45^] +
+You may export `DEV_USER_SECRET` and `ADMIN_USER_SECRET`  environment variables (before the initial launch) to set your own passwords
+
+Now, login as `dev` user one of the browser, and login as `admin` user as another browser. Then play around with the web UI. 
+
+__TODO: We should make a video demo.__
+
+The following sections describe how to customize, and deploy this on production.
+
+[#taskdir]
+= Task Directory
 
 Here is the structure of an example chat task directory:
 
 [source,plain]
 ----
 example-chat-task/
-├── conf.yml
+├── conf.yml             #<1>
 ├── chat_topics.json
-├── __init__.py
-├── bots.py
-├── transforms.py
-├── instructions.html
+├── __init__.py          #<2>
+├── instructions.html  
 └── user-agreement.html
 ----
+<1> See <<#conf>>
+<2> See <<#add-bot>>
+
 
 [#conf]
-== Config file
+= Config file
 
 [#conf-sample]
 .Sample `conf.yml` file
@@ -93,7 +140,7 @@ limits:  #<4>
   max_turns_per_thread: 4
   reward: &reward '0.01' # dollars
 
-flask_config: #<4>
+flask_config: #<5>
   # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
   DATABASE_FILE_NAME: 'sqlite-dev-01.db'   # this will be placed in task dir
   SQLALCHEMY_TRACK_MODIFICATIONS: false
@@ -123,7 +170,7 @@ mturk: #<6>
 <6> See <<#conf-mturk>>
 
 [#conf-bot]
-=== Bot Settings
+== Bot Settings
 
 * `bot_name` (str) and `bot_args` (dict) are required to enable chatbot backend.
 * `bot_name` is a string where as `bot_args` is dictionary which is provided as key-word arguments. `bot_args` can be optional (i.e. missing) for bots that require no arguments.
@@ -145,7 +192,7 @@ class TransformerBot(BotAgent):
         super().__init__(name=f'{self.NAME}:{model_name}')
         self.model_name = model_name
 ----
-Here `bot_name='hf-transformers'`.  `bot_args` are optional as there are no arguments of `__init__` that require value. However, if we want to change `model_name`, here is an example for how to provide it:
+Here, with `bot_name='hf-transformers'`,  `bot_args` are optional as there are no arguments of `__init__` method that require value at runtime. However, if we want to change `model_name`, here is an example for how to provide it:
 [source,yaml]
 ----
 chatbot:
@@ -157,23 +204,132 @@ chatbot:
 
 Seed Conversation::
 `chatbot.topics_file` is required to provide seed conversation. 
- see `example-chat-dir/chat_topics.json` for an example. 
+ see `example-chat-dir/chat_topics.json` in source repository for an example. 
 
  Bot Name::
  Set `chatbot.displayname` property
 
  
 [#conf-onboarding]
-=== Onboarding Settings
+== Onboarding Settings
+
+.Example onboarding config
+[source,yaml]
+----
+onboarding:
+  agreement_file: user-agreement.html
+  instructions_file: instructions.html
+  checkboxes:
+    instructions_read: I have read the instructions.
+    iam_adult: I am 18 years or older and I understand that I may have to read and write using toxic language.
+----
+
+The `agreement_file` and  `instructions_file` may contain arbitrary HTML/CSS/JS content. 
+While the contents of `agreement_file` will be shown during user signup / account creation, users can acces the contents of `instructions` from a chat window. 
+
+The items under `onboarding.checkboxes` will be shown during signup page and asked used to provide agreement/consent. 
+
 
 [#conf-ratings]
-=== Ratings Settings
+== Ratings Settings
+
+Ratings is a place to configure the input from user after a chat task is done.
+Currently multiple choice questions are supported (TODO: we probably need to extend this to support other kinds of input).
+
+For multiple choice question, we need to specify question text as `question: str` and its choices as `choices: List[str]`
+
+.Example rating questions
+[source,yaml]
+----
+ratings:
+  - question: 'How Coherent was the conversation?'
+    choices: &choices  #<1>
+      - Not at all
+      - Mostly not
+      - So-so
+      - Somewhat
+      - Very
+  - question: 'How likely are you going to continue the conversation with the bot?'
+    choices: *choices #<1>
+  - question: 'To what degree did the bot convince you to change your behavior?'
+    choices: *choices
+----
+<1> - `&choices` defines a reference/pointer variable and `*choices` references to previously defined variable. This is an elegent way of reusing previously defined config values instead of repeating them. 
+
+
 
 [#conf-limits]
-=== Limits Settings
+== Limits Settings
+
+.Example limits config
+[source,yaml]
+----
+limits:
+  max_threads_per_user: 10   #<1>
+  max_threads_per_topic: 3  #<2>
+  max_turns_per_thread: 4   #<3>
+  reward: '0.01'           #<4>    
+----
+<1> Maximum number of threads (mtuk/assignments) a worker can do
+<2> Maximum number of threads (mtuk/assignments) we need for a topic (mturk/HIT)
+<3> Maximum number of worker replies required in a thread (/assignment) to consider it as complete
+<4> Reward amount. Note: currently payment can be provided to MTurk workers only; we dont have our own payment processing backend.
 
 [#conf-flask]
-=== Flask Server Settings
+== Flask Server Settings
+
+As you may have figured already, the server side code is powered by Python Flask. 
+Flask is very powerful and flexible system (the reason why we chose to use it!).
+For Flask's configuration options, please refer to https://flask.palletsprojects.com/en/2.0.x/config/#configuration-basics 
+
+Here we say that, we expose access to `flask.config` datastructure: anything we set under `flask_config` key at the root of YAML file will be updated to `app.config` 
+
+
+.Example flask config
+[source,yaml]
+----
+flask_config: #<5>
+  DATABASE_FILE_NAME: 'sqlite-dev-01.db' #<1>
+  SQLALCHEMY_TRACK_MODIFICATIONS: false
+----
+<1> `DATABASE_FILE_NAME` is the filename for sqlite3 databse. 
+
+TIP: Use a different DATABASE_FILE_NAME  for development vs production. When you want to have a fresh start, simply change db filename. 
+
+NOTE: You may also configure sqlachemy here https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
+
+
 
 [#conf-mturk]
-=== Crowd: MTurk Settings
+== Crowd: MTurk Settings
+
+[source,yaml]
+----
+limits:  
+  max_threads_per_user: 10
+  max_threads_per_topic: &max_assignments 3    #<5>
+  max_turns_per_thread: 4
+  reward: &reward '0.01'  #<5>
+
+mturk: 
+  client:
+    profile: default  #<1>
+    sandbox: true    #<2>
+  seamless_login: true #<3>
+  hit_settings: #<4>
+    MaxAssignments: *max_assignments  #<5>
+    AutoApprovalDelayInSeconds: 604800      # 7 days  = 604k sec
+    LifetimeInSeconds: 1209600              # 14 days = 1.2M sec
+    AssignmentDurationInSeconds: 3600       # 1 hour  = 3.6k sec
+    Reward: *reward  #<5>
+    Title: 'Evaluate a chatbot'
+    Keywords: 'chatbot,chat,research'
+    Description: 'Evaluate a chat bot by talking to it for a while and receive a reward'
+----
+<1>  profile name should match the onesin `$HOME/.aws/credentials` file
+<2> `sandbox: true` to use sandbox and set  `sandbox: false` go live
+<3> MTurk user will be automatically loggen into our system. An a/c would be created if they required. The workers dont have to remember userID or password for loggin into our system
+<4> All these key-values are sent to mturk API; Refer to https://boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit for a full list of options. 
+<5> cross references using `&` and `*` for reusing previously defined limits
+
+

@@ -3,11 +3,13 @@ include::_head.adoc[]
 :leveloffset: +1
 :docinfo2: 
 
-Bot Evaluation 
+Bot Evaluation. 
 
 include::01-getting-started.adoc[]
 
-include::mturk-integration.adoc[]
+include::02-add-custom-bots.adoc[]
 
-include::nginx-conf.adoc[]
+include::04-mturk-integration.adoc[]
+
+include::04-nginx-conf.adoc[]
 

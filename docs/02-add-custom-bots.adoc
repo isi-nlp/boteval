@@ -1,0 +1,98 @@
+[#add-bot]
+= Adding Bots and Transforms
+include::_head.adoc[]
+
+
+If `\\__init__.py` file is found at the root of task directory, then the directory is treated as python module and imported it.
+
+TIP: Refer to `example-chat-task` directory for an example.
+
+NOTE: you may have to install additional requirements/libs for your code.
+
+.Example bot and transform
+[source,python,linenums]
+----
+from typing import Any
+
+from boteval import log, C, registry as R
+from boteval.bots import BotAgent
+from boteval.transforms import BaseTransform, SpacySplitter
+from boteval.model import ChatMessage
+
+
+@R.register(R.BOT, name="my-dummy-bot")
+class MyDummpyBot(BotAgent):
+    
+    def __init__(self, **kwargs):
+        super().__init__(name="dummybot", **kwargs)
+        self.args = kwargs
+        log.info(f"{self.name} initialized; args={self.args}")
+
+    def talk(self) -> dict[str, Any]:
+        if not self.last_msg:
+            reply = f"Hello there! I am {C.BOT_DISPLAY_NAME}."
+        elif 'ping' in self.last_msg['text'].lower():
+            reply = 'pong'
+        else:
+            reply = f"Dummy reply for -- {self.last_msg['text']}"
+        return dict(text=reply)
+
+    def hear(self, msg: dict[str, Any]):
+        self.last_msg = msg
+
+
+@R.register(R.TRANSFORM, name='my-transform')
+class MyDummyTransform(BaseTransform):
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__()
+        self.args = kwargs
+        self.splitter = SpacySplitter.get_instance()
+
+    def transform(self, msg: ChatMessage) -> ChatMessage:
+        try:
+            text_orig = msg.text
+            text = '\n'.join(self.splitter(text_orig))  + ' (transformed)' # sample transform
+            msg.text = text
+            msg.data['text_orig'] = text_orig
+        except Exception as e:
+            log.error(f'{e}')
+        return msg
+
+----
+
+Suppose the below code is placed in `<task-dir>/\\__init__.py`, we import it as a python module.
+The
+[source,python]
+@R.register(R.BOT, name="my-dummy-bot")
+ 
+and
+[source,python]
+@R.register(R.TRANSFORM, name='my-transform') 
+
+statements register a custom bot and a custom transform, respectively. With this, the following config should be self explanatory (otherwise, revisit <<#conf-bot>>)
+
+[source,yaml]
+----
+chatbot:
+  display_name: 'Moderator'
+  topics_file: chat_topics.json
+  bot_name: my-dummy-bot
+  bot_args:
+    key1: val1
+    key2: val2
+    some_flag: true
+
+  transforms:
+    human:
+      - name: my-transform
+        args:
+          arg1: val1
+          arg2: [val2, val3]
+    bot:
+      - name: my-transform
+        args:
+          arg1: val1
+          arg2: [val2, val3]
+----
+

@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 2.0.17">
-<meta name="author" content="Thamme Gowda, USC Information Sciences Institute">
+<meta name="author" content="Thamme Gowda">
 <title>BotEval</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
@@ -652,68 +652,884 @@ pre.rouge {
   background-color: #f8f8f8;
 }
 </style>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-MX5RYYMKZ9"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-MX5RYYMKZ9');
-</script>
-
-
-<style>
-    #header, #content, #footnotes, #footer {
-  width: 100%;
-  margin: 0 auto;
-  max-width: 120em;
-}
-</style>
 </head>
-<body class="book toc2 toc-left">
+<body class="article toc2 toc-left">
 <div id="header">
 <h1>BotEval</h1>
 <div class="details">
-<span id="author" class="author">Thamme Gowda, USC Information Sciences Institute</span><br>
+<span id="author" class="author">Thamme Gowda</span><br>
+<span id="revnumber">version 1.0,</span>
+<span id="revdate">Oct 1st, 2022</span>
 </div>
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
-<ul class="sectlevel0">
-<li><a href="#_mturk_integration">MTurk Integration</a></li>
-<li><a href="#_nginx_as_reverse_proxy_a_sample_config">Nginx as Reverse Proxy: A sample config</a></li>
+<ul class="sectlevel1">
+<li><a href="#_setup">1. Setup</a></li>
+<li><a href="#quickstart">2. Quick Start</a></li>
+<li><a href="#taskdir">3. Task Directory</a></li>
+<li><a href="#conf">4. Config file</a>
+<ul class="sectlevel2">
+<li><a href="#conf-bot">4.1. Bot Settings</a></li>
+<li><a href="#conf-onboarding">4.2. Onboarding Settings</a></li>
+<li><a href="#conf-ratings">4.3. Ratings Settings</a></li>
+<li><a href="#conf-limits">4.4. Limits Settings</a></li>
+<li><a href="#conf-flask">4.5. Flask Server Settings</a></li>
+<li><a href="#conf-mturk">4.6. Crowd: MTurk Settings</a></li>
+</ul>
+</li>
+<li><a href="#add-bot">5. Adding Bots and Transforms</a></li>
+<li><a href="#mturk">6. MTurk Integration</a></li>
+<li><a href="#nginx">7. HTTPS with Nginx Reverse Proxy</a></li>
 </ul>
 </div>
 </div>
 <div id="content">
 <div id="preamble">
 <div class="sectionbody">
+<style type="text/css">
+body {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+h1, h2, h3, h4, h5 {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+#header, #content, #footnotes, #footer {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 120em;
+}
+</style>
 <div class="paragraph">
-<p>Bot Evaluation</p>
+<p>Bot Evaluation.</p>
 </div>
 </div>
 </div>
-<h1 id="_mturk_integration" class="sect0">MTurk Integration</h1>
-<div class="openblock partintro">
+<div class="sect1">
+<h2 id="_setup">1. Setup</h2>
+<div class="sectionbody">
+<style type="text/css">
+body {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+h1, h2, h3, h4, h5 {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+#header, #content, #footnotes, #footer {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 120em;
+}
+</style>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+1. Python 3.9 or newer is required to run this project.<br>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Install</div>
 <div class="content">
+<pre class="rouge highlight"><code data-lang="shell">conda create <span class="nb">env</span> <span class="nt">-n</span> boteval <span class="nv">python</span><span class="o">=</span>3.9
+conda activate boteval
+pip <span class="nb">install </span>boteval
+boteval <span class="nt">-h</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you plan to edit/update <code>boteval</code> code or wants to use latest unreleased version of code, then clone the source code from github and install in development mode</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+GitHub URL: <a href="https://github.com/isi-nlp/boteval" class="bare">github.com/isi-nlp/boteval</a>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Development setup</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="shell"><span class="c">#create a python-3.9 environment (if necessary) and activate</span>
+git clone git@github.com:isi-nlp/boteval.git
+<span class="nb">cd </span>boteval
+pip <span class="nb">install</span> <span class="nt">-e</span> <span class="nb">.</span>
+boteval <span class="nt">-h</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>-e</code> flag enables editable mode i.e., you can keep editing files without having to reinstall.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="quickstart">2. Quick Start</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>boteval</code> is structured around  <em>task directory</em>, which has <code>conf.yml</code> file.
+These concepts will be introduced in the later sections; for now lets see if we can blindly run a demo task.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">python <span class="nt">-m</span> boteval <span class="nt">-h</span>
+usage: boteval <span class="o">[</span><span class="nt">-h</span><span class="o">]</span> <span class="o">[</span><span class="nt">-c</span> FILE] <span class="o">[</span><span class="nt">-b</span> /prefix] <span class="o">[</span><span class="nt">-d</span><span class="o">]</span> <span class="o">[</span><span class="nt">-a</span> ADDR] <span class="o">[</span><span class="nt">-p</span> PORT] <span class="o">[</span><span class="nt">-v</span><span class="o">]</span> DIR
+
+Deploy chat bot evaluation
+
+positional arguments:
+  DIR                   Path to task dir. See <span class="s2">"example-chat-task"</span>
+
+optional arguments:
+  <span class="nt">-h</span>, <span class="nt">--help</span>            show this <span class="nb">help </span>message and <span class="nb">exit</span>
+  <span class="nt">-c</span> FILE, <span class="nt">--config</span> FILE
+                        Path to config file. Default is &lt;task-dir&gt;/conf.yml <span class="o">(</span>default: None<span class="o">)</span>
+  <span class="nt">-b</span> /prefix, <span class="nt">--base</span> /prefix
+                        Base path prefix <span class="k">for </span>all url routes. Eg: /boteval <span class="o">(</span>default: None<span class="o">)</span>
+  <span class="nt">-d</span>, <span class="nt">--debug</span>           Run Flask server <span class="k">in </span>debug mode <span class="o">(</span>default: False<span class="o">)</span>
+  <span class="nt">-a</span> ADDR, <span class="nt">--addr</span> ADDR  Address to <span class="nb">bind </span>to <span class="o">(</span>default: 0.0.0.0<span class="o">)</span>
+  <span class="nt">-p</span> PORT, <span class="nt">--port</span> PORT  port to run server on <span class="o">(</span>default: 7070<span class="o">)</span>
+  <span class="nt">-v</span>, <span class="nt">--version</span>         show version number and <span class="nb">exit</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>We have provided <code>example-chat-task</code> as a demo chat task. Run this command to start a demo:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">python <span class="nt">-m</span> boteval <span class="nt">-d</span> example-chat-task/</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It should print <a href="http://127.0.0.1:7070" class="bare">127.0.0.1:7070</a> on a successful launch. Now let&#8217;s access this URL in a web browser.
+You will be granted with a login screen!
+Wait! Creating user account for the development sake is not necessary, as we have preloaded two accounts.
+These are the two accounts preloaded by default (UserIDs are shown):</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><code>dev</code>&#8201;&#8212;&#8201;an user account for you to test as a worker</p>
+</li>
+<li>
+<p><code>admin</code>&#8201;&#8212;&#8201;an account with administrator privileges.</p>
+</li>
+</ol>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+Where are the passwords for these accounts? See <a href="https://github.com/isi-nlp/boteval/blob/2473ef8d5743657c857525174d43ef5732ee7ce3/boteval/constants.py#L44-L45" target="_blank" rel="noopener">boteval/constants.py#L44-L45</a><br>
+You may export <code>DEV_USER_SECRET</code> and <code>ADMIN_USER_SECRET</code>  environment variables (before the initial launch) to set your own passwords
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Now, login as <code>dev</code> user one of the browser, and login as <code>admin</code> user as another browser. Then play around with the web UI.</p>
+</div>
+<div class="paragraph">
+<p><em>TODO: We should make a video demo.</em></p>
+</div>
+<div class="paragraph">
+<p>The following sections describe how to customize, and deploy this on production.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="taskdir">3. Task Directory</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Here is the structure of an example chat task directory:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="plain">example-chat-task/
+├── conf.yml             <i class="conum" data-value="1"></i><b>(1)</b>
+├── chat_topics.json
+├── __init__.py          <i class="conum" data-value="2"></i><b>(2)</b>
+├── instructions.html
+└── user-agreement.html</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>See <a href="#conf">Section 4, &#8220;Config file&#8221;</a></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>See <a href="#add-bot">Section 5, &#8220;Adding Bots and Transforms&#8221;</a></td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="conf">4. Config file</h2>
+<div class="sectionbody">
+<div id="conf-sample" class="listingblock">
+<div class="title">Sample <code>conf.yml</code> file</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><table class="linenotable"><tbody><tr><td class="linenos gl"><pre class="lineno"> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+</pre></td><td class="code"><pre><span class="na">chatbot</span><span class="pi">:</span>
+  <span class="na">display_name</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Moderator'</span>
+  <span class="na">topics_file</span><span class="pi">:</span> <span class="s">chat_topics.json</span>
+  <span class="na">bot_name</span><span class="pi">:</span> <span class="s">hf-transformers</span>   <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">bot_args</span><span class="pi">:</span>                   <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">model_name</span><span class="pi">:</span> <span class="s">facebook/blenderbot_small-90M</span>
+
+<span class="na">onboarding</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">agreement_file</span><span class="pi">:</span> <span class="s">user-agreement.html</span>
+  <span class="na">instructions_file</span><span class="pi">:</span> <span class="s">instructions.html</span>
+  <span class="na">checkboxes</span><span class="pi">:</span>
+    <span class="na">instructions_read</span><span class="pi">:</span> <span class="s">I have read the instructions.</span>
+    <span class="na">iam_adult</span><span class="pi">:</span> <span class="s">I am 18 years or older and I understand that I may have to read and write using toxic language.</span>
+
+<span class="na">ratings</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="pi">-</span> <span class="na">question</span><span class="pi">:</span> <span class="s1">'</span><span class="s">How</span><span class="nv"> </span><span class="s">Coherent</span><span class="nv"> </span><span class="s">was</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">conversation?'</span>
+    <span class="na">choices</span><span class="pi">:</span> <span class="nl">&amp;choices</span>
+      <span class="pi">-</span> <span class="s">Not at all</span>
+      <span class="pi">-</span> <span class="s">Mostly not</span>
+      <span class="pi">-</span> <span class="s">So-so</span>
+      <span class="pi">-</span> <span class="s">Somewhat</span>
+      <span class="pi">-</span> <span class="s">Very</span>
+  <span class="pi">-</span> <span class="na">question</span><span class="pi">:</span> <span class="s1">'</span><span class="s">How</span><span class="nv"> </span><span class="s">likely</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">you</span><span class="nv"> </span><span class="s">going</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">continue</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">conversation</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">bot?'</span>
+    <span class="na">choices</span><span class="pi">:</span> <span class="nv">*choices</span>
+  <span class="pi">-</span> <span class="na">question</span><span class="pi">:</span> <span class="s1">'</span><span class="s">To</span><span class="nv"> </span><span class="s">what</span><span class="nv"> </span><span class="s">degree</span><span class="nv"> </span><span class="s">did</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">bot</span><span class="nv"> </span><span class="s">convince</span><span class="nv"> </span><span class="s">you</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">change</span><span class="nv"> </span><span class="s">your</span><span class="nv"> </span><span class="s">behavior?'</span>
+    <span class="na">choices</span><span class="pi">:</span> <span class="nv">*choices</span>
+
+<span class="na">limits</span><span class="pi">:</span>  <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">max_threads_per_user</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">max_threads_per_topic</span><span class="pi">:</span> <span class="nl">&amp;max_assignments</span> <span class="m">3</span>
+  <span class="na">max_turns_per_thread</span><span class="pi">:</span> <span class="m">4</span>
+  <span class="na">reward</span><span class="pi">:</span> <span class="nl">&amp;reward</span> <span class="s1">'</span><span class="s">0.01'</span> <span class="c1"># dollars</span>
+
+<span class="na">flask_config</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="c1"># sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/</span>
+  <span class="na">DATABASE_FILE_NAME</span><span class="pi">:</span> <span class="s1">'</span><span class="s">sqlite-dev-01.db'</span>   <span class="c1"># this will be placed in task dir</span>
+  <span class="na">SQLALCHEMY_TRACK_MODIFICATIONS</span><span class="pi">:</span> <span class="no">false</span>
+
+<span class="na">mturk</span><span class="pi">:</span> <i class="conum" data-value="6"></i><b>(6)</b>
+  <span class="na">client</span><span class="pi">:</span>
+    <span class="na">profile</span><span class="pi">:</span> <span class="s">default</span> <span class="c1"># the [default] profile in ~/.aws/credentials file</span>
+    <span class="na">sandbox</span><span class="pi">:</span> <span class="no">true</span>  <span class="c1"># sandbox: false to go live</span>
+  <span class="na">seamless_login</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">hit_settings</span><span class="pi">:</span>
+    <span class="c1"># https://boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit</span>
+    <span class="na">MaxAssignments</span><span class="pi">:</span> <span class="nv">*max_assignments</span>
+    <span class="na">AutoApprovalDelayInSeconds</span><span class="pi">:</span> <span class="m">604800</span>      <span class="c1"># 7 days  = 604k sec</span>
+    <span class="na">LifetimeInSeconds</span><span class="pi">:</span> <span class="m">1209600</span>              <span class="c1"># 14 days = 1.2M sec</span>
+    <span class="na">AssignmentDurationInSeconds</span><span class="pi">:</span> <span class="m">3600</span>       <span class="c1"># 1 hour  = 3.6k sec</span>
+    <span class="na">Reward</span><span class="pi">:</span> <span class="nv">*reward</span>
+    <span class="na">Title</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Evaluate</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">chatbot'</span>
+    <span class="na">Keywords</span><span class="pi">:</span> <span class="s1">'</span><span class="s">chatbot,chat,research'</span>
+    <span class="na">Description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Evaluate</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">chat</span><span class="nv"> </span><span class="s">bot</span><span class="nv"> </span><span class="s">by</span><span class="nv"> </span><span class="s">talking</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">while</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">receive</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">reward'</span>
+</pre></td></tr></tbody></table></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>See <a href="#conf-bot">Section 4.1, &#8220;Bot Settings&#8221;</a></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>See <a href="#conf-onboarding">Section 4.2, &#8220;Onboarding Settings&#8221;</a></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>See <a href="#conf-ratings">Section 4.3, &#8220;Ratings Settings&#8221;</a></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>See <a href="#conf-limits">Section 4.4, &#8220;Limits Settings&#8221;</a></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>See <a href="#conf-flask">Section 4.5, &#8220;Flask Server Settings&#8221;</a></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>See <a href="#conf-mturk">Section 4.6, &#8220;Crowd: MTurk Settings&#8221;</a></td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="conf-bot">4.1. Bot Settings</h3>
 <div class="ulist">
 <ul>
 <li>
-<p>We use ExternalQuestion<sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup></p>
+<p><code>bot_name</code> (str) and <code>bot_args</code> (dict) are required to enable chatbot backend.</p>
 </li>
 <li>
-<p>ExternalQuestion requires hosting our webservice over HTTPS, which requires SSL certificate.</p>
-</li>
-<li>
-<p>When the task is done, we need to submit a form back to MTurk informing the completion.</p>
+<p><code>bot_name</code> is a string where as <code>bot_args</code> is dictionary which is provided as key-word arguments. <code>bot_args</code> can be optional (i.e. missing) for bots that require no arguments.</p>
 </li>
 </ul>
 </div>
-</div>
-</div>
-<h1 id="_nginx_as_reverse_proxy_a_sample_config" class="sect0">Nginx as Reverse Proxy: A sample config</h1>
-<div class="openblock partintro">
+<div class="listingblock">
+<div class="title">Example Bot</div>
 <div class="content">
+<pre class="rouge highlight"><code data-lang="python"><table class="linenotable"><tbody><tr><td class="linenos gl"><pre class="lineno"> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+</pre></td><td class="code"><pre><span class="kn">from</span> <span class="nn">boteval</span> <span class="kn">import</span> <span class="n">log</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">registry</span> <span class="k">as</span> <span class="n">R</span>
+<span class="kn">from</span> <span class="nn">boteval.bots</span> <span class="kn">import</span> <span class="n">BotAgent</span>
+
+<span class="n">BLENDERBOT_90M</span> <span class="o">=</span> <span class="s">"facebook/blenderbot_small-90M"</span>
+
+<span class="o">@</span><span class="n">R</span><span class="p">.</span><span class="n">register</span><span class="p">(</span><span class="n">R</span><span class="p">.</span><span class="n">BOT</span><span class="p">,</span> <span class="s">'hf-transformers'</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">TransformerBot</span><span class="p">(</span><span class="n">BotAgent</span><span class="p">):</span>
+
+    <span class="n">NAME</span> <span class="o">=</span> <span class="s">'transformers'</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="o">=</span><span class="n">BLENDERBOT_90M</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">().</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s">'</span><span class="si">{</span><span class="bp">self</span><span class="p">.</span><span class="n">NAME</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s">'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span>
+</pre></td></tr></tbody></table></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Here, with <code>bot_name='hf-transformers'</code>,  <code>bot_args</code> are optional as there are no arguments of <code><em>init</em></code> method that require value at runtime. However, if we want to change <code>model_name</code>, here is an example for how to provide it:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">chatbot</span><span class="pi">:</span>
+  <span class="c1">#(other args)</span>
+  <span class="na">bot_name</span><span class="pi">:</span> <span class="s">hf-transformers</span>
+  <span class="na">bot_args</span><span class="pi">:</span>
+    <span class="na">model_name</span><span class="pi">:</span> <span class="s">facebook/blenderbot_small-90M</span></code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Seed Conversation</dt>
+<dd>
+<p><code>chatbot.topics_file</code> is required to provide seed conversation.
+ see <code>example-chat-dir/chat_topics.json</code> in source repository for an example.</p>
+</dd>
+<dt class="hdlist1">Bot Name</dt>
+<dd>
+<p>Set <code>chatbot.displayname</code> property</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="conf-onboarding">4.2. Onboarding Settings</h3>
+<div class="listingblock">
+<div class="title">Example onboarding config</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">onboarding</span><span class="pi">:</span>
+  <span class="na">agreement_file</span><span class="pi">:</span> <span class="s">user-agreement.html</span>
+  <span class="na">instructions_file</span><span class="pi">:</span> <span class="s">instructions.html</span>
+  <span class="na">checkboxes</span><span class="pi">:</span>
+    <span class="na">instructions_read</span><span class="pi">:</span> <span class="s">I have read the instructions.</span>
+    <span class="na">iam_adult</span><span class="pi">:</span> <span class="s">I am 18 years or older and I understand that I may have to read and write using toxic language.</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>agreement_file</code> and  <code>instructions_file</code> may contain arbitrary HTML/CSS/JS content.
+While the contents of <code>agreement_file</code> will be shown during user signup / account creation, users can acces the contents of <code>instructions</code> from a chat window.</p>
+</div>
+<div class="paragraph">
+<p>The items under <code>onboarding.checkboxes</code> will be shown during signup page and asked used to provide agreement/consent.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="conf-ratings">4.3. Ratings Settings</h3>
+<div class="paragraph">
+<p>Ratings is a place to configure the input from user after a chat task is done.
+Currently multiple choice questions are supported (TODO: we probably need to extend this to support other kinds of input).</p>
+</div>
+<div class="paragraph">
+<p>For multiple choice question, we need to specify question text as <code>question: str</code> and its choices as <code>choices: List[str]</code></p>
+</div>
+<div class="listingblock">
+<div class="title">Example rating questions</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">ratings</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">question</span><span class="pi">:</span> <span class="s1">'</span><span class="s">How</span><span class="nv"> </span><span class="s">Coherent</span><span class="nv"> </span><span class="s">was</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">conversation?'</span>
+    <span class="na">choices</span><span class="pi">:</span> <span class="nl">&amp;choices</span>  <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="pi">-</span> <span class="s">Not at all</span>
+      <span class="pi">-</span> <span class="s">Mostly not</span>
+      <span class="pi">-</span> <span class="s">So-so</span>
+      <span class="pi">-</span> <span class="s">Somewhat</span>
+      <span class="pi">-</span> <span class="s">Very</span>
+  <span class="pi">-</span> <span class="na">question</span><span class="pi">:</span> <span class="s1">'</span><span class="s">How</span><span class="nv"> </span><span class="s">likely</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">you</span><span class="nv"> </span><span class="s">going</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">continue</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">conversation</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">bot?'</span>
+    <span class="na">choices</span><span class="pi">:</span> <span class="nv">*choices</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="pi">-</span> <span class="na">question</span><span class="pi">:</span> <span class="s1">'</span><span class="s">To</span><span class="nv"> </span><span class="s">what</span><span class="nv"> </span><span class="s">degree</span><span class="nv"> </span><span class="s">did</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">bot</span><span class="nv"> </span><span class="s">convince</span><span class="nv"> </span><span class="s">you</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">change</span><span class="nv"> </span><span class="s">your</span><span class="nv"> </span><span class="s">behavior?'</span>
+    <span class="na">choices</span><span class="pi">:</span> <span class="nv">*choices</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>- <code>&amp;choices</code> defines a reference/pointer variable and <code>*choices</code> references to previously defined variable. This is an elegent way of reusing previously defined config values instead of repeating them.</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="conf-limits">4.4. Limits Settings</h3>
+<div class="listingblock">
+<div class="title">Example limits config</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">limits</span><span class="pi">:</span>
+  <span class="na">max_threads_per_user</span><span class="pi">:</span> <span class="s">10</span>   <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">max_threads_per_topic</span><span class="pi">:</span> <span class="s">3</span>  <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">max_turns_per_thread</span><span class="pi">:</span> <span class="s">4</span>   <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">reward</span><span class="pi">:</span> <span class="s1">'</span><span class="s">0.01'</span>           <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Maximum number of threads (mtuk/assignments) a worker can do</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Maximum number of threads (mtuk/assignments) we need for a topic (mturk/HIT)</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Maximum number of worker replies required in a thread (/assignment) to consider it as complete</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Reward amount. Note: currently payment can be provided to MTurk workers only; we dont have our own payment processing backend.</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="conf-flask">4.5. Flask Server Settings</h3>
+<div class="paragraph">
+<p>As you may have figured already, the server side code is powered by Python Flask.
+Flask is very powerful and flexible system (the reason why we chose to use it!).
+For Flask&#8217;s configuration options, please refer to <a href="https://flask.palletsprojects.com/en/2.0.x/config/#configuration-basics" class="bare">flask.palletsprojects.com/en/2.0.x/config/#configuration-basics</a></p>
+</div>
+<div class="paragraph">
+<p>Here we say that, we expose access to <code>flask.config</code> datastructure: anything we set under <code>flask_config</code> key at the root of YAML file will be updated to <code>app.config</code></p>
+</div>
+<div class="listingblock">
+<div class="title">Example flask config</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">flask_config</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">DATABASE_FILE_NAME</span><span class="pi">:</span> <span class="s1">'</span><span class="s">sqlite-dev-01.db'</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">SQLALCHEMY_TRACK_MODIFICATIONS</span><span class="pi">:</span> <span class="no">false</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><code>DATABASE_FILE_NAME</code> is the filename for sqlite3 databse.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+Use a different DATABASE_FILE_NAME  for development vs production. When you want to have a fresh start, simply change db filename.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+You may also configure sqlachemy here <a href="https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/" class="bare">flask-sqlalchemy.palletsprojects.com/en/2.x/config/</a>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="conf-mturk">4.6. Crowd: MTurk Settings</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">limits</span><span class="pi">:</span>
+  <span class="na">max_threads_per_user</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">max_threads_per_topic</span><span class="pi">:</span> <span class="nl">&amp;max_assignments</span> <span class="s">3</span>    <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">max_turns_per_thread</span><span class="pi">:</span> <span class="m">4</span>
+  <span class="na">reward</span><span class="pi">:</span> <span class="nl">&amp;reward</span> <span class="s1">'</span><span class="s">0.01'</span>  <i class="conum" data-value="5"></i><b>(5)</b>
+
+<span class="na">mturk</span><span class="pi">:</span>
+  <span class="na">client</span><span class="pi">:</span>
+    <span class="na">profile</span><span class="pi">:</span> <span class="s">default</span>  <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">sandbox</span><span class="pi">:</span> <span class="no">true</span>    <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">seamless_login</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">hit_settings</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="na">MaxAssignments</span><span class="pi">:</span> <span class="nv">*max_assignments</span>  <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">AutoApprovalDelayInSeconds</span><span class="pi">:</span> <span class="m">604800</span>      <span class="c1"># 7 days  = 604k sec</span>
+    <span class="na">LifetimeInSeconds</span><span class="pi">:</span> <span class="m">1209600</span>              <span class="c1"># 14 days = 1.2M sec</span>
+    <span class="na">AssignmentDurationInSeconds</span><span class="pi">:</span> <span class="m">3600</span>       <span class="c1"># 1 hour  = 3.6k sec</span>
+    <span class="na">Reward</span><span class="pi">:</span> <span class="nv">*reward</span>  <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">Title</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Evaluate</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">chatbot'</span>
+    <span class="na">Keywords</span><span class="pi">:</span> <span class="s1">'</span><span class="s">chatbot,chat,research'</span>
+    <span class="na">Description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Evaluate</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">chat</span><span class="nv"> </span><span class="s">bot</span><span class="nv"> </span><span class="s">by</span><span class="nv"> </span><span class="s">talking</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">while</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">receive</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">reward'</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>profile name should match the onesin <code>$HOME/.aws/credentials</code> file</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td><code>sandbox: true</code> to use sandbox and set  <code>sandbox: false</code> go live</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>MTurk user will be automatically loggen into our system. An a/c would be created if they required. The workers dont have to remember userID or password for loggin into our system</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>All these key-values are sent to mturk API; Refer to <a href="https://boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit" class="bare">boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit</a> for a full list of options.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>cross references using <code>&amp;</code> and <code>*</code> for reusing previously defined limits</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="add-bot">5. Adding Bots and Transforms</h2>
+<div class="sectionbody">
+<style type="text/css">
+body {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+h1, h2, h3, h4, h5 {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+#header, #content, #footnotes, #footer {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 120em;
+}
+</style>
+<div class="paragraph">
+<p>If <code>__init__.py</code> file is found at the root of task directory, then the directory is treated as python module and imported it.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+Refer to <code>example-chat-task</code> directory for an example.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+you may have to install additional requirements/libs for your code.
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example bot and transform</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="python"><table class="linenotable"><tbody><tr><td class="linenos gl"><pre class="lineno"> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+</pre></td><td class="code"><pre><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span> <span class="nn">boteval</span> <span class="kn">import</span> <span class="n">log</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">registry</span> <span class="k">as</span> <span class="n">R</span>
+<span class="kn">from</span> <span class="nn">boteval.bots</span> <span class="kn">import</span> <span class="n">BotAgent</span>
+<span class="kn">from</span> <span class="nn">boteval.transforms</span> <span class="kn">import</span> <span class="n">BaseTransform</span><span class="p">,</span> <span class="n">SpacySplitter</span>
+<span class="kn">from</span> <span class="nn">boteval.model</span> <span class="kn">import</span> <span class="n">ChatMessage</span>
+
+
+<span class="o">@</span><span class="n">R</span><span class="p">.</span><span class="n">register</span><span class="p">(</span><span class="n">R</span><span class="p">.</span><span class="n">BOT</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s">"my-dummy-bot"</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">MyDummpyBot</span><span class="p">(</span><span class="n">BotAgent</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">().</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s">"dummybot"</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="n">log</span><span class="p">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s">"</span><span class="si">{</span><span class="bp">self</span><span class="p">.</span><span class="n">name</span><span class="si">}</span><span class="s"> initialized; args=</span><span class="si">{</span><span class="bp">self</span><span class="p">.</span><span class="n">args</span><span class="si">}</span><span class="s">"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">talk</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="p">.</span><span class="n">last_msg</span><span class="p">:</span>
+            <span class="n">reply</span> <span class="o">=</span> <span class="sa">f</span><span class="s">"Hello there! I am </span><span class="si">{</span><span class="n">C</span><span class="p">.</span><span class="n">BOT_DISPLAY_NAME</span><span class="si">}</span><span class="s">."</span>
+        <span class="k">elif</span> <span class="s">'ping'</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">.</span><span class="n">last_msg</span><span class="p">[</span><span class="s">'text'</span><span class="p">].</span><span class="n">lower</span><span class="p">():</span>
+            <span class="n">reply</span> <span class="o">=</span> <span class="s">'pong'</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">reply</span> <span class="o">=</span> <span class="sa">f</span><span class="s">"Dummy reply for -- </span><span class="si">{</span><span class="bp">self</span><span class="p">.</span><span class="n">last_msg</span><span class="p">[</span><span class="s">'text'</span><span class="p">]</span><span class="si">}</span><span class="s">"</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="n">reply</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">hear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">last_msg</span> <span class="o">=</span> <span class="n">msg</span>
+
+
+<span class="o">@</span><span class="n">R</span><span class="p">.</span><span class="n">register</span><span class="p">(</span><span class="n">R</span><span class="p">.</span><span class="n">TRANSFORM</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s">'my-transform'</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">MyDummyTransform</span><span class="p">(</span><span class="n">BaseTransform</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">().</span><span class="n">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">splitter</span> <span class="o">=</span> <span class="n">SpacySplitter</span><span class="p">.</span><span class="n">get_instance</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">ChatMessage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChatMessage</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">text_orig</span> <span class="o">=</span> <span class="n">msg</span><span class="p">.</span><span class="n">text</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">splitter</span><span class="p">(</span><span class="n">text_orig</span><span class="p">))</span>  <span class="o">+</span> <span class="s">' (transformed)'</span> <span class="c1"># sample transform
+</span>            <span class="n">msg</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">text</span>
+            <span class="n">msg</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="s">'text_orig'</span><span class="p">]</span> <span class="o">=</span> <span class="n">text_orig</span>
+        <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">log</span><span class="p">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s">'</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s">'</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">msg</span>
+</pre></td></tr></tbody></table></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Suppose the below code is placed in <code>&lt;task-dir&gt;/__init__.py</code>, we import it as a python module.
+The</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="python"><span class="o">@</span><span class="n">R</span><span class="p">.</span><span class="n">register</span><span class="p">(</span><span class="n">R</span><span class="p">.</span><span class="n">BOT</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s">"my-dummy-bot"</span><span class="p">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>and</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="python"><span class="o">@</span><span class="n">R</span><span class="p">.</span><span class="n">register</span><span class="p">(</span><span class="n">R</span><span class="p">.</span><span class="n">TRANSFORM</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s">'my-transform'</span><span class="p">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>statements register a custom bot and a custom transform, respectively. With this, the following config should be self explanatory (otherwise, revisit <a href="#conf-bot">Section 4.1, &#8220;Bot Settings&#8221;</a>)</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">chatbot</span><span class="pi">:</span>
+  <span class="na">display_name</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Moderator'</span>
+  <span class="na">topics_file</span><span class="pi">:</span> <span class="s">chat_topics.json</span>
+  <span class="na">bot_name</span><span class="pi">:</span> <span class="s">my-dummy-bot</span>
+  <span class="na">bot_args</span><span class="pi">:</span>
+    <span class="na">key1</span><span class="pi">:</span> <span class="s">val1</span>
+    <span class="na">key2</span><span class="pi">:</span> <span class="s">val2</span>
+    <span class="na">some_flag</span><span class="pi">:</span> <span class="no">true</span>
+
+  <span class="na">transforms</span><span class="pi">:</span>
+    <span class="na">human</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-transform</span>
+        <span class="na">args</span><span class="pi">:</span>
+          <span class="na">arg1</span><span class="pi">:</span> <span class="s">val1</span>
+          <span class="na">arg2</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">val2</span><span class="pi">,</span> <span class="nv">val3</span><span class="pi">]</span>
+    <span class="na">bot</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-transform</span>
+        <span class="na">args</span><span class="pi">:</span>
+          <span class="na">arg1</span><span class="pi">:</span> <span class="s">val1</span>
+          <span class="na">arg2</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">val2</span><span class="pi">,</span> <span class="nv">val3</span><span class="pi">]</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mturk">6. MTurk Integration</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>MTurk integration is achieved via <a href="https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html" target="_blank" rel="noopener">ExternalQuestion</a></p>
+</li>
+<li>
+<p>However, ExternalQuestion requires hosting our webservice over HTTPS, which requires SSL certificate. See <a href="#nginx">Section 7, &#8220;HTTPS with Nginx Reverse Proxy&#8221;</a>.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+When the task is done, we need to submit a form back to MTurk informing the completion. So, Mturk worker gets an additional screen at the end of task where they click a button to notify the task completion to mturk.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>In the current version of this system, we do not automatically launch HITs on Mturk, instead we provide an option to Admin user.</p>
+</div>
+<div class="paragraph">
+<p>To launch HITs on mturk, follow these steps</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Login as admin user (See <a href="#quickstart">Section 2, &#8220;Quick Start&#8221;</a>)</p>
+</li>
+<li>
+<p>Go to <em>Admin Dashboard &gt; Topics &gt; Launch on Mturk or Mturk Sandbox</em> (depending on cofig)</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nginx">7. HTTPS with Nginx Reverse Proxy</h2>
+<div class="sectionbody">
+<style type="text/css">
+body {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+h1, h2, h3, h4, h5 {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+#header, #content, #footnotes, #footer {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 120em;
+}
+</style>
 <div class="ulist">
 <div class="title">Summary:</div>
 <ul>
@@ -722,13 +1538,6 @@ pre.rouge {
 </li>
 <li>
 <p>I have added reverse proxy for location <code>/boteval</code> &#8594; <code><a href="http://127.0.0.1:7070/boteval" class="bare">127.0.0.1:7070/boteval</a></code> along with necessary proxy headers to make session/logins work.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Similarly, location <code>/socket.io</code> is also forwarded for the websockets to work.</p>
-</li>
-</ul>
-</div>
 </li>
 </ul>
 </div>
@@ -737,109 +1546,110 @@ pre.rouge {
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="bash"><span class="c"># Default server configuration</span>
-server <span class="o">{</span>
-        listen 80 default_server<span class="p">;</span>
-        listen <span class="o">[</span>::]:80 default_server<span class="p">;</span>
+<pre class="rouge highlight"><code data-lang="nginx"><span class="c1"># Default server configuration</span>
+<span class="k">server</span> <span class="p">{</span>
+        <span class="kn">listen</span> <span class="mi">80</span> <span class="s">default_server</span><span class="p">;</span>
+        <span class="kn">listen</span> <span class="s">[::]:80</span> <span class="s">default_server</span><span class="p">;</span>
 
-        root /var/www/html<span class="p">;</span>
+        <span class="kn">root</span> <span class="n">/var/www/html</span><span class="p">;</span>
 
-        <span class="c"># Add index.php to the list if you are using PHP</span>
-        index index.html index.htm index.nginx-debian.html<span class="p">;</span>
+        <span class="c1"># Add index.php to the list if you are using PHP</span>
+        <span class="kn">index</span> <span class="s">index.html</span> <span class="s">index.htm</span> <span class="s">index.nginx-debian.html</span><span class="p">;</span>
 
-        server_name _<span class="p">;</span>
+        <span class="kn">server_name</span> <span class="s">_</span><span class="p">;</span>
 
-        location / <span class="o">{</span>
-                <span class="c"># First attempt to serve request as file, then</span>
-                <span class="c"># as directory, then fall back to displaying a 404.</span>
-                try_files <span class="nv">$uri</span> <span class="nv">$uri</span>/ <span class="o">=</span>404<span class="p">;</span>
-        <span class="o">}</span>
+        <span class="kn">location</span> <span class="n">/</span> <span class="p">{</span>
+                <span class="c1"># First attempt to serve request as file, then</span>
+                <span class="c1"># as directory, then fall back to displaying a 404.</span>
+                <span class="kn">try_files</span> <span class="nv">$uri</span> <span class="nv">$uri</span><span class="n">/</span> <span class="p">=</span><span class="mi">404</span><span class="p">;</span>
+        <span class="p">}</span>
 
-        location /boteval <span class="o">{</span>
-                proxy_pass http://127.0.0.1:7070/boteval <span class="p">;</span>
-                proxy_set_header Host <span class="nv">$http_host</span><span class="p">;</span>
-                proxy_set_header X-Forwarded-For <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
-                proxy_set_header X-Real-IP <span class="nv">$remote_addr</span><span class="p">;</span>
-                proxy_set_header X-Forwarded-Proto <span class="nv">$scheme</span><span class="p">;</span>
-        <span class="o">}</span>
+        <span class="kn">location</span> <span class="n">/boteval</span> <span class="p">{</span>
+                <span class="kn">proxy_pass</span> <span class="s">http://127.0.0.1:7070/boteval</span> <span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$http_host</span><span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-Proto</span> <span class="nv">$scheme</span><span class="p">;</span>
+        <span class="p">}</span>
 
-        <span class="c"># this is required for webscokets</span>
-        location /socket.io <span class="o">{</span>
-          include proxy_params<span class="p">;</span>
-          proxy_http_version 1.1<span class="p">;</span>
-          proxy_buffering off<span class="p">;</span>
-          proxy_set_header Upgrade <span class="nv">$http_upgrade</span><span class="p">;</span>
-          proxy_set_header Connection <span class="s2">"Upgrade"</span><span class="p">;</span>
-          proxy_pass http://127.0.0.1:7070/socket.io<span class="p">;</span>
-      <span class="o">}</span>
-<span class="o">}</span>
+<span class="p">}</span>
 
 
-server <span class="o">{</span>
-        root /var/www/html<span class="p">;</span>
-        <span class="c"># Add index.php to the list if you are using PHP</span>
-        index index.html index.htm index.nginx-debian.html<span class="p">;</span>
-        server_name dev.gowda.ai<span class="p">;</span> <span class="c"># managed by Certbot</span>
+<span class="k">server</span> <span class="p">{</span>
+        <span class="kn">root</span> <span class="n">/var/www/html</span><span class="p">;</span>
+        <span class="c1"># Add index.php to the list if you are using PHP</span>
+        <span class="kn">index</span> <span class="s">index.html</span> <span class="s">index.htm</span> <span class="s">index.nginx-debian.html</span><span class="p">;</span>
+        <span class="kn">server_name</span> <span class="s">dev.gowda.ai</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
 
-        location / <span class="o">{</span>
-                <span class="c"># First attempt to serve request as file, then</span>
-                <span class="c"># as directory, then fall back to displaying a 404.</span>
-                try_files <span class="nv">$uri</span> <span class="nv">$uri</span>/ <span class="o">=</span>404<span class="p">;</span>
-        <span class="o">}</span>
+        <span class="kn">location</span> <span class="n">/</span> <span class="p">{</span>
+                <span class="c1"># First attempt to serve request as file, then</span>
+                <span class="c1"># as directory, then fall back to displaying a 404.</span>
+                <span class="kn">try_files</span> <span class="nv">$uri</span> <span class="nv">$uri</span><span class="n">/</span> <span class="p">=</span><span class="mi">404</span><span class="p">;</span>
+        <span class="p">}</span>
 
-        location /boteval <span class="o">{</span>
-                proxy_pass http://127.0.0.1:7070/boteval<span class="p">;</span>
-                proxy_set_header Host <span class="nv">$http_host</span><span class="p">;</span>
-                proxy_set_header X-Forwarded-For <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
-                proxy_set_header X-Real-IP <span class="nv">$remote_addr</span><span class="p">;</span>
-                proxy_set_header X-Forwarded-Proto <span class="nv">$scheme</span><span class="p">;</span>
-                proxy_redirect http://<span class="nv">$http_host</span>/ https://<span class="nv">$http_host</span>/<span class="p">;</span>
-        <span class="o">}</span>
+        <span class="kn">location</span> <span class="n">/boteval</span> <span class="p">{</span>
+                <span class="kn">proxy_pass</span> <span class="s">http://127.0.0.1:7070/boteval</span><span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">Host</span> <span class="nv">$http_host</span><span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-For</span> <span class="nv">$proxy_add_x_forwarded_for</span><span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">X-Real-IP</span> <span class="nv">$remote_addr</span><span class="p">;</span>
+                <span class="kn">proxy_set_header</span> <span class="s">X-Forwarded-Proto</span> <span class="nv">$scheme</span><span class="p">;</span>
+                <span class="kn">proxy_redirect</span> <span class="s">http://</span><span class="nv">$http_host</span><span class="n">/</span> <span class="s">https://</span><span class="nv">$http_host</span><span class="n">/</span><span class="p">;</span>
+        <span class="p">}</span>
 
-        <span class="c"># this is required for webscokets</span>
-        location /socket.io <span class="o">{</span>
-          include proxy_params<span class="p">;</span>
-          proxy_http_version 1.1<span class="p">;</span>
-          proxy_buffering off<span class="p">;</span>
-          proxy_set_header Upgrade <span class="nv">$http_upgrade</span><span class="p">;</span>
-          proxy_set_header Connection <span class="s2">"Upgrade"</span><span class="p">;</span>
-          proxy_pass http://127.0.0.1:7070/socket.io<span class="p">;</span>
-      <span class="o">}</span>
 
-    listen <span class="o">[</span>::]:443 ssl <span class="nv">ipv6only</span><span class="o">=</span>on<span class="p">;</span> <span class="c"># managed by Certbot</span>
-    listen 443 ssl<span class="p">;</span> <span class="c"># managed by Certbot</span>
-    ssl_certificate /etc/letsencrypt/live/dev.gowda.ai/fullchain.pem<span class="p">;</span> <span class="c"># managed by Certbot</span>
-    ssl_certificate_key /etc/letsencrypt/live/dev.gowda.ai/privkey.pem<span class="p">;</span> <span class="c"># managed by Certbot</span>
-    include /etc/letsencrypt/options-ssl-nginx.conf<span class="p">;</span> <span class="c"># managed by Certbot</span>
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem<span class="p">;</span> <span class="c"># managed by Certbot</span>
-<span class="o">}</span>
+    <span class="kn">listen</span> <span class="s">[::]:443</span> <span class="s">ssl</span> <span class="s">ipv6only=on</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
+    <span class="kn">listen</span> <span class="mi">443</span> <span class="s">ssl</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
+    <span class="kn">ssl_certificate</span> <span class="n">/etc/letsencrypt/live/dev.gowda.ai/fullchain.pem</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
+    <span class="kn">ssl_certificate_key</span> <span class="n">/etc/letsencrypt/live/dev.gowda.ai/privkey.pem</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
+    <span class="kn">include</span> <span class="n">/etc/letsencrypt/options-ssl-nginx.conf</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
+    <span class="kn">ssl_dhparam</span> <span class="n">/etc/letsencrypt/ssl-dhparams.pem</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
+<span class="p">}</span>
 
-server <span class="o">{</span>
-    <span class="k">if</span> <span class="o">(</span><span class="nv">$host</span> <span class="o">=</span> dev.gowda.ai<span class="o">)</span> <span class="o">{</span>
-        <span class="k">return </span>301 https://<span class="nv">$host$request_uri</span><span class="p">;</span>
-    <span class="o">}</span> <span class="c"># managed by Certbot</span>
+<span class="k">server</span> <span class="p">{</span>
+    <span class="kn">if</span> <span class="s">(</span><span class="nv">$host</span> <span class="p">=</span> <span class="s">dev.gowda.ai)</span> <span class="p">{</span>
+        <span class="kn">return</span> <span class="mi">301</span> <span class="s">https://</span><span class="nv">$host$request_uri</span><span class="p">;</span>
+    <span class="p">}</span> <span class="c1"># managed by Certbot</span>
 
-        listen 80 <span class="p">;</span>
-        listen <span class="o">[</span>::]:80 <span class="p">;</span>
-    server_name dev.gowda.ai<span class="p">;</span>
-    <span class="k">return </span>404<span class="p">;</span> <span class="c"># managed by Certbot</span>
+        <span class="kn">listen</span> <span class="mi">80</span> <span class="p">;</span>
+        <span class="kn">listen</span> <span class="s">[::]:80</span> <span class="p">;</span>
+    <span class="kn">server_name</span> <span class="s">dev.gowda.ai</span><span class="p">;</span>
+    <span class="kn">return</span> <span class="mi">404</span><span class="p">;</span> <span class="c1"># managed by Certbot</span>
 
-<span class="o">}</span></code></pre>
+<span class="p">}</span></code></pre>
 </div>
 </div>
 </div>
-</div>
-</div>
-<div id="footnotes">
-<hr>
-<div class="footnote" id="_footnotedef_1">
-<a href="#_footnoteref_1">1</a>. <a href="https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html" class="bare">docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html</a>
 </div>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-10-04 04:01:32 UTC
+Version 1.0<br>
+Last updated 2022-10-10 20:02:16 UTC
 </div>
 </div>
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  messageStyle: "none",
+  tex2jax: {
+    inlineMath: [["\\(", "\\)"]],
+    displayMath: [["\\[", "\\]"]],
+    ignoreClass: "nostem|nolatexmath"
+  },
+  asciimath2jax: {
+    delimiters: [["\\$", "\\$"]],
+    ignoreClass: "nostem|noasciimath"
+  },
+  TeX: { equationNumbers: { autoNumber: "none" } }
+})
+MathJax.Hub.Register.StartupHook("AsciiMath Jax Ready", function () {
+  MathJax.InputJax.AsciiMath.postfilterHooks.Add(function (data, node) {
+    if ((node = data.script.parentNode) && (node = node.parentNode) && node.classList.contains("stemblock")) {
+      data.math.root.display = "block"
+    }
+    return data
+  })
+})
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/MathJax.js?config=TeX-MML-AM_HTMLorMML"></script>
 </body>
 </html>
