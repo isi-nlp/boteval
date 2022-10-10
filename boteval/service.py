@@ -123,8 +123,8 @@ class ChatService:
         self.config: TaskConfig = config
         self.task_dir = task_dir
         self.task_dir.mkdir(exist_ok=True, parents=True)
-        self._bot_user = None
-        self._context_user = None
+        self._bot_user_id = C.Auth.BOT_USER
+        self._context_user_id = C.Auth.CONTEXT_USER
         
         topics_file = self.config['chatbot'].get('topics_file', C.DEF_TOPICS_FILE)
         self.topics_file = self.resolve_path(topics_file)
@@ -196,9 +196,8 @@ class ChatService:
 
     @property
     def bot_user(self):
-        if not self._bot_user:
-            self._bot_user = User.query.get(C.Auth.BOT_USER)
-        return self._bot_user
+        # do not cache user object.  ORM will complain
+        return User.query.get(self._bot_user_id)
 
     @property
     def crowd_name(self):
@@ -206,10 +205,8 @@ class ChatService:
 
     @property
     def context_user(self):
-        if not self._context_user:
-            self._context_user = User.query.get(C.Auth.CONTEXT_USER)
-        return self._context_user
-
+        # do not cache user  object.  ORM will complain
+        return User.query.get(self._context_user_id)
 
     def init_db(self, init_topics=True):
         

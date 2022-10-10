@@ -9,7 +9,6 @@ import json
 import flask
 from flask import request, url_for
 import flask_login as FL
-import flask_socketio as FS
 
 from boteval.service import ChatService
 
@@ -24,20 +23,6 @@ def wrap(body=None, status=C.SUCCESS, description=None):
     return dict(
         head=dict(status=status, description=description),
         body=body)
-
-
-def login_required_socket(f):
-    """
-    This decorator has similar functionality as Flask-Login's login_required
-    but meant to be decorated for socketIO methods
-    """
-    @functools.wraps(f)
-    def wrapped(*args, **kwargs):
-        if not FL.current_user.is_authenticated:
-            FS.disconnect()
-        else:
-            return f(*args, **kwargs)
-    return wrapped
 
 
 
@@ -105,7 +90,7 @@ def register_app_hooks(app, service: ChatService):
         Thread(target=service.check_ext_url, args=(ping_url,)).start()
 
 
-def user_controllers(router, socket, service: ChatService):
+def user_controllers(router, service: ChatService):
 
     @router.route('/ping', methods=['GET', 'POST'])
     def ping():
@@ -214,7 +199,6 @@ def user_controllers(router, socket, service: ChatService):
         thread_counts = service.get_thread_counts(episode_done=True) # completed threads
         for thread in threads:
             data[thread.topic_id][1] = thread
-            print(thread, thread.episode_done)
 
         for topic_id, n_threads in thread_counts.items():
             data[topic_id][2] = n_threads
@@ -260,7 +244,7 @@ def user_controllers(router, socket, service: ChatService):
         focus_mode = focus_mode or request.values.get('focus_mode')
         thread = service.get_thread(thread_id)
         if not thread:
-            return f'Thread {thread_id} found', 404
+            return f'Thread {thread_id}  NOT found', 404
         ratings = service.get_rating_questions()
         topic = service.get_topic(thread.topic_id)
         max_turns = service.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD, C.DEF_MAX_TURNS_PER_THREAD)
@@ -279,76 +263,60 @@ def user_controllers(router, socket, service: ChatService):
                                show_text_extra = FL.current_user.is_admin,
                                data=dict())
 
-    @router.route('/thread/<thread_id>/rating', methods=['POST'])
-    @FL.login_required
-    def thread_rating(thread_id):
+    @router.route('/thread/<thread_id>/<user_id>/message', methods=['POST'])
+    #@FL.login_required  <-- login didnt work in iframe in mturk
+    def post_new_message(thread_id, user_id):
         thread = service.get_thread(thread_id)
         if not thread:
-            return f'Thread {thread_id} found', 404
+            return f'Thread {thread_id}  NOT found', 404
+        #user = FL.current_user
+        user = User.get(user_id)
+        if not user  or user not in thread.users:
+            log.warning('user is not part of thread')
+            reply = dict(status=C.ERROR,
+                         description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
+            return flask.jsonify(reply), 400
+        text = request.form.get('text', None)
+        if not text or not isinstance(text, str):
+            reply = dict(status=C.ERROR,
+                         description=f'requires "text" field of type string')
+            return flask.jsonify(reply), 400
+        
+        text = text[:C.MAX_TEXT_LENGTH]
+        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
+        try:
+            reply, episode_done = service.new_message(msg, thread)
+            reply_dict = reply.as_dict() | dict(episode_done=episode_done)
+            log.info(f'Send reply : {reply_dict}')
+            return flask.jsonify(reply_dict), 200
+        except Exception as e:
+            log.exception(e)
+            return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
+
+    @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
+    #@FL.login_required   <-- login didnt work in iframe in mturk
+    def thread_rating(thread_id, user_id):
+        thread = service.get_thread(thread_id)
+        user = User.get(user_id)   # FL.current_user
+        if not thread:
+            return f'Thread {thread_id} NOT found', 404
+        if not user:
+            return f'User {user_id} NOT found', 404
+        if user not in thread.users:
+            return f'User {user_id} is NOT part of thread', 403
         log.info(f'updating ratings for {thread.id}')
         ratings = {key: val for key, val in request.form.items()}
         focus_mode = ratings.pop('focus_mode', None)
         service.update_thread_ratings(thread, ratings=ratings)
         if thread.ext_src in (C.MTURK, C.MTURK_SANDBOX):
             return render_template('user/mturk_submit.html', thread=thread,
-                                   user=FL.current_user, focus_mode=focus_mode)
+                                   user=user, focus_mode=focus_mode)
         note_text = 'Great job! You have completed a thread!'
         if focus_mode:
             return note_text, 200
         else:
             flask.flash(note_text)
             return flask.redirect(url_for('app.index'))
-
-
-    ####### Sockets and stuff
-    @socket.on('connect')
-    def connect_handler():
-        if FL.current_user.is_authenticated:
-            log.info(f'{FL.current_user.id} has joined')
-        else:
-            return False  # not allowed here
-
-
-    @socket.on('new_message')
-    @login_required_socket
-    def handle_new_message(msg, methods=['GET', 'POST']):
-        log.info('received new_message: ' + str(msg))
-
-        text = msg.get('text', '').strip()
-        thread_id = msg.get('thread_id')
-        user_id = msg.get('user_id')
-        user = FL.current_user
-        if not thread_id or not user_id:
-            log.warning('Either thread_id or user_id is missing')
-            return wrap(status=C.ERROR, description='both thread_id and user_id are required')
-        if user.id != user_id:
-            log.warning('user id is not same as logged in user')
-            return wrap(status=C.ERROR, description='user_id mismatch with login user. Try logout and login')
-        if not text:
-            log.warning('message doesnt have text field it is empty')
-            return wrap(status=C.ERROR, description='text is empty or null')
-
-        thread = service.get_thread(thread_id=thread_id)
-        if not thread:
-            log.warning('thread id is ivalid; no thread found')
-            return wrap(status=C.ERROR, description=f'thread_id {thread_id} is invalid')
-        if user not in thread.users:
-            log.warning('user is not part of thread')
-            return wrap(status=C.ERROR, description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
-
-        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
-        try:
-            reply, episode_done = service.new_message(msg, thread)
-            reply_dict = reply.as_dict() | dict(episode_done=episode_done)
-            log.info(f'Send reply : {reply_dict}')
-            #return wrap(body=reply_dict)
-            socket.emit(thread.socket_name, wrap(reply_dict))
-            
-            # TODO: make this asynchronous
-            return wrap(status=C.SUCCESS, description="message recieved")
-        except Exception as e:
-            log.exception(e)
-            return wrap(status=C.ERROR, description='Something went wrong on server side')
 
     ########### M Turk Integration #########################
     @router.route('/mturk-landing/<topic_id>', methods=['GET'])
@@ -395,7 +363,7 @@ def user_controllers(router, socket, service: ChatService):
             else: # login and return back here
                 flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
                 return flask.redirect(url_for('app.login', action='login', next=request.url))
-
+        
         limit_exceeded, msg = service.limit_check(topic=topic, user=user)
         if limit_exceeded: # we may need to block user i.e. change user qualification
             return msg, 400

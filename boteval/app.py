@@ -5,7 +5,7 @@ import importlib
 
 import flask
 from flask import Flask, Blueprint
-from flask_socketio import SocketIO
+#from flask_socketio import SocketIO
 from flask_login import LoginManager
 
 from . import log, __version__, db, C, TaskConfig, R
@@ -20,7 +20,7 @@ log.basicConfig(level=log.INFO)
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 app.config['SECRET_KEY'] = 'abcd1234'
-socket = SocketIO(app)
+#socket = SocketIO(app, cors_allowed_origins='*')
 login_manager = LoginManager()
 
 
@@ -93,7 +93,7 @@ def init_app(**args):
 
 
     bp = Blueprint('app', __name__, template_folder='templates', static_folder='static')
-    user_controllers(router=bp, socket=socket, service=service)
+    user_controllers(router=bp, service=service)
     base_prefix = args.get('base') or ''
     app.register_blueprint(bp, url_prefix=base_prefix)
 
@@ -113,19 +113,17 @@ with app.test_request_context():
     log.info(f'External server URL: {ext_url}')
     app.config['EXT_URL_BASE'] = ext_url
 
-
-
 # uwsgi can take CLI args too
 # uwsgi --http 127.0.0.1:5000 --module boteval.app:app # --pyargv "--foo=bar"
 
 
 def main():
-    #app.run(port=cli_args["port"], host=cli_args.get('addr', '0.0.0.0'))
+
     host, port = args.get('addr', C.DEF_ADDR), args.get('port', C.DEF_PORT)
     base_prefix = args.get('base') or '/'
     print(f'Internal URL http://{host}:{port}{base_prefix}')
-    socket.run(app, port=port, host=host, debug=app.debug)
-
+    #socket.run(app, port=port, host=host, debug=app.debug)
+    app.run(port=port, host=host)
 
 if __name__ == "__main__":
     main()

@@ -12,7 +12,6 @@ conda create -n boteval python=3.9
 conda activate boteval
 ```
 
-
 ```bash
 git clone https://github.com/isi-nlp/boteval
 cd boteval
@@ -21,22 +20,48 @@ pip install -e .
 python -m boteval -h
 ```
 
+Make sure to install PyTorch / Tensorflow / Flax. 
+
 ## Start Server
+
+```bash
+python -m boteval -h
+usage: boteval [-h] [-c FILE] [-b /prefix] [-d] [-a ADDR] [-p PORT] [-v] DIR
+
+Deploy chat bot evaluation
+
+positional arguments:
+  DIR                   Path to task dir. See "example-chat-task"
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c FILE, --config FILE
+                        Path to config file. Default is <task-dir>/conf.yml (default: None)
+  -b /prefix, --base /prefix
+                        Base path prefix for all url routes. Eg: /boteval (default: None)
+  -d, --debug           Run Flask server in debug mode (default: False)
+  -a ADDR, --addr ADDR  Address to bind to (default: 0.0.0.0)
+  -p PORT, --port PORT  port to run server on (default: 7070)
+  -v, --version         show program's version number and exit
+
+```
 
 ### Development mode
 
 ```bash
-
 # add -d for debug
-python -m boteval -d -c example-chat-task/conf.yml
+BASE_URL_PATH="/boteval" # prefix to use for url paths
+python -m boteval example-chat-task -d -b BASE_URL_PATH
 ```
+`-d` enables live reload mode of server, which means when you edit files (and save) and hit refresh webpage it automatically reloads new changes. 
+
 
 # Deployment
 ```bash
-python -m boteval -c example-chat-task/conf.yml
+python -m boteval example-chat-task -b BASE_URL_PATH
 ```
 
-This starts a service on http://localhost:6060 by default.
+This starts a service on http://localhost:7070 by default.
 
 
 ## Config file
@@ -55,7 +80,6 @@ Look at `example-chat-task/conf.yml` for an example
   * If you do not know how Dabase and ORM works or how you could use them, then this could be most complex piece of the system. Good news is that we build on top of battele-tested SqlAlchemy. See its documentation at https://docs.sqlalchemy.org/en/14/
   * Some examples for CRUD ops https://flask-sqlalchemy.palletsprojects.com/en/2.x/queries/
 
-* Sockets and stuff: https://flask-socketio.readthedocs.io/en/latest/intro.html
 * Themes and styles via Bootstrap : https://getbootstrap.com/docs/4.5/getting-started/introduction/
 * jQuery: for DOM manipulation and client side templating
 

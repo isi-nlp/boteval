@@ -32,9 +32,11 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-6 col-lg-7 col-xl-8 border-left border-right">
-                <div class="text-right disabled">
+               
+               <!-- <div class="text-right disabled">
                     <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
                 </div>
+                -->
                 {% if reply_as_user %}
                 <div class="alert alert-info p-1 text-center"> You are replying as <b>Speaker
                         {{reply_as_user}}</b></div>
@@ -72,7 +74,7 @@
                 <div {% if not cur_user.is_admin and remaining_turns> 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
-                    <form action="{{url_for('app.thread_rating', thread_id=thread.id)}}" method="POST" id="ratings-form"
+                    <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form"
                         class="form">
 
                         Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
@@ -103,7 +105,7 @@
     <script type="text/javascript">
 
         var remaining_turns = {{ remaining_turns }};
-        const socket_name = '{{socket_name}}'
+        //const socket_name = '{{socket_name}}'
         const cur_user_id = '{{cur_user.id}}'
         const reply_as_user = '{{reply_as_user}}'
         const thread = {{ thread_json| safe}}  // json data
@@ -183,53 +185,25 @@
         }
 
         window.onload = () => {
-
             for (const msg of thread['messages']) {
-                show_new_message(msg, side = 'left')
+                show_new_message(msg)
             }
+            refresh_view()
 
-            const socket = io()
-            socket.on('connect', () => {
-                console.log('socket connected')
-                $('#status_info').text('Connected').attr('class', 'btn btn-sm btn-success')
-                socket.emit('user_connect', { message: 'User connected', user: user_data })
+            // include cross-origin session details with ajax calls
+            $.ajaxSetup({
+                crossDomain: true,
+                xhrFields: {
+                    withCredentials: true
+                },
             });
 
-            socket.on('disconnect', () => {
-                console.log('socket disconnected')
-                $('#status_info').text('Disconnected').attr('class', 'btn btn-sm btn-danger')
-                socket.emit('user_connect', { message: 'User disconnected', user: user_data })
-            });
-
-            // catch all event listener
-            socket.prependAny((event, ...args) => {
-                console.log(`got ${event} \t args:`);
-                console.log(args)
-            });
-
-            // new message from server; this is specific to chat thread
-            socket.on(socket_name, (reply) => {
-                console.log('got reply in socket: ' + socket_name)
-                console.log(reply)
-                if (reply['head']['status'] == 'success') {
-                    if (reply['body']['episode_done']) {
-                        $('#ratings-view').show()
-                        remaining_turns = 0
-                    }
-                    waiting_for_bot_reply = false
-                    msg_id = show_new_message(reply['body'])
-                    play_beep();
-                } else {
-                    alert('Something went wrong. See logs.')
-                }
-            });
 
             $("#next_msg_text").keyup(event => {  // submit on enter key
                 if (event.which === 13) {
                     $("#next_msg_form").submit();
                 }
             });
-
             $("#next_msg_form").submit(event => {
                 event.preventDefault();
                 var text = $('#next_msg_text').val().trim()
@@ -238,22 +212,29 @@
                     return
                 }
                 waiting_for_bot_reply = true
-                data = { 'text': text, time: new Date().toISOString() }
+                data = { 'text': text, time_created: new Date().toISOString() }
                 data = { ...user_data, ...data }  //combine two
 
                 msg_id = show_new_message(data, side = 'right')
                 console.log(data)
-                socket.emit('new_message', data, (reply) => {
-                    console.log('server reply:')
-                    console.log(JSON.stringify(reply))
-                    if (reply['head']['status'] != 'success') {
-                        alert(`Something went wrong. See logs.\nHint: ${reply["description"]}`)
-                    }
-                    // TODO: show delivered check mark
+                var post_url = '{{url_for("app.post_new_message", thread_id=thread.id, user_id=cur_user.id)}}'
+                $.post(post_url, {text: text}).done(reply => {
                     $('#next_msg_text').val('')
+                    try {
+                        if (reply['episode_done']) {
+                            $('#ratings-view').show()
+                            remaining_turns = 0
+                        }
+                        waiting_for_bot_reply = false
+                        msg_id = show_new_message(reply)
+                        play_beep();
+                    } catch {
+                        alert('Something went wrong. See logs.')
+                    }                        
+                }).fail(function(){
+                    alert('Something went wrong. Could not send message.')
                 })
-            })
-            refresh_view()
+            })   
         }
     </script>
 </section>

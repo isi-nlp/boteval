@@ -5,3 +5,4 @@ __pycache__
 *.history*.txt
 build/
 #darma-task/
+darma-task
