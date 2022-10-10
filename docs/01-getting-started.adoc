@@ -76,6 +76,11 @@ Now, login as `dev` user one of the browser, and login as `admin` user as anothe
 
 __TODO: We should make a video demo.__
 
+TIP: The chat data and user annoations will be stored at two places: +
+1. Inside `task-dir/data` directory as JSON files -- one per chat thread + 
+2. Inside database file that you have configured +
+
+
 The following sections describe how to customize, and deploy this on production.
 
 [#taskdir]
@@ -322,10 +327,23 @@ mturk:
     Keywords: 'chatbot,chat,research'
     Description: 'Evaluate a chat bot by talking to it for a while and receive a reward'
 ----
-<1>  profile name should match the onesin `$HOME/.aws/credentials` file
+<1>  profile name should match the ones in `$HOME/.aws/credentials` file
 <2> `sandbox: true` to use sandbox and set  `sandbox: false` go live
-<3> MTurk user will be automatically loggen into our system. An a/c would be created if they required. The workers dont have to remember userID or password for loggin into our system
+<3> MTurk user will be automatically loggen into our system. An a/c would be created if required. The MTurk workers do not need to remember userID or password for logging into our system.
 <4> All these key-values are sent to mturk API; Refer to https://boto3.amazonaws.com/v1/documentation/api/1.11.9/reference/services/mturk.html#MTurk.Client.create_hit for a full list of options. 
 <5> cross references using `&` and `*` for reusing previously defined limits
 
+
+ MTurk integration is achieved via link:https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html[ExternalQuestion^]
+
+* However, _ExternalQuestion_ requires hosting our webservice over HTTPS, which require SSL certificate. See <<#nginx>>. 
+
+TIP: When the task is done, we need to submit a form back to MTurk informing the completion. So, Mturk worker gets an additional screen at the end of task where they click a button to notify the task completion to mturk. 
+
+In the current version of this system, we do not automatically launch HITs on Mturk, instead we provide an option to Admin user.
+
+To launch HITs on mturk, follow these steps
+
+. Login as admin user (See <<#quickstart>>)
+. Go to _Admin Dashboard > Topics > Launch on Mturk or Mturk Sandbox_ (depending on cofig)
 

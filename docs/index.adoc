@@ -11,6 +11,6 @@ include::01-getting-started.adoc[]
 
 include::02-add-custom-bots.adoc[]
 
-include::04-mturk-integration.adoc[]
-
 include::04-nginx-conf.adoc[]
+
+include::05-development.adoc[]

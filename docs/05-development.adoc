@@ -1,0 +1,23 @@
+[#development]
+= Development
+include::_head.adoc[]
+
+
+.Docs for tools and concepts that power this system
+* Model view controller pattern: https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller
+* Flask for server side propgramming: https://flask.palletsprojects.com/en/2.2.x/api/
+* Server side templating is using Jinja2: https://jinja.palletsprojects.com/en/3.1.x/templates/
+* Login and user session manager: https://flask-login.readthedocs.io/en/latest/
+* Database backend and ORM: persistance: https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/
+   -  If you do not know how Dabase and ORM works or how you could use them, then this could be most complex piece of the system. Good news is that we build on top of battele-tested SqlAlchemy. See its documentation at https://docs.sqlalchemy.org/en/14/
+   - Some examples for CRUD ops https://flask-sqlalchemy.palletsprojects.com/en/2.x/queries/
+* Themes and styles via Bootstrap : https://getbootstrap.com/docs/4.5/getting-started/introduction/
+* jQuery: for DOM manipulation and client side templating
+
+Remember to start the server with `-d` option i.e., `python -m boteval -d <taskdir>` to enable hot reload. 
+
+TIP: For VS Code users, and we recommend these extensions: +
+ * Jinja -- for working with Jinja templates +
+ * SQLite Viewer -- for inspecting databse contents +
+ * Remote development -- useful for remote deployment with mturk integration) +
+ * Asciidoctor -- for editing docs +

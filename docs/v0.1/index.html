@@ -678,8 +678,8 @@ pre.rouge {
 </ul>
 </li>
 <li><a href="#add-bot">5. Adding Bots and Transforms</a></li>
-<li><a href="#mturk">6. MTurk Integration</a></li>
-<li><a href="#nginx">7. HTTPS with Nginx Reverse Proxy</a></li>
+<li><a href="#nginx">6. HTTPS with Nginx Reverse Proxy</a></li>
+<li><a href="#development">7. Development</a></li>
 </ul>
 </div>
 </div>
@@ -831,6 +831,20 @@ You may export <code>DEV_USER_SECRET</code> and <code>ADMIN_USER_SECRET</code>  
 </div>
 <div class="paragraph">
 <p><em>TODO: We should make a video demo.</em></p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+The chat data and user annoations will be stored at two places:<br>
+1. Inside <code>task-dir/data</code> directory as JSON files&#8201;&#8212;&#8201;one per chat thread<br>
+2. Inside database file that you have configured<br>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>The following sections describe how to customize, and deploy this on production.</p>
@@ -1250,7 +1264,7 @@ You may also configure sqlachemy here <a href="https://flask-sqlalchemy.palletsp
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>profile name should match the onesin <code>$HOME/.aws/credentials</code> file</td>
+<td>profile name should match the ones in <code>$HOME/.aws/credentials</code> file</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
@@ -1258,7 +1272,7 @@ You may also configure sqlachemy here <a href="https://flask-sqlalchemy.palletsp
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>MTurk user will be automatically loggen into our system. An a/c would be created if they required. The workers dont have to remember userID or password for loggin into our system</td>
+<td>MTurk user will be automatically loggen into our system. An a/c would be created if required. The MTurk workers do not need to remember userID or password for logging into our system.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
@@ -1266,9 +1280,49 @@ You may also configure sqlachemy here <a href="https://flask-sqlalchemy.palletsp
 </tr>
 <tr>
 <td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>cross references using <code>&amp;</code> and <code>*</code> for reusing previously defined limits</td>
+<td>cross references using <code>&amp;</code> and <code>*</code> for reusing previously defined limits
+<div class="literalblock">
+<div class="content">
+<pre>MTurk integration is achieved via link:https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html[ExternalQuestion^]</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>However, <em>ExternalQuestion</em> requires hosting our webservice over HTTPS, which require SSL certificate. See <a href="#nginx">Section 6, &#8220;HTTPS with Nginx Reverse Proxy&#8221;</a>.</p>
+</li>
+</ul>
+</div></td>
 </tr>
 </table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+When the task is done, we need to submit a form back to MTurk informing the completion. So, Mturk worker gets an additional screen at the end of task where they click a button to notify the task completion to mturk.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>In the current version of this system, we do not automatically launch HITs on Mturk, instead we provide an option to Admin user.</p>
+</div>
+<div class="paragraph">
+<p>To launch HITs on mturk, follow these steps</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Login as admin user (See <a href="#quickstart">Section 2, &#8220;Quick Start&#8221;</a>)</p>
+</li>
+<li>
+<p>Go to <em>Admin Dashboard &gt; Topics &gt; Launch on Mturk or Mturk Sandbox</em> (depending on cofig)</p>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -1461,50 +1515,7 @@ The</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="mturk">6. MTurk Integration</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p>MTurk integration is achieved via <a href="https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html" target="_blank" rel="noopener">ExternalQuestion</a></p>
-</li>
-<li>
-<p>However, ExternalQuestion requires hosting our webservice over HTTPS, which requires SSL certificate. See <a href="#nginx">Section 7, &#8220;HTTPS with Nginx Reverse Proxy&#8221;</a>.</p>
-</li>
-</ul>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-tip" title="Tip"></i>
-</td>
-<td class="content">
-When the task is done, we need to submit a form back to MTurk informing the completion. So, Mturk worker gets an additional screen at the end of task where they click a button to notify the task completion to mturk.
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>In the current version of this system, we do not automatically launch HITs on Mturk, instead we provide an option to Admin user.</p>
-</div>
-<div class="paragraph">
-<p>To launch HITs on mturk, follow these steps</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Login as admin user (See <a href="#quickstart">Section 2, &#8220;Quick Start&#8221;</a>)</p>
-</li>
-<li>
-<p>Go to <em>Admin Dashboard &gt; Topics &gt; Launch on Mturk or Mturk Sandbox</em> (depending on cofig)</p>
-</li>
-</ol>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="nginx">7. HTTPS with Nginx Reverse Proxy</h2>
+<h2 id="nginx">6. HTTPS with Nginx Reverse Proxy</h2>
 <div class="sectionbody">
 <style type="text/css">
 body {
@@ -1609,11 +1620,84 @@ h1, h2, h3, h4, h5 {
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="development">7. Development</h2>
+<div class="sectionbody">
+<style type="text/css">
+body {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+h1, h2, h3, h4, h5 {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+#header, #content, #footnotes, #footer {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 120em;
+}
+</style>
+<div class="ulist">
+<div class="title">Docs for tools and concepts that power this system</div>
+<ul>
+<li>
+<p>Model view controller pattern: <a href="https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller" class="bare">en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller</a></p>
+</li>
+<li>
+<p>Flask for server side propgramming: <a href="https://flask.palletsprojects.com/en/2.2.x/api/" class="bare">flask.palletsprojects.com/en/2.2.x/api/</a></p>
+</li>
+<li>
+<p>Server side templating is using Jinja2: <a href="https://jinja.palletsprojects.com/en/3.1.x/templates/" class="bare">jinja.palletsprojects.com/en/3.1.x/templates/</a></p>
+</li>
+<li>
+<p>Login and user session manager: <a href="https://flask-login.readthedocs.io/en/latest/" class="bare">flask-login.readthedocs.io/en/latest/</a></p>
+</li>
+<li>
+<p>Database backend and ORM: persistance: <a href="https://flask-sqlalchemy.palletsprojects.com/en/2.x/models/" class="bare">flask-sqlalchemy.palletsprojects.com/en/2.x/models/</a></p>
+<div class="ulist">
+<ul>
+<li>
+<p>If you do not know how Dabase and ORM works or how you could use them, then this could be most complex piece of the system. Good news is that we build on top of battele-tested SqlAlchemy. See its documentation at <a href="https://docs.sqlalchemy.org/en/14/" class="bare">docs.sqlalchemy.org/en/14/</a></p>
+</li>
+<li>
+<p>Some examples for CRUD ops <a href="https://flask-sqlalchemy.palletsprojects.com/en/2.x/queries/" class="bare">flask-sqlalchemy.palletsprojects.com/en/2.x/queries/</a></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Themes and styles via Bootstrap : <a href="https://getbootstrap.com/docs/4.5/getting-started/introduction/" class="bare">getbootstrap.com/docs/4.5/getting-started/introduction/</a></p>
+</li>
+<li>
+<p>jQuery: for DOM manipulation and client side templating</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Remember to start the server with <code>-d</code> option i.e., <code>python -m boteval -d &lt;taskdir&gt;</code> to enable hot reload.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+For VS Code users, and we recommend these extensions:<br>
+ * Jinja&#8201;&#8212;&#8201;for working with Jinja templates<br>
+ * SQLite Viewer&#8201;&#8212;&#8201;for inspecting databse contents<br>
+ * Remote development&#8201;&#8212;&#8201;useful for remote deployment with mturk integration)<br>
+ * Asciidoctor&#8201;&#8212;&#8201;for editing docs<br>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
 </div>
 <div id="footer">
 <div id="footer-text">
 Version 1.0<br>
-Last updated 2022-10-10 20:26:25 UTC
+Last updated 2022-10-10 20:47:31 UTC
 </div>
 </div>
 <script type="text/x-mathjax-config">
