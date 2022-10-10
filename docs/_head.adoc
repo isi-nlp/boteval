@@ -1,0 +1,60 @@
+:doctype: article
+:author: Thamme Gowda
+:orgname: University of Southern California
+//:email: tgowdan@gmail.com
+:revnumber: 1.0
+:revdate: Oct 1st, 2022
+:encoding: utf-8
+:lang: en
+:icons: font
+//:iconfont-cdn: https://use.fontawesome.com/e4c112ca64.css
+:icon-set: pf
+:toc: left
+:toclevels: 3
+:data-uri:
+:sectnums:
+:sectnumlevels: 4
+:stem: 
+//injects google analytics to <head>
+//:docinfo2:
+:hide-uri-scheme:
+:source-highlighter: rouge
+//:source-highlighter: highlight.js
+:xrefstyle: full
+ifdef::backend-pdf[]
+:pdf-theme:my-pdf-theme
+//:pdf-themesdir: {docdir}
+//:title-logo-image: image:sample-banner.svg[pdfwidth=4.25in,align=center]
+:source-highlighter: rouge
+:rouge-style: github
+endif::[]
+
+:head-imported: 1
+
+// Plugin options: https://github.com/asciidoctor/asciidoctor-bibtex#configuration
+// See all styles https://github.com/citation-style-language/styles
+//:bibtex-style: natbib-plainnat-author-date
+//:bibtex-file: references.bib
+//:bibtex-order: appearance
+//:bibtex-format: asciidoc
+
+// .asciidoctorconfig
+
+ifdef::backend-html5[]
+++++
+<style type="text/css">
+body {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+h1, h2, h3, h4, h5 {
+    font-family: "Linux Libertine O", "Helvetica"
+}
+#header, #content, #footnotes, #footer {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 120em;
+}
+</style>
+++++
+endif::backend-html5[]
+//endif::attribsimported[]

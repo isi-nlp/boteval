@@ -1,0 +1,17 @@
+[#mturk]
+= MTurk Integration
+
+* MTurk integration is achieved via link:https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html[ExternalQuestion^]
+* However, ExternalQuestion requires hosting our webservice over HTTPS, which requires SSL certificate. See <<#nginx>>. 
+
+
+TIP: When the task is done, we need to submit a form back to MTurk informing the completion. So, Mturk worker gets an additional screen at the end of task where they click a button to notify the task completion to mturk. 
+
+In the current version of this system, we do not automatically launch HITs on Mturk, instead we provide an option to Admin user.
+
+
+To launch HITs on mturk, follow these steps
+
+. Login as admin user (See <<#quickstart>>)
+. Go to _Admin Dashboard > Topics > Launch on Mturk or Mturk Sandbox_ (depending on cofig)
+

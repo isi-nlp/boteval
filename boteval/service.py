@@ -141,7 +141,7 @@ class ChatService:
         if transforms_conf.get('bot'):
             self.bot_transforms = load_transforms(transforms_conf['bot'])
         
-        self.exporter = FileExportService(self.resolve_path(config['chat_dir']))
+        self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
         self.bot_agent = load_bot_agent(bot_name, bot_args)
