@@ -1,0 +1,7 @@
+
+= Acknowledgements 
+
+* This project was initially developed at USC ISI for DARPA program named https://www.darpa.mil/program/civil-sanctuary[Civil Sanctuary]
+
+
+* For a list of contributors to source code, please refer to https://github.com/isi-nlp/boteval/graphs/contributors 

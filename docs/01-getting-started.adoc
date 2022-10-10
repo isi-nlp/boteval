@@ -1,6 +1,6 @@
+[#setup]
 = Setup
 include::_head.adoc[]
-
 
 NOTE: 1. Python 3.9 or newer is required to run this project. +
 
@@ -13,11 +13,7 @@ pip install boteval
 boteval -h
 ----
 
-
 If you plan to edit/update `boteval` code or wants to use latest unreleased version of code, then clone the source code from github and install in development mode
-
-NOTE: GitHub URL: https://github.com/isi-nlp/boteval 
-
 
 .Development setup
 [source,shell]

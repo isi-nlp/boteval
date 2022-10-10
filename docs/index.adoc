@@ -1,9 +1,11 @@
-= BotEval
+= BotEval Docs
 include::_head.adoc[]
 :leveloffset: +1
 :docinfo2: 
 
-Bot Evaluation. 
+This is documentation for `boteval` library which helps in chatbot evaluation.
+The source code is available at https://github.com/isi-nlp/boteval 
+
 
 include::01-getting-started.adoc[]
 
@@ -12,4 +14,3 @@ include::02-add-custom-bots.adoc[]
 include::04-mturk-integration.adoc[]
 
 include::04-nginx-conf.adoc[]
-
