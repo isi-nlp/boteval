@@ -102,29 +102,24 @@ def user_controllers(router, service: ChatService):
         ext_id = request.values.get('ext_id')
         ext_src = request.values.get('ext_src')
 
-        seamless_login = bool(service.config.is_seamless_crowd_login)
-        if seamless_login and (not ext_id or not ext_src):
-            log.warning(f'seamless login both {ext_id=} and {ext_src=}')
-            seamless_login = False
-
         # for seamless login, we still have to show terms and conditions,
         tmpl_args = dict(
             action=request.values.get('action', 'login'),
             next=next_url,
             ext_id=ext_id,
             ext_src=ext_src,
-            seamless_login=seamless_login,
             onboarding=service.onboarding)
         log.info(f"login/signup. next={next_url} | ext: src: {ext_src}  id: {ext_id}")
         if request.method == 'GET':
             return render_template('login.html', **tmpl_args)
 
         # form sumission as POST
-        log.info(f'Form:: {request.form}')
         args = dict(request.form)
         user_id = args.pop('user_id')
         secret = args.pop('secret')
+        log.info(f'Form:: {user_id} {args}')
         action = args.pop('action', 'login')
+
         assert action in ('login', 'signup')
         if action == 'login':
             user = User.get(user_id)
@@ -153,13 +148,6 @@ def user_controllers(router, service: ChatService):
                 ext_id = args.pop('ext_id', None)
                 ext_src = args.pop('ext_src', None)
                 user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
-                if seamless_login:
-                    FL.login_user(user, remember=True, force=True)
-                    flask.flash('Logged in automatically')
-                    if next_url and is_safe_url(next_url):
-                        return flask.redirect(next_url)
-                    return flask.redirect(flask.url_for('app.index'))
-
                 tmpl_args['action'] = 'login'
                 flask.flash(f'Sign up success. Try login with your user ID: {user.id}. Verify that it works and write down the password for future logins.')
                 return render_template('login.html', **tmpl_args)
@@ -167,6 +155,46 @@ def user_controllers(router, service: ChatService):
             flask.flash('Wrong action. only login and signup are supported')
             tmpl_args['action'] = 'login'
         return render_template('login.html', user_id=user_id, **tmpl_args)
+
+
+    @router.route('/seamlesslogin', methods=['GET', 'POST'])
+    def seamlesslogin():
+        next_url = request.values.get('next')
+        ext_id = request.values.get('ext_id')
+        ext_src = request.values.get('ext_src')
+
+        if not ext_id or not ext_src:
+            log.warning(f'seamless login requires both {ext_id=} and {ext_src=}')
+            # return to normal login
+            return login()
+
+        # for seamless login, we still have to show terms and conditions,
+        tmpl_args = dict(
+            next=next_url,
+            ext_id=ext_id,
+            ext_src=ext_src,
+            onboarding=service.onboarding)
+        log.info(f"login/signup. next={next_url} | ext: src: {ext_src}  id: {ext_id}")
+        if request.method == 'GET': # for GET, show terms,
+            return render_template('seamlesslogin.html', **tmpl_args)
+
+        # form sumission as POST => create a/c
+        args = dict(request.form)
+        user_id = args.pop('user_id')
+        secret = args.pop('secret')
+        user = User.get(user_id)
+        log.info(f'Form:: {user_id} {args}')
+        if user:# user already exists
+            log.warning(f'User {user_id} lready exists')
+        else:
+            name = args.pop('name', None)
+            user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
+
+        FL.login_user(user, remember=True, force=True)
+        flask.flash('Logged in automatically')
+        if next_url and is_safe_url(next_url):
+            return flask.redirect(next_url)
+        return flask.redirect(flask.url_for('app.index'))
 
 
     @router.route('/logout', methods=['GET'])
@@ -181,8 +209,8 @@ def user_controllers(router, service: ChatService):
         return render_template('about.html')
     
     @router.route('/instructions', methods=['GET'])
-    def instructions():
-        return render_template('page.html', content=service.instructions)
+    def instructions(focus_mode=False):
+        return render_template('page.html', content=service.instructions, focus_mode=focus_mode)
 
 
     @router.route('/', methods=['GET'])
@@ -348,21 +376,18 @@ def user_controllers(router, service: ChatService):
             return msg, 400
 
         if is_previewing: 
-            return instructions() # sending index page for now. We can do better later
+            return instructions(focus_mode=True) # sending index page for now. We can do better later
 
         # Step2. Find the mapping user
         user = User.query.filter_by(ext_src=ext_src, ext_id=worker_id).first()
         if not user: # sign up and come back (so set next)
+            
             return flask.redirect(
-                url_for('app.login', action='signup', ext_id=worker_id,
-                        ext_src=ext_src, next=request.url))
-        elif not FL.current_user or FL.current_user.get_id() != user.id:
+                url_for('app.seamlesslogin', ext_id=worker_id, ext_src=ext_src, next=request.url))
+            
+        if not FL.current_user or FL.current_user.get_id() != user.id:
             FL.logout_user()
-            if seamless_login: # auto login
-                FL.login_user(user, remember=True, force=True)
-            else: # login and return back here
-                flask.flash(f'You have an a/c with UserID={user.id} but not logged in. Please relogin as {user.id}.')
-                return flask.redirect(url_for('app.login', action='login', next=request.url))
+            FL.login_user(user, remember=True, force=True)
         
         limit_exceeded, msg = service.limit_check(topic=topic, user=user)
         if limit_exceeded: # we may need to block user i.e. change user qualification

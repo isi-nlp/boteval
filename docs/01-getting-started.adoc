@@ -334,9 +334,8 @@ mturk:
 <5> cross references using `&` and `*` for reusing previously defined limits
 
 
- MTurk integration is achieved via link:https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html[ExternalQuestion^]
-
-* However, _ExternalQuestion_ requires hosting our webservice over HTTPS, which require SSL certificate. See <<#nginx>>. 
+MTurk integration is achieved via link:https://docs.aws.amazon.com/AWSMechTurk/latest/AWSMturkAPI/ApiReference_ExternalQuestionArticle.html[ExternalQuestion^]
+However, _ExternalQuestion_ requires hosting our webservice over HTTPS, which require SSL certificate. See <<#nginx>>. 
 
 TIP: When the task is done, we need to submit a form back to MTurk informing the completion. So, Mturk worker gets an additional screen at the end of task where they click a button to notify the task completion to mturk. 
 

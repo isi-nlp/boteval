@@ -32,17 +32,10 @@
         <div class="tab-pane fade col-8" id="signup" role="tabpanel" aria-labelledby="profile-tab">
             <form action="{{url_for('app.login')}}" method="POST" class="form">           
                 <input type="hidden" name="action" value="signup">
-                {% if seamless_login %}
                 <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Sign Up</h1>
-                    <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Review Agreement</h1>
-                    <input type="hidden" name="user_id" id="s_user_id" class="form-control mt-2" value="{{ext_id}}" >
-                    <input type="hidden" name="secret" id="s_password" class="form-control mt-2" value="{{ext_id}}">
-                {%else%}
-                    <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Sign Up</h1>
-                    <input type="text" name="user_id" id="s_user_id" class="form-control mt-2" placeholder="ID" required value="{{user_id}}">
-                    <input type="password" name="secret" id="s_password" class="form-control mt-2" placeholder="Password"
-                    required>
-                {%endif%}
+                <input type="text" name="user_id" id="s_user_id" class="form-control mt-2" placeholder="ID" required value="{{user_id}}">
+                <input type="password" name="secret" id="s_password" class="form-control mt-2" placeholder="Password"
+                required>
                 {% if ext_id %} <input type="hidden" name="ext_id" value="{{ext_id}}"> {%endif%}
                 {% if ext_src %} <input type="hidden" name="ext_src" value="{{ext_src}}"> {%endif%}
                 <!--
