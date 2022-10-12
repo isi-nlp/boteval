@@ -4,21 +4,21 @@
 {% block content %}
 <div class="container">
     <div class="row" id="myTabContent">
-        <div class="col-8" id="signup">
+
+            {% if onboarding and onboarding.get('agreement_text') %}
+                <div class="col-12">
+                    {{onboarding['agreement_text']|safe}}
+                </div>
+            {%endif%}
+            <div class="col-12" id="signup">
             <form action="{{url_for('app.seamlesslogin')}}" method="POST" class="form">           
                 <input type="hidden" name="action" value="signup">
-                <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Review Agreement</h1>
+                <!-- <h1 class="h3 mb-3 mt-4 font-weight-normal">Please Review Agreement</h1> -->
                 <input type="hidden" name="user_id" id="s_user_id" class="form-control mt-2" value="{{ext_id}}" >
                 <input type="hidden" name="secret" id="s_password" class="form-control mt-2" value="{{ext_id}}">
                 <input type="hidden" name="ext_id" value="{{ext_id}}"> 
                 <input type="hidden" name="ext_src" value="{{ext_src}}"> 
                 {% if onboarding %}
-                    {%if onboarding.get('agreement_text') %}
-                        <button type="button" class="btn btn-info my-3" data-toggle="modal" data-target="#staticBackdrop">
-                            Open terms and conditions
-                        </button>
-                        <small class="text-muted">Please refresh if the agree and sign up button doesn't get you to the task.</small>
-                    {%endif%}
                     {%if onboarding.get('checkboxes') %}
                         {%for check_name, check_value in onboarding['checkboxes'].items() %}
                             <div class="form-check my-2">
@@ -35,33 +35,11 @@
                 <input type="text" name="name" id="name" class="form-control mt-2" placeholder="Name" required>
                 -->
                 {% if next %} <input type="hidden" name="next" value="{{next}}"> {%endif%}
-                <button class="btn btn-lg btn-primary btn-block col-4 mt-2" type="submit">Agree and Proceed</button>
+                <button class="btn btn-lg btn-primary btn-block col-4 mt-2" type="submit">Agree and proceed</button>
+                <small class="text-muted">Please refresh if the above button doesn't get you to the next step.</small>
             </form>
         </div>
     </div>
 </div>
-
-{% if onboarding and onboarding.get('agreement_text') %}
-<!-- Modal has to be at the top level -->
-<div class="modal fade" id="staticBackdrop" data-backdrop="static" data-keyboard="false" tabindex="-1"
-    aria-labelledby="staticBackdropLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="staticBackdropLabel"></h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                {{onboarding['agreement_text']|safe}}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-dismiss="modal">Agree</button>
-            </div>
-        </div>
-    </div>
-</div>
-{%endif%}
 
 {% endblock %}
