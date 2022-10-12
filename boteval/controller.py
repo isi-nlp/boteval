@@ -249,7 +249,7 @@ def user_controllers(router, service: ChatService):
         topic = service.get_topic(thread.topic_id)
         max_turns = service.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD, C.DEF_MAX_TURNS_PER_THREAD)
         remaining_turns = max_turns - thread.count_turns(FL.current_user)
-
+        dialog_man = service.get_dialog_man(thread)  # this will init the thread
 
         return render_template('user/chatui.html', limits=service.limits,
                                thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),

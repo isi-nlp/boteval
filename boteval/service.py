@@ -39,13 +39,14 @@ class DialogBotChatManager(ChatManager):
                  human_transforms: Optional[Transforms]=None,
                  bot_transforms: Optional[Transforms]=None):
         super().__init__(thread.id)
+        log.info(f'Initializing a dialog manager for thread {thread.id}')
         # Note: dont save/cache thread object here as it will go out of sync with ORM, only save ID
         bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
         user_ids = [u.id for u in thread.users]
         assert len(bots) == 1, f'Expect 1 bot in thead {thread.id}; found {len(bots)}; Users: {user_ids}'
         self.bot_user_id = bots[0].id
         assert bot_agent
-        self.bot_agent = bot_agent
+        self.bot_agent: BotAgent = bot_agent
 
         humans = [ user for user in thread.users if user.role == User.ROLE_HUMAN ]
         assert len(humans) == 1, f'Expect 1 human in thead {thread.id}; found {len(humans)}; Users: {user_ids}'
@@ -56,26 +57,46 @@ class DialogBotChatManager(ChatManager):
         
         self.bot_transforms = bot_transforms
         self.human_transforms = human_transforms
+        
+        topic = ChatTopic.query.get(thread.topic_id)
+        self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
+        self.init_chat_context(thread)
 
-        if thread.messages and thread.messages[-1].user_id == self.human_user_id:
-            # TODO: bot reply here. Lats one was human
-            pass
+    def init_chat_context(self, thread: ChatThread):
+        if not thread.messages:
+            log.info(f'{thread.id} has no messages, so nothing to init')
+            return
+        log.info(f'Init {thread.id} context with {len(thread.messages)} msgs')
+        for msg in thread.messages:
+            self.bot_agent.hear(msg.as_dict())
+
+        last_msg = thread.messages[-1]
+        if last_msg.user_id == self.human_user_id or (
+            self.target_speaker_id and\
+                (last_msg.data or {}).get('speaker_id') == self.target_speaker_id):
+            # Last one was targeted speaker; bot reply here
+            reply: ChatMessage = self.bot_reply()
+            db.session.add(reply)
+            thread.messages.append(reply)
+            db.session.commit()
+            self.num_turns += 1
+            log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
 
 
-    def observe_message(self, thread: ChatThread, message: ChatMessage) -> ChatMessage:
-        # Observe and reply
-        # this message is from human
+    def observe_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
+        """
+        Observe and reply; input message is from human;
+        return (bot reply, episode_done)
+        """
         assert thread.id == self.thread_id
         assert message.user_id == self.human_user_id        
         if self.human_transforms:
             message = self.human_transforms(message)
-
+        self.bot_agent.hear(message.as_dict())
         db.session.add(message)
         thread.messages.append(message)
 
-        reply = self.bot_reply(message)
-        if self.bot_transforms:
-            reply = self.bot_transforms(reply)
+        reply: ChatMessage = self.bot_reply()
 
         db.session.add(reply)
         thread.messages.append(reply)
@@ -85,14 +106,16 @@ class DialogBotChatManager(ChatManager):
         log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
         return reply, episode_done
 
-    def bot_reply(self, msg: ChatMessage) -> ChatMessage:
-        # only using last message as context
-        self.bot_agent.hear(msg.as_dict())
-
+    def bot_reply(self) -> ChatMessage:
         reply: dict = self.bot_agent.talk()
         reply_text = reply.pop('text')
-        msg = ChatMessage(user_id = self.bot_user_id, text=reply_text, thread_id = self.thread_id, data=reply)
-        return msg
+        reply = ChatMessage(user_id = self.bot_user_id, text=reply_text,
+                            thread_id = self.thread_id, data=reply)
+        if self.bot_transforms:
+            reply = self.bot_transforms(reply)
+        return reply
+    
+
 
 
 class FileExportService:
@@ -296,8 +319,11 @@ class ChatService:
             db.session.add(thread)
             db.session.flush()  # flush it to get thread_id
             for m in topic.data['conversation']:
+                # assumption: messages are pre-transformed to reduce wait times
                 text = m['text']
-                data =  dict(text_orig=m.get('text_orig'), speaker_id= m.get('speaker_id'), fake_start=True)
+                data = dict(text_orig=m.get('text_orig'),
+                            speaker_id=m.get('speaker_id'),
+                            fake_start=True)
                 msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, data=data)
                 db.session.add(msg)
                 thread.messages.append(msg)
@@ -337,16 +363,17 @@ class ChatService:
         self.exporter.export_thread(thread, rating_questions=self.ratings)
 
     @functools.lru_cache(maxsize=256)
-    def cached_get(self, thread):
+    def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
         max_turns = self.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD,
                                     C.DEF_MAX_TURNS_PER_THREAD)
-        return DialogBotChatManager(thread=thread, bot_agent=self.bot_agent,
+        return DialogBotChatManager(thread=thread,
+                                    bot_agent=self.bot_agent,
                                     max_turns=max_turns,
                                     bot_transforms=self.bot_transforms,
                                     human_transforms=self.human_transforms)
 
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> ChatMessage:
-        dialog = self.cached_get(thread)
+        dialog = self.get_dialog_man(thread)
         reply, episode_done = dialog.observe_message(thread, msg)
         return reply, episode_done
 
