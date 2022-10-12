@@ -14,3 +14,6 @@ include::02-add-custom-bots.adoc[]
 include::04-nginx-conf.adoc[]
 
 include::05-development.adoc[]
+
+include::09-acks.adoc[]
+

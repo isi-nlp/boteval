@@ -3,5 +3,6 @@
 
 * This project was initially developed at USC ISI for DARPA program named https://www.darpa.mil/program/civil-sanctuary[Civil Sanctuary]
 
+* We learned from https://mephisto.ai[Mephisto]. We used Mephisto in our pilot study and at somepoint we decided to implement this with some differences in tech stack, architecure, and control flow. However, there are some portions of this system that still resemble Mephisto. 
 
 * For a list of contributors to source code, please refer to https://github.com/isi-nlp/boteval/graphs/contributors 
