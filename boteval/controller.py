@@ -191,7 +191,7 @@ def user_controllers(router, service: ChatService):
             user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
 
         FL.login_user(user, remember=True, force=True)
-        flask.flash('Logged in automatically')
+        log.info('Logged in automatically')
         if next_url and is_safe_url(next_url):
             return flask.redirect(next_url)
         return flask.redirect(flask.url_for('app.index'))
