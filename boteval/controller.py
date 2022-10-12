@@ -185,11 +185,9 @@ def user_controllers(router, service: ChatService):
         user = User.get(user_id)
         log.info(f'Form:: {user_id} {args}')
         if user:# user already exists
-            log.warning(f'User {user_id} akread')
+            log.warning(f'User {user_id} lready exists')
         else:
             name = args.pop('name', None)
-            ext_id = args.pop('ext_id', None)
-            ext_src = args.pop('ext_src', None)
             user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
 
         FL.login_user(user, remember=True, force=True)
