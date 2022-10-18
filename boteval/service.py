@@ -61,6 +61,18 @@ class DialogBotChatManager(ChatManager):
         topic = ChatTopic.query.get(thread.topic_id)
         self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
         self.init_chat_context(thread)
+        
+    def msg_as_dict(self, msg: ChatMessage) -> dict:
+        msg_dict = msg.as_dict()
+        # fake start user actual speaker Id
+        if msg_dict.get('data') and msg_dict['data'].get('fake_start')\
+            and msg_dict['data'].get('speaker_id'):
+            msg_dict['user_id'] = msg_dict['data']['speaker_id']
+
+        # human message, map to targeted user ID
+        if msg_dict['user_id'] == self.human_user_id and self.target_speaker_id:
+            msg_dict['user_id'] = self.target_speaker_id
+        return msg_dict
 
     def init_chat_context(self, thread: ChatThread):
         if not thread.messages:
@@ -68,7 +80,8 @@ class DialogBotChatManager(ChatManager):
             return
         log.info(f'Init {thread.id} context with {len(thread.messages)} msgs')
         for msg in thread.messages:
-            self.bot_agent.hear(msg.as_dict())
+            msg_dict = self.msg_as_dict(msg=msg)
+            self.bot_agent.hear(msg_dict)
 
         last_msg = thread.messages[-1]
         if last_msg.user_id == self.human_user_id or (
@@ -92,7 +105,8 @@ class DialogBotChatManager(ChatManager):
         assert message.user_id == self.human_user_id        
         if self.human_transforms:
             message = self.human_transforms(message)
-        self.bot_agent.hear(message.as_dict())
+        msg_dict = self.msg_as_dict(message)
+        self.bot_agent.hear(msg_dict)
         db.session.add(message)
         thread.messages.append(message)
 
@@ -114,8 +128,6 @@ class DialogBotChatManager(ChatManager):
         if self.bot_transforms:
             reply = self.bot_transforms(reply)
         return reply
-    
-
 
 
 class FileExportService:
