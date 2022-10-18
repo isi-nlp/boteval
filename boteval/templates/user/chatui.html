@@ -31,12 +31,7 @@
     {%endif%}
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-6 col-lg-7 col-xl-8 border-left border-right">
-               
-               <!-- <div class="text-right disabled">
-                    <span id='status_info' class="btn btn-sm btn-secondary">Status unknown</span>
-                </div>
-                -->
+            <div class="col-md-5 col-lg-6 col-xl-7 border-left border-right">
                 {% if reply_as_user %}
                 <div class="alert alert-info p-1 text-center"> You are replying as <b>Speaker
                         {{reply_as_user}}</b></div>
@@ -48,8 +43,7 @@
                         <textarea id="next_msg_text" class="form-control pl-2 my-0" rows="2"
                             placeholder="Type your message here..."></textarea>
                         <div class="my-1">
-                            <input type="submit" class="btn btn-primary mx-2" id='send_btn' value="Send"
-                                type="submit"></input>
+                            <input type="submit" class="btn btn-primary mx-2" id='send_btn' value="Send" type="submit"/>
                         </div>
                     </div>
                 </form>
@@ -66,7 +60,7 @@
                 </div>
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
-            <div class="col-md-6 col-lg-5 col-xl-4 mb-4 border-right border-left">
+            <div class="col-md-7 col-lg-6 col-xl-5 mb-4 border-right border-left">
                 {%if instructions_html %}
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
                     data-target="#instructionsmodal">Open Instructions</button>
@@ -74,25 +68,28 @@
                 <div {% if not cur_user.is_admin and remaining_turns> 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
-                    <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form"
+                    <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form" onsubmit="ratings_validation()"
                         class="form">
 
                         Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
+                        <ul class="list-group">
                         {% for q in rating_questions %}
                         {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
-                        <li class="list-group-item">
+                        <li class="list-group-item my-1">
                             <i>{{q['question']}}</i>
-                            <input id="rating-{{loop.index}}" type="range" list="tickmarks" style="width: 100%;" min="1"
+                            <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="0"
                                 max="{{q['choices']|length}}" name="{{q['question']}}" required
-                                value="{{prev_ratings.get(q['question'])}}" {{is_disabled}}>
+                                value="{{prev_ratings.get(q['question']) or 0}}" {{is_disabled}}>
                             <datalist id="tickmarks-{{loop.index}}"
                                 style="display: flex; justify-content: space-between; width: 100%;">
+                                <option></option>
                                 {% for ch in q['choices'] %}
                                 <option>{{ch}}</option>
                                 {%endfor%}
                             </datalist>
                         </li>
                         {% endfor %}
+                        </ul>
                         {% if focus_mode %} <input name="focus_mode" value="True" type="hidden" /> {%endif%}
                         <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}} />
                     </form>
@@ -163,7 +160,7 @@
         }
 
         function refresh_view() {
-            $('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
+            //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
             if (remaining_turns < 1) {
                 $('#end_info').show() // show end info
                 $('#next_msg_form').hide()
@@ -178,6 +175,9 @@
                     $('#waiting_info').hide() // waiting animation hide
                 }
             }
+            let list_el = $('#chat-thread')
+            let children = list_el.children()
+            list_el.animate({scrollTop: children[children.length -1].offsetParent.offsetHeight}, 500)
         }
 
         function play_beep() {
@@ -235,6 +235,22 @@
                     alert('Something went wrong. Could not send message.')
                 })
             })   
+        }
+
+        function ratings_validation(){
+            let invalid = false
+            for (const el of $('#ratings-form').find(":input[type='range']")){
+                if (el.value == '0'){
+                    el.parentNode.classList.add('bg-warning')
+                    invalid = true
+                } else {
+                    el.parentNode.classList.remove('bg-warning')
+                }
+            }
+            if (invalid){
+                alert('Please provide your rating to ALL questions.')
+                event.preventDefault();
+            }
         }
     </script>
 </section>
