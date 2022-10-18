@@ -55,8 +55,7 @@
                  </div>
                 
                 <div id="end_info" class="p-4 alert alert-info">
-                    This chat has already reached the sufficient number of turns and hence futher replies are disabled.
-                    Thank you for your time! Please submit your ratings to complete this task and receive compensation.
+                    Thanks for participating in the chat! Please submit your ratings to complete this task and receive compensation.
                 </div>
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
@@ -175,9 +174,9 @@
                     $('#waiting_info').hide() // waiting animation hide
                 }
             }
-            let list_el = $('#chat-thread')
-            let children = list_el.children()
-            list_el.animate({scrollTop: children[children.length -1].offsetParent.offsetHeight}, 500)
+            //let list_el = $('#chat-thread')
+            //let children = list_el.children()
+            //list_el.animate({scrollTop: children[children.length -1].offsetParent.offsetHeight}, 500)
         }
 
         function play_beep() {
