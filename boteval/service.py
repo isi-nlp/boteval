@@ -7,7 +7,7 @@ import functools
 from datetime import datetime
 import copy
 import time
-
+import multiprocessing
 import flask
 import requests
 from sqlalchemy import func
@@ -54,14 +54,17 @@ class DialogBotChatManager(ChatManager):
 
         self.max_turns = max_turns
         self.num_turns = thread.count_turns(humans[0])
-        
+
         self.bot_transforms = bot_transforms
         self.human_transforms = human_transforms
-        
+
         topic = ChatTopic.query.get(thread.topic_id)
         self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
-        self.init_chat_context(thread)
-        
+
+        self.mutex = multiprocessing.Lock()
+        self._init_ctx_done = False
+        #self.init_chat_context(thread)
+
     def msg_as_dict(self, msg: ChatMessage) -> dict:
         msg_dict = msg.as_dict()
         # fake start user actual speaker Id
@@ -74,7 +77,15 @@ class DialogBotChatManager(ChatManager):
             msg_dict['user_id'] = self.target_speaker_id
         return msg_dict
 
-    def init_chat_context(self, thread: ChatThread):
+    def maybe_init_chat_context(self, thread: ChatThread):
+        # thread synchronized block with double checking
+        if not self._init_ctx_done:
+            with self.mutex:
+                if not self._init_ctx_done:
+                    self.__init_chat_context(thread=thread)
+                    self._init_ctx_done = True
+
+    def __init_chat_context(self, thread: ChatThread):
         if not thread.messages:
             log.info(f'{thread.id} has no messages, so nothing to init')
             return
@@ -102,7 +113,7 @@ class DialogBotChatManager(ChatManager):
         return (bot reply, episode_done)
         """
         assert thread.id == self.thread_id
-        assert message.user_id == self.human_user_id        
+        assert message.user_id == self.human_user_id
         if self.human_transforms:
             message = self.human_transforms(message)
         msg_dict = self.msg_as_dict(message)
@@ -160,7 +171,7 @@ class ChatService:
         self.task_dir.mkdir(exist_ok=True, parents=True)
         self._bot_user_id = C.Auth.BOT_USER
         self._context_user_id = C.Auth.CONTEXT_USER
-        
+
         topics_file = self.config['chatbot'].get('topics_file', C.DEF_TOPICS_FILE)
         self.topics_file = self.resolve_path(topics_file)
         instructions_file = self.config['chatbot'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
@@ -175,7 +186,7 @@ class ChatService:
         self.bot_transforms = None
         if transforms_conf.get('bot'):
             self.bot_transforms = load_transforms(transforms_conf['bot'])
-        
+
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
@@ -192,7 +203,7 @@ class ChatService:
         if C.MTURK in self.config:
             self.crowd_service = MTurkService.new(**self.config[C.MTURK])
         self._external_url_ok = None
-        
+
     def resolve_path(self, *args):
         return Path(self.task_dir, *args)
 
@@ -214,11 +225,11 @@ class ChatService:
             log.warning(str(e))
             log.warning('Looks like external URL is not configured as HTTPs. Crowd launching is disabled')
             self._external_url_ok = False
-       
+
     @property
     def is_external_url_ok(self):
         return self._external_url_ok
-    
+
     @property
     def instructions(self) -> str:
         if not self._instructions:
@@ -244,7 +255,6 @@ class ChatService:
         return User.query.get(self._context_user_id)
 
     def init_db(self, init_topics=True):
-        
         if not User.query.get(C.Auth.ADMIN_USER):
             User.create_new(
                 id=C.Auth.ADMIN_USER, name='Chat Admin',
