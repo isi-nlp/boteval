@@ -82,7 +82,7 @@ def register_app_hooks(app, service: ChatService):
                 user.last_active = datetime.now()
                 db.session.merge(user)  # update
                 db.session.commit()
-    
+
     @app.before_first_request
     def before_first_request():
         log.info('Before first request')
@@ -277,7 +277,9 @@ def user_controllers(router, service: ChatService):
         topic = service.get_topic(thread.topic_id)
         max_turns = service.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD, C.DEF_MAX_TURNS_PER_THREAD)
         remaining_turns = max_turns - thread.count_turns(FL.current_user)
-        dialog_man = service.get_dialog_man(thread)  # this will init the thread
+
+        dialog_man = service.get_dialog_man(thread)
+        dialog_man.maybe_init_chat_context(thread) # this will init the thread
 
         return render_template('user/chatui.html', limits=service.limits,
                                thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
@@ -309,7 +311,6 @@ def user_controllers(router, service: ChatService):
             reply = dict(status=C.ERROR,
                          description=f'requires "text" field of type string')
             return flask.jsonify(reply), 400
-        
         text = text[:C.MAX_TEXT_LENGTH]
         msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
         try:
@@ -381,20 +382,18 @@ def user_controllers(router, service: ChatService):
         # Step2. Find the mapping user
         user = User.query.filter_by(ext_src=ext_src, ext_id=worker_id).first()
         if not user: # sign up and come back (so set next)
-            
             return flask.redirect(
                 url_for('app.seamlesslogin', ext_id=worker_id, ext_src=ext_src, next=request.url))
-            
+
         if not FL.current_user or FL.current_user.get_id() != user.id:
             FL.logout_user()
             FL.login_user(user, remember=True, force=True)
-        
         limit_exceeded, msg = service.limit_check(topic=topic, user=user)
         if limit_exceeded: # we may need to block user i.e. change user qualification
             return msg, 400
 
-        # user exist, logged in => means user already signed up and doing so, gave consent,     
-        # Step 3: map assignment to chat thread -- 
+        # user exist, logged in => means user already signed up and doing so, gave consent,
+        # Step 3: map assignment to chat thread --
         data = {
             ext_src : {
                 'submit_url': submit_url,
