@@ -9,7 +9,7 @@ from . import (
 )
 
 
-log.basicConfig(level=log.INFO, format='%(asctime)s  %(process)d T%(thread)d %(module)s.%(funcName)s:%(lineno)s %(levelname)s:: %(message)s')
+log.basicConfig(level=log.INFO)
 db: SQLAlchemy = SQLAlchemy()
 
 
