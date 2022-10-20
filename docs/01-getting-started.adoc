@@ -56,10 +56,16 @@ optional arguments:
   -v, --version         show version number and exit
 ----
 
-We have provided `example-chat-task` as a demo chat task. Run this command to start a demo:
+We create a an example chat task directory using `boteval-quickstart`
 
 [source,bash]
-python -m boteval -d example-chat-task/
+----
+# create an example task directory
+boteval-quickstart example-chat-task/
+
+# run demo task
+boteval -d example-chat-task/
+----
 
 It should print http://127.0.0.1:7070 on a successful launch. Now let's access this URL in a web browser. 
 You will be granted with a login screen!

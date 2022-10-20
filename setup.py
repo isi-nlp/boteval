@@ -14,7 +14,7 @@ with open("requirements.txt") as f:
         if not line or line.startswith("#"):
             continue  # skip empty and comment lines
         reqs.append(line)
-        
+
 
 PACKAGE = 'boteval'
 init_file = Path(__file__).parent / PACKAGE / '__init__.py'
@@ -45,7 +45,12 @@ setup(name=PACKAGE,
       install_requires=reqs,
       include_package_data=True,
       zip_safe=False,
-      entry_points={"console_scripts": "boteval=boteval.app:main"},
+      entry_points={
+          "console_scripts": [
+              "boteval=boteval.app:main",
+              "boteval-quickstart=boteval.quickstart:main",
+              ]
+          },
       classifiers=[
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.9",

@@ -1,5 +1,7 @@
 include README.md
-include requiremen
+include requirements.txt
+graft boteval/example-chat-task
 graft boteval/static
 graft boteval/templates
 global-exclude *.pyc
+global-exclude **__pycache__**
