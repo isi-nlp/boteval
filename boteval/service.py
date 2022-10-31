@@ -280,7 +280,7 @@ class ChatService:
             for topic in topics:
                 obj = ChatTopic.query.get(topic['id'])
                 if obj:
-                    log.warning(f'Chat topic exisits {topic["id"]}, so skipping')
+                    log.warning(f'Chat topic exists {topic["id"]}, so skipping')
                     continue
                 obj = ChatTopic(id=topic['id'], name=topic['name'], data=topic)
                 objs.append(obj)

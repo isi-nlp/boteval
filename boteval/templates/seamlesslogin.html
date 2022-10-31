@@ -35,7 +35,7 @@
                 <input type="text" name="name" id="name" class="form-control mt-2" placeholder="Name" required>
                 -->
                 {% if next %} <input type="hidden" name="next" value="{{next}}"> {%endif%}
-                <button class="btn btn-lg btn-primary btn-block col-4 mt-2" type="submit">Agree and proceed</button>
+                <button class="btn btn-lg btn-primary btn-block col-4 mt-2" type="submit" onClick="this.form.submit(); this.disabled=true; this.value='Wait...'; ">Agree and proceed</button>
                 <small class="text-muted">The server might take upto a minute to finish setting up. Do NOT hit refresh/reload while the webpage is loading.</small>
             </form>
         </div>
