@@ -1,4 +1,6 @@
-= BotEval Versions
+[#versions]
+.Boteval Versions
 :hide-uri-scheme:
 
-* link:v0.1[v0.1]
+* Pre release
+- link:v0.1[v0.1]

@@ -6,6 +6,7 @@ include::_head.adoc[]
 This is documentation for `boteval` library which helps in chatbot evaluation.
 The source code is available at https://github.com/isi-nlp/boteval 
 
+include::versions.adoc[]
 
 include::01-getting-started.adoc[]
 
@@ -16,4 +17,3 @@ include::04-nginx-conf.adoc[]
 include::05-development.adoc[]
 
 include::09-acks.adoc[]
-
