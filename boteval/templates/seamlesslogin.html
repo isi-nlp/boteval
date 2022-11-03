@@ -1,6 +1,24 @@
 {% set focus_mode = True %}
 {% extends 'base.html' %}
-
+{%block head%}
+<style type="text/css">
+    .dot {
+        opacity: 0;
+        animation: showHideDot 2s ease-in-out infinite;
+        font-size: 1rem;
+    }
+    .dot.one {animation-delay: 0.2s;}
+    .dot.two {animation-delay: 0.4s;}
+    .dot.three {animation-delay: 0.6s;}
+    
+    @keyframes showHideDot {
+        0% { opacity: 0; }
+        50% { opacity: 1; }
+        60% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+</style>
+{%endblock%}
 {% block content %}
 <div class="container">
     <div class="row" id="myTabContent">
@@ -35,8 +53,16 @@
                 <input type="text" name="name" id="name" class="form-control mt-2" placeholder="Name" required>
                 -->
                 {% if next %} <input type="hidden" name="next" value="{{next}}"> {%endif%}
-                <button class="btn btn-lg btn-primary btn-block col-4 mt-2" type="submit" onClick="this.form.submit(); this.disabled=true; this.value='Wait...'; ">Agree and proceed</button>
-                <small class="text-muted">The server might take upto a minute to finish setting up. Do NOT hit refresh/reload while the webpage is loading.</small>
+                <button class="btn btn-lg btn-primary btn-block col-4 mt-2" onClick="check_and_submit(this)">Agree and proceed</button>
+
+                <div id="waiting_info" class="text-center alert alert-primary" style="display: none;">
+                    Wait for server to load 
+                    <span class="dot one">⦿</span>
+                    <span class="dot two">⦿</span>
+                    <span class="dot three">⦿</span>
+                </div>
+                
+                <small class="text-muted">The server may take about 20 seconds to set up. Please wait patiently.</small>
             </form>
         </div>
     </div>

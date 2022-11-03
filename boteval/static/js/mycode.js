@@ -83,3 +83,13 @@ async function copy_to_clipboard(text){
   }
 
 }
+
+function check_and_submit(button){
+  if (button.form.reportValidity()){
+    button.form.submit(); 
+    $(button).hide();  
+    $(button).html("Wait..."); 
+    button.disabled=true; 
+    $('#waiting_info').show(); 
+  }
+}
