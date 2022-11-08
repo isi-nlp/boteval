@@ -7,6 +7,7 @@
     <li><small> Submitted on {{asgn['SubmitTime']}} </small></li>
     {% if 'ApprovalTime' in asgn %} <li><small> Approved on {{asgn['ApprovalTime']}} </small></li>{%endif%}
     {% if 'AcceptTime' in asgn %} <li><small> Accepted on {{asgn['AcceptTime']}} </small></li> {%endif%}
+    {% if 'AcceptTime' in asgn %} <li><small id = "total_time">{{asgn['SubmitTime'] - asgn['AcceptTime']}} </small></li> {%endif%}
 </ul>
 {% if asgn['AssignmentStatus'] == 'Submitted' %}
 <form method="POST" action="{{url_for('admin.' + crowd_name + '_approve_assignment', asgn_id=asgn['AssignmentId'])}}">
@@ -17,6 +18,13 @@
     <p class="alert alert-success"> (Already approved)</p>
 {% else %}
 <p class="alert alert-warning"> (Approval is not applicable)</p>
+{% endif %}
+
+{% if asgn['AssignmentStatus'] == 'Approved' %}
+<form method="POST" action="{{url_for('admin.' + crowd_name + '_give_bonus', worker_id=asgn['WorkerId'], time= asgn['SubmitTime'] - asgn['AcceptTime'], asgn_id=asgn['AssignmentId'])}}">
+    <button type="submit" value="Submit" class="col-3 mb-2 btn btn-success btn-sm">Give Bonus</button>
+    <span class="col-1"></span>
+</form>
 {% endif %}
 
 {% if qtypes %}
