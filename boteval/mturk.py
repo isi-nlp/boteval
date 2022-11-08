@@ -197,6 +197,7 @@ class MTurkController:
             ('/HIT/<HIT_id>', self.delete_hit, dict(methods=['DELETE'])),
             ('/HIT/<HIT_id>/expire', self.expire_HIT, dict(methods=['DELETE'])),
             ('/assignment/<asgn_id>/approve', self.approve_assignment, dict(methods=["POST"])),
+            ('/assignment/<asgn_id>/<worker_id>/<time>/give_bonus', self.give_bonus, dict(methods=["POST"])),
             ('/worker/<worker_id>/qualification', self.qualify_worker, dict(methods=["POST", "PUT"])),
             ('/worker/<worker_id>/qualification', self.disqualify_worker, dict(methods=["DELETE"])),
         ]
@@ -247,6 +248,28 @@ class MTurkController:
     def approve_assignment(self, asgn_id):
         #RequesterFeedback=feedback # any feed back message to worker
         data = self.mturk.client.approve_assignment(AssignmentId=asgn_id)
+        return jsonify(data), data.get('HTTPStatusCode', 200)
+
+    #Calculates bonus given to worker to ensure the worker works $15 per hour.
+    def give_bonus(self, worker_id, time, asgn_id):
+        base_pay = 0.10
+        pay_per_hour = 15.00
+        print("time:", time)
+        bonus_payment = 0.00
+        time_array = time.split(':')
+        print(time_array)
+        mins = 60.00 * float(time_array[0]) + float(time_array[1]) + (1.00/60.0) * float(time_array[2])
+        print(mins)
+        rate_payment = (pay_per_hour / 60.0) * mins
+        print("rate_payment",rate_payment)
+        if rate_payment > base_pay:
+            bonus_payment = rate_payment - base_pay
+        print("bonus payment:", bonus_payment)
+        bonus_payment_ret = round(bonus_payment, 2)
+        print("bonus_payment_ret", bonus_payment_ret)
+        print(str(bonus_payment_ret) + "hello")
+        # return "200"
+        data = self.mturk.client.send_bonus(WorkerId=worker_id,BonusAmount=str(bonus_payment_ret),AssignmentId=asgn_id,Reason='To ensure you get paid at least $15 per hour.')
         return jsonify(data), data.get('HTTPStatusCode', 200)
 
     def qualify_worker(self, worker_id):
