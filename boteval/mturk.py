@@ -197,7 +197,7 @@ class MTurkController:
             ('/HIT/<HIT_id>', self.delete_hit, dict(methods=['DELETE'])),
             ('/HIT/<HIT_id>/expire', self.expire_HIT, dict(methods=['DELETE'])),
             ('/assignment/<asgn_id>/approve', self.approve_assignment, dict(methods=["POST"])),
-            ('/assignment/<asgn_id>/<worker_id>/<time>/give_bonus', self.give_bonus, dict(methods=["POST"])),
+            ('/assignment/<asgn_id>/<worker_id>/<payment>/give_bonus', self.give_bonus, dict(methods=["POST"])),
             ('/worker/<worker_id>/qualification', self.qualify_worker, dict(methods=["POST", "PUT"])),
             ('/worker/<worker_id>/qualification', self.disqualify_worker, dict(methods=["DELETE"])),
         ]
@@ -237,9 +237,20 @@ class MTurkController:
         data = self.mturk.list_assignments(HIT_id=HIT_id, max_results=100)
         print(data)
         qtypes = None
+        bonus_settings = self.mturk.hit_settings
+        base_pay = float(bonus_settings["Reward"])
+        pay_per_hour = float(bonus_settings["BonusRate"])
+        bonus_pay = []
         if data['Assignments']:
             qtypes = self.mturk.list_qualification_types(max_results=100)
-        return self.render_template('HIT.html', data=data, HIT_id=HIT_id, qtypes=qtypes)
+            for i in enumerate(data['Assignments']):
+                index = i[0]
+                this_assignment = i[1]
+                total_time = this_assignment['SubmitTime'] - this_assignment['AcceptTime']
+                total_seconds = total_time.total_seconds()
+                this_bonus = self.get_bonus(base_pay=base_pay, pay_per_hour=pay_per_hour, total_seconds=total_seconds)
+                bonus_pay.insert(index, this_bonus)
+        return self.render_template('HIT.html', data=data, HIT_id=HIT_id, qtypes=qtypes, base_pay=base_pay, pay_per_hour=pay_per_hour, bonus_pay=bonus_pay)
 
     def delete_hit(self, HIT_id):
         data = self.mturk.client.delete_hit(HITId=HIT_id)
@@ -251,26 +262,20 @@ class MTurkController:
         return jsonify(data), data.get('HTTPStatusCode', 200)
 
     #Calculates bonus given to worker to ensure the worker works $15 per hour.
-    def give_bonus(self, worker_id, time, asgn_id):
-        base_pay = 0.10
-        pay_per_hour = 15.00
-        print("time:", time)
+    def give_bonus(self, worker_id, payment, asgn_id):
+        bonus_settings = self.mturk.hit_settings
+        bonus_payment_ret = float(payment)
+        data = self.mturk.client.send_bonus(WorkerId=worker_id,BonusAmount=str(bonus_payment_ret),AssignmentId=asgn_id,Reason= bonus_settings["BonusReason"])
+        return jsonify(data), data.get('HTTPStatusCode', 200)
+    
+    def get_bonus(self, pay_per_hour, base_pay, total_seconds):
         bonus_payment = 0.00
-        time_array = time.split(':')
-        print(time_array)
-        mins = 60.00 * float(time_array[0]) + float(time_array[1]) + (1.00/60.0) * float(time_array[2])
-        print(mins)
-        rate_payment = (pay_per_hour / 60.0) * mins
-        print("rate_payment",rate_payment)
+        total_mins = ((1.00/60.0) * total_seconds)
+        rate_payment = (pay_per_hour / 60.0) * total_mins
         if rate_payment > base_pay:
             bonus_payment = rate_payment - base_pay
-        print("bonus payment:", bonus_payment)
         bonus_payment_ret = round(bonus_payment, 2)
-        print("bonus_payment_ret", bonus_payment_ret)
-        print(str(bonus_payment_ret) + "hello")
-        # return "200"
-        data = self.mturk.client.send_bonus(WorkerId=worker_id,BonusAmount=str(bonus_payment_ret),AssignmentId=asgn_id,Reason='To ensure you get paid at least $15 per hour.')
-        return jsonify(data), data.get('HTTPStatusCode', 200)
+        return bonus_payment_ret
 
     def qualify_worker(self, worker_id):
         qual_id = request.form.get('QualificationTypeId')
