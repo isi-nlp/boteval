@@ -64,6 +64,8 @@ _mturk:
     LifetimeInSeconds: 1209600              # 14 days = 1.2M sec
     AssignmentDurationInSeconds: 3600      # 1 hour = 3.6k sec
     Reward: *reward
+    BonusRate: 15.00                       # Dollars per hour
+    BonusReason: "Hello. You're receiving this bonus to ensure you get paid at a minimum $15/hour for your work."
     Title: 'Evaluate a chatbot'
     Keywords: 'chatbot,chat,research'
     Description: 'Evaluate a chat bot by talking to it for a while and receive a reward'

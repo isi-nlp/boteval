@@ -1,4 +1,4 @@
-{% macro render_assignment(asgn, qtypes=None, crowd_name='mturk') %}
+{% macro render_assignment(asgn, qtypes=None, base_pay = 0.0, pay_per_hour = 0.0, bonus_pay='', crowd_name='mturk') %}
 <b>{{asgn['AssignmentId']}}</b>
     <span class="badge badge-success float-right">[{{'sandbox' if 'sandbox' in crowd_name else 'live'}}]</span>
 <ul class="list-group">
@@ -7,6 +7,7 @@
     <li><small> Submitted on {{asgn['SubmitTime']}} </small></li>
     {% if 'ApprovalTime' in asgn %} <li><small> Approved on {{asgn['ApprovalTime']}} </small></li>{%endif%}
     {% if 'AcceptTime' in asgn %} <li><small> Accepted on {{asgn['AcceptTime']}} </small></li> {%endif%}
+    {% if 'AcceptTime' in asgn %} <li><small id = "total_time">Total time spent on hit (h:mm:ss): {{asgn['SubmitTime'] - asgn['AcceptTime']}} </small></li> {%endif%}
 </ul>
 {% if asgn['AssignmentStatus'] == 'Submitted' %}
 <form method="POST" action="{{url_for('admin.' + crowd_name + '_approve_assignment', asgn_id=asgn['AssignmentId'])}}">
@@ -17,6 +18,27 @@
     <p class="alert alert-success"> (Already approved)</p>
 {% else %}
 <p class="alert alert-warning"> (Approval is not applicable)</p>
+{% endif %}
+
+<script>
+    function notify_user() {
+        document.getElementById("user_note").innerHTML = "You have successfully given the user a bonus payment! If you click on the bonus button again, you'll give the user an additional bonus payment.";
+    }
+</script>
+
+{% if asgn['AssignmentStatus'] == 'Approved' %}
+<section id = bonus_button>
+
+<p>Base pay given to worker for completing task: {{base_pay}} </p>
+<p>Hourly rate of pay desired for worker: {{pay_per_hour}} dollars/hour</p>
+<p>Bonus to be given: ${{bonus_pay}}</p>
+<form method="POST" action="{{url_for('admin.' + crowd_name + '_give_bonus', worker_id=asgn['WorkerId'], payment=bonus_pay, asgn_id=asgn['AssignmentId'])}}" onsubmit="notify_user()">
+    <button type="submit" value="Submit" class="col-3 mb-2 btn btn-success btn-sm">Give Bonus </button>
+    <span class="col-1"></span>
+</form>
+<p>Note: You can change the base pay and hourly rate of pay in this assignment's configuration file.</p>
+<p id="user_note"></p>
+</section>
 {% endif %}
 
 {% if qtypes %}
