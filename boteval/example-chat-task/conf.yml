@@ -31,6 +31,7 @@ limits:
   max_threads_per_topic: &max_assignments 3
   max_turns_per_thread: 4
   reward: &reward '0.01' # dollars
+  desiredrate: &desiredrate '15.00' # dollars        
 
 onboarding:
   agreement_file: user-agreement.html
@@ -65,7 +66,7 @@ _mturk:
     LifetimeInSeconds: 1209600              # 14 days = 1.2M sec
     AssignmentDurationInSeconds: 3600      # 1 hour = 3.6k sec
     Reward: *reward
-    BonusRate: 15.00                       # Dollars per hour
+    DesiredRate: *desiredrate                       # The desired hourly pay rate that the bonus will allow the worker to reach.
     BonusReason: "Hello. You're receiving this bonus to ensure you get paid at a minimum $15/hour for your work."
     Title: 'Evaluate a chatbot'
     Keywords: 'chatbot,chat,research'
