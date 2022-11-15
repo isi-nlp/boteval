@@ -66,7 +66,7 @@ _mturk:
     LifetimeInSeconds: 1209600              # 14 days = 1.2M sec
     AssignmentDurationInSeconds: 3600      # 1 hour = 3.6k sec
     Reward: *reward
-    DesiredRate: *desiredrate                       # The desired hourly pay rate that the bonus will allow the worker to reach.
+    DesiredRate: *desiredrate              # The desired hourly pay rate that the bonus will allow the worker to reach.
     BonusReason: "Hello. You're receiving this bonus to ensure you get paid at a minimum $15/hour for your work."
     Title: 'Evaluate a chatbot'
     Keywords: 'chatbot,chat,research'
