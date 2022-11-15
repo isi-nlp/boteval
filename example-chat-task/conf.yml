@@ -1,3 +1,4 @@
+
 chat_dir: data
 
 chatbot:
@@ -30,7 +31,7 @@ limits:
   max_threads_per_topic: &max_assignments 3
   max_turns_per_thread: 4
   reward: &reward '0.01' # dollars
-  
+
 onboarding:
   agreement_file: user-agreement.html
   instructions_file: instructions.html
@@ -64,8 +65,6 @@ _mturk:
     LifetimeInSeconds: 1209600              # 14 days = 1.2M sec
     AssignmentDurationInSeconds: 3600      # 1 hour = 3.6k sec
     Reward: *reward
-    BonusRate: 15.00                       # Dollars per hour
-    BonusReason: "Hello. You're receiving this bonus to ensure you get paid at a minimum $15/hour for your work."
     Title: 'Evaluate a chatbot'
     Keywords: 'chatbot,chat,research'
     Description: 'Evaluate a chat bot by talking to it for a while and receive a reward'
@@ -79,4 +78,3 @@ flask_config:
   #SERVER_NAME: localhost  <-- do not use localhost as SERVER_NAME
   #SERVER_NAME: dev.gowda.ai   # set a reak domain name for mturk integration
   #PREFERRED_URL_SCHEME: https
-
