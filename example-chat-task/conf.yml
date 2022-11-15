@@ -52,7 +52,7 @@ ratings:
     choices: *choices
 
 # rename _mturk -> mturk to enable crowd backend
-mturk: 
+_mturk:
   client:
     profile: default # the [default] profile in ~/.aws/credentials file
     sandbox: true  # sandbox: false to go live
