@@ -1,4 +1,4 @@
-{% macro render_assignment(asgn, qtypes=None, base_pay = 0.0, pay_per_hour = 0.0, bonus_pay='', crowd_name='mturk') %}
+{% macro render_assignment(asgn, base_pay, pay_per_hour, bonus_pay, qtypes=None, crowd_name='mturk') %}
 <b>{{asgn['AssignmentId']}}</b>
     <span class="badge badge-success float-right">[{{'sandbox' if 'sandbox' in crowd_name else 'live'}}]</span>
 <ul class="list-group">
