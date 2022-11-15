@@ -240,10 +240,10 @@ class MTurkController:
         bonus_settings = self.mturk.hit_settings
         if not "Reward" in bonus_settings:
             return "You must set a reward attribute in the conf.yaml file."
-        if not "BonusRate" in bonus_settings:
+        if not "DesiredRate" in bonus_settings:
             return "You must set a bonus rate attribute in the conf.yaml file."
         base_pay = float(bonus_settings["Reward"])
-        pay_per_hour = float(bonus_settings["BonusRate"])
+        pay_per_hour = float(bonus_settings["DesiredRate"])
         bonus_pay = []
         if data['Assignments']:
             qtypes = self.mturk.list_qualification_types(max_results=100)
