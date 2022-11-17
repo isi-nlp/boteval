@@ -269,7 +269,10 @@ class MTurkController:
     def give_bonus(self, worker_id, payment, asgn_id):
         bonus_settings = self.mturk.hit_settings
         bonus_payment_ret = float(payment)
-        data = self.mturk.client.send_bonus(WorkerId=worker_id,BonusAmount=str(bonus_payment_ret),AssignmentId=asgn_id,Reason= bonus_settings["BonusReason"])
+        bonus_reason = bonus_settings["BonusReason"]
+        desired_rate = str(bonus_settings["DesiredRate"])
+        bonus_reason = bonus_reason.replace("[RATE]", desired_rate)
+        data = self.mturk.client.send_bonus(WorkerId=worker_id,BonusAmount=str(bonus_payment_ret),AssignmentId=asgn_id,Reason=bonus_reason)
         return jsonify(data), data.get('HTTPStatusCode', 200)
     
     def get_bonus(self, pay_per_hour, base_pay, total_seconds):
