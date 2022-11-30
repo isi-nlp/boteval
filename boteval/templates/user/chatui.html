@@ -61,8 +61,26 @@
             <!-- hide this block when more turns to go; but show this to admin regardless -->
             <div class="col-md-7 col-lg-6 col-xl-5 mb-4 border-right border-left">
                 {%if instructions_html %}
+                <h3>Instructions:</h3>
+                <ul>
+                    <li>
+                        Read the conversation to the left.
+                    </li>
+                    <li>
+                        The last red box is a comment that has been moderated by a moderation bot (MODERATOR) in the green box.
+                    </li>
+                    <li>
+                        You will be asked to continue the conversation as if you were the speaker of the last red box. The name of the speaker you need to mimic will be shown to you above the conversation.
+                    </li>
+                    <li>
+                        Try to capture the attitudes and emotions exhibited by this speaker and respond in a way you would imagine the speaker doing so.
+                    </li>
+                    <li>
+                        Click the button below if you would like to view more detailed instructions and examples.
+                    </li>
+                </ul>
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
-                    data-target="#instructionsmodal">Open Instructions</button>
+                    data-target="#instructionsmodal">Detailed Instructions</button>
                 {%endif%}
                 <div {% if not cur_user.is_admin and remaining_turns> 0 %} style="display:none" {%endif%}
                     id="ratings-view">
