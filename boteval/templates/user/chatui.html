@@ -134,7 +134,10 @@
 
         let waiting_for_bot_reply = false
 
-        function show_new_message(msg) {
+        function show_new_message(msg, user_ids) {
+
+            const colors = ["secondary", "light", "dark", "info", "primary"]
+
             if (!msg['data']) {
                 msg['data'] = new Object()
             }
@@ -147,10 +150,17 @@
             let theme = ''
             let side = 'left'
             if (msg['user_id'] == cur_user_id || msg['data']['speaker_id'] == reply_as_user) {
-                theme = 'alert-primary'
+                theme = 'alert-danger'
                 side = 'right'
             } else if (msg['user_id'] == BOT_ID) {
-                theme = 'alert-warning'
+                theme = 'alert-success'
+            } else {
+                for (let i = 0; i < user_ids.length; i++) {
+                    if (msg['data']['speaker_id'] == user_ids[i]) {
+                        set_color = colors[i % colors.length]
+                        theme = 'alert-' + set_color
+                    }
+                }
             }
 
             let text_display = msg['text']
@@ -206,8 +216,21 @@
         }
 
         window.onload = () => {
+            const user_ids = []
+            const colors = ["secondary", "light", "dark"]
             for (const msg of thread['messages']) {
-                show_new_message(msg)
+                this_user_id = msg['data']['speaker_id']
+                add_element = true
+                for (let i = 0; i < user_ids.length; i++) {
+                    if (user_ids[i] == this_user_id) {
+                        add_element = false
+                    }
+                }
+                if (add_element == true) {
+                    user_ids.push(this_user_id)
+                }
+            }           
+            for (const msg of thread['messages']) {
             }
             refresh_view()
 
