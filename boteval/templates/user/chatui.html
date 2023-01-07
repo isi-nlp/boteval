@@ -174,9 +174,6 @@
                     $('#waiting_info').hide() // waiting animation hide
                 }
             }
-            //let list_el = $('#chat-thread')
-            //let children = list_el.children()
-            //list_el.animate({scrollTop: children[children.length -1].offsetParent.offsetHeight}, 500)
         }
 
         function play_beep() {
@@ -250,6 +247,10 @@
                 alert('Please provide your rating to ALL questions.')
                 event.preventDefault();
             }
+        }
+
+        function scroll_chat_to_bottom(){
+            $("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow') 
         }
     </script>
 </section>
