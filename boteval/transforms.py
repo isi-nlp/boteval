@@ -1,6 +1,7 @@
 
 from boteval.model import ChatMessage
 from boteval import registry as R, log
+from typing import List
 
 
 class BaseTransform:
@@ -31,7 +32,7 @@ def load_transform(name, args=None) -> BaseTransform:
     return transforms[name](**args)
 
 
-def load_transforms(chain: list) -> Transforms:
+def load_transforms(chain: List) -> Transforms:
     tfms = []
     for conf in chain:
         tfm = load_transform(conf['name'], conf.get('args'))
@@ -54,7 +55,7 @@ class SpacySplitter():
         self.max_toks = max_toks
         
     
-    def __call__(self, text: str) -> list[str]:
+    def __call__(self, text: str) -> List[str]:
         res = []
         for s in self.pipeline(text).sents:
             line = s.text
@@ -95,7 +96,7 @@ class HuggingfaceMT(BaseTransform):
 
     def translate(self, text: str) -> str:
         log.debug(f"Translating {text}...")
-        sents: list[str] = self.sentence_splitter(text)
+        sents: List[str] = self.sentence_splitter(text)
         batch = self.tokenizer(sents, return_tensors="pt", padding=True,
          max_length=self.max_length)
         gen = self.model.generate(**batch)
