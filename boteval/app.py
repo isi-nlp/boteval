@@ -115,7 +115,7 @@ with app.test_request_context():
     app.config['EXT_URL_BASE'] = ext_url
 
 # uwsgi can take CLI args too
-# uwsgi --http 127.0.0.1:5000 --module boteval.app:app # --pyargv "--foo=bar"
+# e.g. uwsgi --http :7070 --module boteval.wsgi:app --pyargv "darma-task -c darma-task/conf-local.yml -b /boteval" --master --processes 4 --threads 2
 
 def main():
 
