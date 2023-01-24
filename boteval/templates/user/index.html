@@ -23,7 +23,7 @@
                 <small style="float: right;">{{ thread.time_created | ctime }}</small>
                     {% if thread.episode_done %}
                         <span>You have already completed this task.
-                             No further action is necessary, though you may </span> <a class="link" href="{{url_for('app.get_thread', thread_id=thread.id)}}">review your previous .</a> 
+                             No further action is necessary, though you may </span> <a class="link" href="{{url_for('app.get_thread', thread_id=thread.id)}}">review your previous submission.</a> 
                     {% else %}
                     <a class="link" href="{{url_for('app.get_thread', thread_id=thread.id)}}"><span class="btn btn-primary">Continue</span></a> <span class="disabled">You have not yet completed this task</span>{%endif%}
                     </a> <br/>
