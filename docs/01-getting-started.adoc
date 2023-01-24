@@ -301,6 +301,9 @@ flask_config: #<5>
 ----
 <1> `DATABASE_FILE_NAME` is the filename for sqlite3 databse. 
 
+
+Make sure to comment out SERVER_NAME and PREFERRED_URL_SCHEME to run locally. 
+
 TIP: Use a different DATABASE_FILE_NAME  for development vs production. When you want to have a fresh start, simply change db filename. 
 
 NOTE: You may also configure sqlachemy here https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
