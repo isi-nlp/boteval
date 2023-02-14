@@ -43,13 +43,13 @@ class DialogBotChatManager(ChatManager):
         # Note: dont save/cache thread object here as it will go out of sync with ORM, only save ID
         bots = [ user for user in thread.users if user.role == User.ROLE_BOT ]
         user_ids = [u.id for u in thread.users]
-        assert len(bots) == 1, f'Expect 1 bot in thead {thread.id}; found {len(bots)}; Users: {user_ids}'
+        assert len(bots) == 1, f'Expect 1 bot in thread {thread.id}; found {len(bots)}; Users: {user_ids}'
         self.bot_user_id = bots[0].id
         assert bot_agent
         self.bot_agent: BotAgent = bot_agent
 
         humans = [ user for user in thread.users if user.role == User.ROLE_HUMAN ]
-        assert len(humans) == 1, f'Expect 1 human in thead {thread.id}; found {len(humans)}; Users: {user_ids}'
+        assert len(humans) == 1, f'Expect 1 human in thread {thread.id}; found {len(humans)}; Users: {user_ids}'
         self.human_user_id = humans[0].id
 
         self.max_turns = max_turns
@@ -179,6 +179,7 @@ class ChatService:
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
+        self.prompt = config['chatbot']['bot_args']['prompt']
         self.bot_agent = load_bot_agent(bot_name, bot_args)
         self.limits = config.get('limits') or {}
         self.ratings = config['ratings']
@@ -372,7 +373,7 @@ class ChatService:
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
-        self.exporter.export_thread(thread, rating_questions=self.ratings)
+        self.exporter.export_thread(thread, rating_questions=self.ratings, bot_name=self.prompt)
 
     @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:

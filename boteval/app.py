@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument('-c', '--config', type=Path, metavar='FILE',
                         help='Path to config file. Default is <task-dir>/conf.yml')
     parser.add_argument("-b", "--base", type=str, metavar='/prefix',
+                        default="/boteval",
                         help="Base path prefix for all url routes. Eg: /boteval")
 
     parser.add_argument("-d", "--debug", action="store_true", help="Run Flask server in debug mode")
@@ -114,14 +115,13 @@ with app.test_request_context():
     app.config['EXT_URL_BASE'] = ext_url
 
 # uwsgi can take CLI args too
-# uwsgi --http 127.0.0.1:5000 --module boteval.app:app # --pyargv "--foo=bar"
-
+# e.g. uwsgi --http :7070 --module boteval.wsgi:app --pyargv "darma-task -c darma-task/conf-local.yml -b /boteval" --master --processes 4 --threads 2
 
 def main():
 
     host, port = args.get('addr', C.DEF_ADDR), args.get('port', C.DEF_PORT)
     base_prefix = args.get('base') or '/'
-    print(f'Internal URL http://{host}:{port}{base_prefix}')
+    log.info(f'Internal URL http://{host}:{port}{base_prefix}')
     #socket.run(app, port=port, host=host, debug=app.debug)
     app.run(port=port, host=host)
 

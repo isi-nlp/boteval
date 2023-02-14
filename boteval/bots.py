@@ -2,7 +2,7 @@
 
 
 import argparse
-from typing import Any
+from typing import Any, Dict, List
 
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -31,10 +31,10 @@ class BotAgent:
     def update_signature(self, **kwargs):
         self.signature.update(kwargs)
 
-    def hear(self, msg: dict[str, Any]):
+    def hear(self, msg: Dict[str, Any]):
         self.last_msg = msg
 
-    def talk(self) -> dict[str, Any]:
+    def talk(self) -> Dict[str, Any]:
         raise NotImplementedError(f'{type(self)} must implement talk() method')
 
     def interactive_shell(self):
@@ -90,7 +90,7 @@ class TransformerBot(BotAgent):
         return dict(text=reply)
 
 
-def load_bot_agent(name: str, args: dict[str, Any]) -> BotAgent:
+def load_bot_agent(name: str, args: Dict[str, Any]) -> BotAgent:
     log.info(f'Going to load bot {name} with args: {args}')
     bot_engines = R.registry[R.BOT]
     assert name in bot_engines, f'{name} not found; found={bot_engines.keys()}'
