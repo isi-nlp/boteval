@@ -11,3 +11,4 @@ requests
 transformers
 openai
 spacy
+SQLAlchemy==1.4.46
