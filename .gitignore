@@ -6,3 +6,5 @@ __pycache__
 build/
 #darma-task/
 darma-task
+# for PyCharm Users
+.idea
