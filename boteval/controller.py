@@ -302,7 +302,7 @@ def user_controllers(router, service: ChatService):
         if not user  or user not in thread.users:
             log.warning('user is not part of thread')
             reply = dict(status=C.ERROR,
-                         description=f'User {user.id} is not part of threadd {thread.id}. Wrong thread!')
+                         description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
             return flask.jsonify(reply), 400
         text = request.form.get('text', None)
         if not text or not isinstance(text, str):
