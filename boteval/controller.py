@@ -489,7 +489,7 @@ def admin_controllers(router, service: ChatService):
 
     @router.route(f'/topic/<topic_id>/delete_topic/')
     @admin_login_required
-    def delete_topic(topic_id, crowd_name):
+    def delete_topic(topic_id):
         topic = ChatTopic.query.get(topic_id)
 
         service.delete_topic(topic)
