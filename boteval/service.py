@@ -428,3 +428,9 @@ class ChatService:
         else:
             log.error(f'Crowd name {self.crowd_name} not supported yet')
             return
+
+    # @staticmethod
+    def delete_topic(self, topic: ChatTopic):
+        log.info('delete topic function called !!!', topic)
+        # db.session.delete(topic)
+        # db.session.commit()

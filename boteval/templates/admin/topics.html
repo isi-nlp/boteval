@@ -57,9 +57,6 @@
                 <a href="{{task_url}}" target="_blank">Task URL</a>
                 <button type="button" class="btn btn-primary" onclick="copy_to_clipboard(text='{{task_url}}')">Copy URL</button>
               </li>
-              <li>
-                <button type="button" class="btn btn-primary" onclick="copy_to_clipboard(text='{{task_url}}')">Delete Task</button>
-              </li>
               {% if topic.ext_src in [C.MTURK, C.MTURK_SANDBOX ] %}
               <li><a href="{{url_for('admin.' + topic.ext_src + '_get_HIT', HIT_id=topic.ext_id)}}">See MTurk Assignments</a> </li>
               {%endif%}
@@ -68,12 +65,13 @@
             <li>
               <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name=crowd_name, topic_id=topic.id)}}">Launch on {{crowd_name}}</a> 
             </li>
-            <li>
-              <button type="button" class="btn btn-primary" onclick="copy_to_clipboard(text='{{task_url}}')">Delete Task</button>
-            </li>
             {% else %}
             <li>N/A</li>
             {% endif %}
+            <li>
+              <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->
+              <a href="{{url_for('admin.delete_topic', topic_id=topic.id)}}">Delete Task</a>
+            </li>
           </ul></td>
         </tr>
         {% endfor %}
