@@ -493,7 +493,7 @@ def admin_controllers(router, service: ChatService):
         topic = ChatTopic.query.get(topic_id)
 
         service.delete_topic(topic)
-        return 'Delete test finished', 404
+        return 'Delete test finished', 200
 
         # if not topic:
         #     return f'Topic {topic_id} not found', 404
