@@ -431,6 +431,6 @@ class ChatService:
 
     # @staticmethod
     def delete_topic(self, topic: ChatTopic):
-        log.info('delete topic function called !!!', topic)
+        log.info('delete topic function called !!! ', topic.id)
         # db.session.delete(topic)
         # db.session.commit()

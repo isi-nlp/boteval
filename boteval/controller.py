@@ -487,3 +487,24 @@ def admin_controllers(router, service: ChatService):
         config_yaml = service.config.as_yaml_str()
         return render_template('admin/config.html', config_yaml=config_yaml)
 
+    @router.route(f'/topic/<topic_id>/delete_topic/')
+    @admin_login_required
+    def delete_topic(topic_id, crowd_name):
+        topic = ChatTopic.query.get(topic_id)
+
+        service.delete_topic(topic)
+        return 'Delete test finished', 404
+
+        # if not topic:
+        #     return f'Topic {topic_id} not found', 404
+        # if crowd_name and service.crowd_name != crowd_name:
+        #     return f'Crowd backend {crowd_name} is not configured. Currently serving {service.crowd_name}', 400
+        #
+        # if topic.ext_id:
+        #     return f'Topic {topic_id} already has been launched on {topic.ext_src}'
+        # ext_id = service.launch_topic_on_crowd(topic)
+        # if ext_id:
+        #     flask.flash(f'Successfully launched {topic_id} on {crowd_name} as {ext_id}')
+        #     return flask.redirect(flask.url_for('admin.get_topics'))
+        # else:
+        #     return 'Error: we couldnt launch on crowd', 400
