@@ -32,10 +32,13 @@
       <div class="card">
         <div class="card-body">
           <!-- <button type="button" class="btn btn-primary" onclick="">Add Topic</button> -->
-            <select id="selectTopics">
+            <select id="TopicsList">
                 <option value="">choose one</option>
+                {% for topic in topics %}
+                <option value=""> {{topic.id}} </option>
+                {% endfor %}
             </select>
-            <button onclick="">Add</button>
+            <button onclick="">Add Topic</button>
         </div>
         <div class="card-body">
           <span>Found {{ topics | length }} topics </span>
