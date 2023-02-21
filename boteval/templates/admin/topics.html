@@ -34,8 +34,8 @@
           <!-- <button type="button" class="btn btn-primary" onclick="">Add Topic</button> -->
             <select id="TopicsList">
                 <option value="">choose one</option>
-                {% for topic in topics %}
-                <option value="">{{topic.name}}</option>
+                {% for topic, num_threads in topics %}
+                <option value="">{{topic.id}}</option>
                 {% endfor %}
             </select>
             <button onclick="">Add Topic</button>
