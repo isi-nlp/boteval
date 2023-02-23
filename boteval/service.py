@@ -186,7 +186,7 @@ class ChatService:
 
         self.onboarding = config.get('onboarding') and copy.deepcopy(config['onboarding'])
         if self.onboarding and 'agreement_file' in self.onboarding:
-            self.onboarding['agreement_text'] = self.resolve_path(self.onboarding['agreement_file']).read_text()
+            self.onboarding['agreement_text'] = self.resolve_path(self.onboarding['agreement_file']).read_text(encoding='UTF-8')
 
 
         self.crowd_service = None
