@@ -179,7 +179,7 @@ class ChatService:
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
-        self.prompt = config['chatbot']['bot_args']['prompt']
+        self.prompt = bot_args.get('prompt')
         self.bot_agent = load_bot_agent(bot_name, bot_args)
         self.limits = config.get('limits') or {}
         self.ratings = config['ratings']
