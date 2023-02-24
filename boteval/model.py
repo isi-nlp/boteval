@@ -203,8 +203,8 @@ class ChatThread(BaseModelWithExternal):
     __tablename__ = 'thread'
 
     id: int = db.Column(db.Integer, primary_key=True)
-    topic_id = db.Column(db.String(31),
-                         db.ForeignKey('topic.id'),
+    topic_task_id: str = db.Column(db.String(31),
+                         db.ForeignKey('topic_task.id'),
                          nullable=False)
     episode_done = db.Column(db.Boolean,
                              server_default=sql.expression.false(),
@@ -222,7 +222,7 @@ class ChatThread(BaseModelWithExternal):
 
     def as_dict(self):
         return super().as_dict() | dict(
-            topic_id=self.topic_id,
+            topic_task=self.topic_task,
             episode_done=self.episode_done,
             users=[u.as_dict() for u in self.users],
             messages=[m.as_dict() for m in self.messages]
@@ -239,6 +239,26 @@ class ChatTopic(BaseModelWithExternal):
 
     id: str = db.Column(db.String(32), primary_key=True)  # redefine id as str
     name: str = db.Column(db.String(100), nullable=False)
+    # one-to-many
+    tasks = db.relationship('ChatTopicTask', backref='topic', lazy=True, useList=True)
 
     def as_dict(self):
         return super().as_dict() | dict(name=self.name)
+
+
+class ChatTopicTask(ChatTopic):
+
+    __tablename__ = 'topic_task'
+    # "many-to-one"
+    topic_id: str = db.Column(db.String(32), db.ForeignKey('topic.id'), nullable=False)
+    thread_id = db.Column(db.String(31), db.ForeignKey('thread.id'), nullable=True)
+
+    @classmethod
+    def create_new(cls, topic: ChatTopic):
+        count = len(topic.tasks)
+        cur_id = f'{topic.id}{count:03d}'
+        task = ChatTopicTask(id=cur_id, name=topic.name, data=topic.data, ext_id=topic.ext_id, ext_src=topic.ext_src)
+        log.info(f'Creating New Task {task.id}')
+        db.session.add(task)
+        db.session.commit()
+        return cls.get(task.id)
