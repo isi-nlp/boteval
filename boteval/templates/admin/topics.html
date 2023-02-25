@@ -65,10 +65,8 @@
             </li>
           {% for topic in super_topic.topics %}
           <ul>
-              <li>
-              Num of Threads = {{ topics.get(topic.id, 0) }}
-              </li>
               <li>Task ID = {{ topic.id }}</li>
+              <li>Num of Threads = {{ topics.get(topic.id, 0) }}</li>
             {% if topic.ext_id %}
               {% set task_url = topic.data.get(topic.ext_src, {}).get('ext_url') %}
               <li>{{topic.ext_src}}: {{topic.ext_id}}</li>
