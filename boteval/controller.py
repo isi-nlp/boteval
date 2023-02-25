@@ -7,7 +7,7 @@ from threading import Thread
 import json
 
 import flask
-from flask import request, url_for
+from flask import request, url_for, redirect
 import flask_login as FL
 
 from boteval.service import ChatService
@@ -15,7 +15,7 @@ from boteval.service import ChatService
 
 from . import log, C, db
 from .utils import jsonify, render_template, register_template_filters
-from .model import ChatMessage, ChatThread, ChatTopic, User
+from .model import ChatMessage, ChatThread, ChatTopic, User, SuperTopic
 from .mturk import MTurkController
 
 
@@ -457,10 +457,16 @@ def admin_controllers(router, service: ChatService):
     @router.route('/topic/')
     @admin_login_required
     def get_topics():
-        topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
-        thread_counts = service.get_thread_counts(episode_done=True)
-        topics = [(topic, thread_counts.get(topic.id, 0)) for topic in topics]
-        return render_template('admin/topics.html', topics=topics,
+        all_super_topics = SuperTopic.query.order_by(SuperTopic.time_updated.desc(), SuperTopic.time_created.desc()).\
+            limit(C.MAX_PAGE_SIZE).all()
+        all_topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).\
+            limit(C.MAX_PAGE_SIZE).all()
+        topic_thread_counts = service.get_thread_counts(episode_done=True)
+        super_topic_thread_counts = service.get_thread_counts_of_super_topic(episode_done=True)
+        topics = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
+        super_topics = \
+            [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
+        return render_template('admin/topics.html', topics=topics, super_topics=super_topics,
                                external_url_ok=service.is_external_url_ok, **admin_templ_args)
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
@@ -492,17 +498,17 @@ def admin_controllers(router, service: ChatService):
     def delete_topic(topic_id):
         topic = ChatTopic.query.get(topic_id)
         MTurkController(service.crowd_service).expire_HIT(topic.ext_id)
-        ret_a, ret_b = MTurkController(service.crowd_service).delete_hit(topic.ext_id)
-        print('ret_a is: ')
-        print(ret_a)
-        print()
-
-        print('ret_b is: ')
-        print(ret_b)
-        print()
+        # ret_a, ret_b = MTurkController(service.crowd_service).delete_hit(topic.ext_id)
+        # print('ret_a is: ')
+        # print(ret_a)
+        # print()
+        #
+        # print('ret_b is: ')
+        # print(ret_b)
+        # print()
 
         service.delete_topic(topic)
-        return 'Delete test finished', 200
+        return redirect(f'/boteval/admin/topic/')
 
         # if not topic:
         #     return f'Topic {topic_id} not found', 404
@@ -517,3 +523,10 @@ def admin_controllers(router, service: ChatService):
         #     return flask.redirect(flask.url_for('admin.get_topics'))
         # else:
         #     return 'Error: we couldnt launch on crowd', 400
+
+    @router.route(f'/super_topic/<super_topic_id>/create_topic')
+    @admin_login_required
+    def create_topic(super_topic_id):
+        new_topic = service.create_topic_from_super_topic(super_topic_id)
+
+        return redirect(f'/boteval/admin/topic/')

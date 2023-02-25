@@ -233,12 +233,46 @@ class ChatThread(BaseModelWithExternal):
         return f'sock4thread_{self.id}'
 
 
+class SuperTopic(BaseModelWithExternal):
+    """
+    A model represents a "macro“-topic. Each topic has an one-to-one relationship with one Mturk assignment.
+    So, by introducing a super_topic model, we are able to launch multiple assignments(topics) with one super_topic.
+    """
+    __tablename__ = 'super_topic'
+
+    id: str = db.Column(db.String(32), primary_key=True)  # redefine id as str
+    name: str = db.Column(db.String(100), nullable=False)
+    # A super topic contains a list of topics.
+    topics = db.relationship('ChatTopic', backref='super_topic', lazy=True)
+
+    def as_dict(self):
+        return super().as_dict() | dict(name=self.name)
+
+
 class ChatTopic(BaseModelWithExternal):
 
     __tablename__ = 'topic'
 
-    id: str = db.Column(db.String(32), primary_key=True)  # redefine id as str
+    id: str = db.Column(db.String(64), primary_key=True)  # redefine id as str
     name: str = db.Column(db.String(100), nullable=False)
+    super_topic_id: str = db.Column(db.String(32), db.ForeignKey('super_topic.id'), nullable=True)
 
     def as_dict(self):
         return super().as_dict() | dict(name=self.name)
+
+    @classmethod
+    def create_new(cls, super_topic: SuperTopic):
+        count = len(super_topic.topics)
+        cur_id = f'{super_topic.id}_{count:03d}'
+        cur_name = f'{super_topic.name}_{count:03d}'
+        topic = ChatTopic(id=cur_id, name=cur_name, data=super_topic.data, super_topic_id=super_topic.id,
+                          ext_id=super_topic.ext_id, ext_src=super_topic.ext_src)
+        log.info(f'Creating New Sub Topic {topic.id}')
+        db.session.add(topic)
+        db.session.commit()
+        return cls.query.get(topic.id)
+
+    def as_dict(self):
+        return super().as_dict() | dict(name=self.name)
+
+

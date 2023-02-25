@@ -29,21 +29,21 @@
   </div>
   <div class="row">
     <div class="col-12">
-      <div class="card">
-        <div class="card-body">
-          <!-- <button type="button" class="btn btn-primary" onclick="">Add Topic</button> -->
-            <select id="TopicsList">
-                <option value="">choose one</option>
-                {% for topic, num_threads in topics %}
-                <option value="">{{topic.id}}</option>
-                {% endfor %}
-            </select>
-            <button onclick="">Add Topic</button>
-        </div>
-        <div class="card-body">
-          <span>Found {{ topics | length }} topics </span>
-        </div>
-      </div>
+{#      <div class="card">#}
+{#        <div class="card-body">#}
+{#          <!-- <button type="button" class="btn btn-primary" onclick="">Add Topic</button> -->#}
+{#            <select id="TopicsList">#}
+{#                <option value="">choose one</option>#}
+{#                {% for topic, num_threads in topics %}#}
+{#                <option value="">{{topic.id}}</option>#}
+{#                {% endfor %}#}
+{#            </select>#}
+{#            <button onclick="">Add Topic</button>#}
+{#        </div>#}
+{#        <div class="card-body">#}
+{#          <span>Found {{ topics | length }} topics </span>#}
+{#        </div>#}
+{#      </div>#}
       <table class="table table-striped">
         <tr>
           <th scope="col">#</th>
@@ -52,13 +52,23 @@
           <th scope="col">Time</th>
           <th scope="col">Actions</th>
         </tr>
-        {% for topic, num_threads in topics %}
+        {% for super_topic, num_threads in super_topics %}
         <tr>
           <td>{{loop.index}}</td>
-          <td scope="row"> {{topic.id}} </td>
+          <td scope="row"> {{super_topic.id}} </td>
           <td> {{num_threads}} </td>
-          <td> Created {{topic.time_created|ctime}}; {{topic.time_modified|ctime}}  </td>
-          <td><ul>
+          <td> Created {{super_topic.time_created|ctime}}; {{super_topic.time_modified|ctime}}  </td>
+          <td>
+            <li>
+              <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->
+              <a href="{{url_for('admin.create_topic', super_topic_id=super_topic.id, topics=topics, super_topics=super_topics)}}">Create New Task</a>
+            </li>
+          {% for topic in super_topic.topics %}
+          <ul>
+              <li>
+              Num of Threads = {{ topics.get(topic.id, 0) }}
+              </li>
+              <li>Task ID = {{ topic.id }}</li>
             {% if topic.ext_id %}
               {% set task_url = topic.data.get(topic.ext_src, {}).get('ext_url') %}
               <li>{{topic.ext_src}}: {{topic.ext_id}}</li>
@@ -79,9 +89,12 @@
             {% endif %}
             <li>
               <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->
-              <a href="{{url_for('admin.delete_topic', topic_id=topic.id)}}">Delete Task</a>
+              <a href="{{url_for('admin.delete_topic', topic_id=topic.id, super_topic_id=super_topic.id, topics=topics, super_topics=super_topics)}}">Delete Task</a>
             </li>
-          </ul></td>
+            <li>Temporary Division line between two assignments</li>
+          </ul>
+          {% endfor %}
+        </td>
         </tr>
         {% endfor %}
       </table>

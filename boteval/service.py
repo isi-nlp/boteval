@@ -14,7 +14,7 @@ from sqlalchemy import func
 
 
 from  . import log, db, C, TaskConfig
-from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
+from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread, SuperTopic
 from .bots import BotAgent, load_bot_agent
 from .transforms import load_transforms, Transforms
 from .mturk import MTurkService
@@ -279,15 +279,34 @@ class ChatService:
             log.info(f'found {len(topics)} topics in {topics_file}')
             objs = []
             for topic in topics:
-                obj = ChatTopic.query.get(topic['id'])
+                obj = SuperTopic.query.get(topic['id'])
                 if obj:
                     log.warning(f'Chat topic exists {topic["id"]}, so skipping')
                     continue
-                obj = ChatTopic(id=topic['id'], name=topic['name'], data=topic)
+                obj = SuperTopic(id=topic['id'], name=topic['name'], data=topic)
                 objs.append(obj)
             if objs:
                 log.info(f"Inserting {len(objs)} topics to db")
                 db.session.add_all(objs)
+            self.init_sub_topics()
+        db.session.commit()
+
+    def init_sub_topics(self):
+        """
+        A helper function to create a topic for all super_topics when booting
+        @return: None
+        """
+        super_topics = SuperTopic.query.all()
+        for super_topic in super_topics:
+            if not super_topic.topics:
+                cur_topic = ChatTopic.create_new(super_topic)
+                db.session.add(cur_topic)
+        # db.session.commit()
+
+    def create_topic_from_super_topic(self, super_topic_id):
+        super_topic = SuperTopic.query.get(super_topic_id)
+        new_topic = ChatTopic.create_new(super_topic)
+        db.session.add(new_topic)
         db.session.commit()
 
     def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
@@ -361,6 +380,22 @@ class ChatService:
             .group_by(ChatThread.topic_id).all()
 
         return {tid: count for tid, count in thread_counts }
+
+    def get_thread_counts_of_super_topic(self, episode_done=True) -> Mapping[str, int]:
+        """
+        Based on the get_thread_counts func, we want to get the thread count of each super topic
+        @param episode_done: whether you want to consider the completed or uncompleted threads
+        @return: a dict containing the thread count of each super topic.
+        """
+        tmp_res = self.get_thread_counts(episode_done)
+        all_topics = ChatTopic.query.all()
+        topic_thread_counts = [(topic, tmp_res.get(topic.id, 0)) for topic in all_topics]
+        super_topic_thread_counts_dict = {}
+        for topic, count in topic_thread_counts:
+            cur_super_topic = SuperTopic.query.get(topic.super_topic_id)
+            super_topic_thread_counts_dict[cur_super_topic.id] = \
+                super_topic_thread_counts_dict.get(cur_super_topic.id, 0) + count
+        return super_topic_thread_counts_dict
 
     def update_thread_ratings(self, thread: ChatThread, ratings:dict):
         if thread.data is None:
