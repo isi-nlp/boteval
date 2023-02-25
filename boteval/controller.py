@@ -508,7 +508,7 @@ def admin_controllers(router, service: ChatService):
         # print()
 
         service.delete_topic(topic)
-        return redirect(f'/boteval/admin/topic/')
+        return redirect(url_for('admin.get_topics'))
 
         # if not topic:
         #     return f'Topic {topic_id} not found', 404
@@ -529,4 +529,4 @@ def admin_controllers(router, service: ChatService):
     def create_topic(super_topic_id):
         new_topic = service.create_topic_from_super_topic(super_topic_id)
 
-        return redirect(f'/boteval/admin/topic/')
+        return redirect(url_for('admin.get_topics'))
