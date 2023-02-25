@@ -463,11 +463,13 @@ def admin_controllers(router, service: ChatService):
             limit(C.MAX_PAGE_SIZE).all()
         topic_thread_counts = service.get_thread_counts(episode_done=True)
         super_topic_thread_counts = service.get_thread_counts_of_super_topic(episode_done=True)
-        topics = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
+        topics = [(topic, topic_thread_counts.get(topic.id, 0)) for topic in all_topics]
+        topic_thread_counts_dict = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
         super_topics = \
             [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
         return render_template('admin/topics.html', topics=topics, super_topics=super_topics,
-                               external_url_ok=service.is_external_url_ok, **admin_templ_args)
+                               external_url_ok=service.is_external_url_ok, **admin_templ_args,
+                               topic_thread_counts_dict=topic_thread_counts_dict)
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
     @admin_login_required
