@@ -499,7 +499,8 @@ def admin_controllers(router, service: ChatService):
     @admin_login_required
     def delete_topic(topic_id):
         topic = ChatTopic.query.get(topic_id)
-        MTurkController(service.crowd_service).expire_HIT(topic.ext_id)
+        if topic.ext_id or topic.ext_src in [C.MTURK, C.MTURK_SANDBOX]:
+            MTurkController(service.crowd_service).expire_HIT(topic.ext_id)
         # ret_a, ret_b = MTurkController(service.crowd_service).delete_hit(topic.ext_id)
         # print('ret_a is: ')
         # print(ret_a)

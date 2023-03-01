@@ -244,6 +244,7 @@ class SuperTopic(BaseModelWithExternal):
     name: str = db.Column(db.String(100), nullable=False)
     # A super topic contains a list of topics.
     topics = db.relationship('ChatTopic', backref='super_topic', lazy=True)
+    next_task_id: int = db.Column(db.Integer)
 
     def as_dict(self):
         return super().as_dict() | dict(name=self.name)
@@ -262,12 +263,13 @@ class ChatTopic(BaseModelWithExternal):
 
     @classmethod
     def create_new(cls, super_topic: SuperTopic):
-        count = len(super_topic.topics)
-        cur_id = f'{super_topic.id}_{count:03d}'
-        cur_name = f'{super_topic.name}_{count:03d}'
+        cur_task_id = super_topic.next_task_id
+        cur_id = f'{super_topic.id}_{cur_task_id:03d}'
+        cur_name = f'{super_topic.name}_{cur_task_id:03d}'
         topic = ChatTopic(id=cur_id, name=cur_name, data=super_topic.data, super_topic_id=super_topic.id,
                           ext_id=super_topic.ext_id, ext_src=super_topic.ext_src)
         log.info(f'Creating New Sub Topic {topic.id}')
+        super_topic.next_task_id += 1
         db.session.add(topic)
         db.session.commit()
         return cls.query.get(topic.id)

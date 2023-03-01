@@ -283,7 +283,7 @@ class ChatService:
                 if obj:
                     log.warning(f'Chat topic exists {topic["id"]}, so skipping')
                     continue
-                obj = SuperTopic(id=topic['id'], name=topic['name'], data=topic)
+                obj = SuperTopic(id=topic['id'], name=topic['name'], data=topic, next_task_id=1)
                 objs.append(obj)
             if objs:
                 log.info(f"Inserting {len(objs)} topics to db")
