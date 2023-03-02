@@ -527,9 +527,10 @@ def admin_controllers(router, service: ChatService):
         # else:
         #     return 'Error: we couldnt launch on crowd', 400
 
-    @router.route(f'/super_topic/<super_topic_id>/create_topic')
+    @router.route(f'/topics/', methods=["POST"])
     @admin_login_required
-    def create_topic(super_topic_id):
-        new_topic = service.create_topic_from_super_topic(super_topic_id)
+    def create_topic():
+        # new_topic = service.create_topic_from_super_topic(super_topic_id)
+        args = dict(request.form)
 
         return redirect(url_for('admin.get_topics'))

@@ -59,6 +59,7 @@
           <td> {{num_threads}} </td>
           <td> Created {{super_topic.time_created|ctime}}; {{super_topic.time_modified|ctime}}  </td>
           <td>
+{#            <form method="POST" action=""#}
             <li>
               <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->
               <a href="{{url_for('admin.create_topic', super_topic_id=super_topic.id)}}">Create New Task</a>
@@ -67,6 +68,12 @@
           <ul>
               <li>Task ID = {{ topic.id }}</li>
               <li>Num of Threads = {{ topic_thread_counts_dict.get(topic.id, 0) }}</li>
+              <li>Engine: {{ topic.engine }}</li>
+              <li>Persona_id: {{ topic.persona_id }}</li>
+              <li>Max threads per user: {{ topic.max_threads_per_user }}</li>
+              <li>Max threads per topic: {{ topic.max_threads_per_topic }}</li>
+              <li>Max turns per thread: {{ topic.max_turns_per_thread }}</li>
+              <li>Reward: {{ topic.reward }}</li>
             {% if topic.ext_id %}
               {% set task_url = topic.data.get(topic.ext_src, {}).get('ext_url') %}
               <li>{{topic.ext_src}}: {{topic.ext_id}}</li>

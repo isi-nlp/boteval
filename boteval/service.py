@@ -1,5 +1,4 @@
-
-
+import os
 from pathlib import Path
 import json
 from typing import List, Mapping, Optional, Tuple, Union
@@ -121,6 +120,7 @@ class DialogBotChatManager(ChatManager):
         return reply, episode_done
 
     def bot_reply(self) -> ChatMessage:
+        # TODO: specify a bot to reply
         reply: dict = self.bot_agent.talk()
         reply_text = reply.pop('text')
         reply = ChatMessage(user_id = self.bot_user_id, text=reply_text,
@@ -154,7 +154,8 @@ class FileExportService:
 
 class ChatService:
 
-    def __init__(self, config: TaskConfig, task_dir:Path):
+    def __init__(self, config: TaskConfig, task_dir:Path,
+                 persona_configs_relative_filepath='darma-task/persona_configs.json'):
         self.config: TaskConfig = config
         self.task_dir = task_dir
         self.task_dir.mkdir(exist_ok=True, parents=True)
@@ -179,7 +180,34 @@ class ChatService:
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
-        self.prompt = bot_args.get('prompt')
+
+        # Currently, the engine names are hard-coded here
+        engines = ['text-davinci-003', 'gpt-3.5-turbo']
+
+        # Starting to load all ids from persona_configs.json
+
+        persona_filepath = \
+            os.path.join(
+                Path(os.path.dirname(os.path.realpath(__file__))).parent,
+                persona_configs_relative_filepath
+            )
+        print("here!!!")
+        print(persona_filepath)
+        with open(persona_filepath, mode='r') as f:
+            persona_jsons = json.load(f)
+            persona_id_list = [x['id'] for x in persona_jsons]
+
+        # Initialize all possible bots
+        self.bot_agent_dict = {}
+        for cur_engine_name in engines:
+            for cur_persona_id in persona_id_list:
+                tmp_dict = {
+                    'engine': cur_engine_name,
+                    'persona_id': cur_persona_id
+                }
+                self.bot_agent_dict[(cur_engine_name, cur_persona_id)] = load_bot_agent(bot_name, tmp_dict)
+
+        # self.persona_id = bot_args.get('persona_id')
         self.bot_agent = load_bot_agent(bot_name, bot_args)
         self.limits = config.get('limits') or {}
         self.ratings = config['ratings']
@@ -288,12 +316,13 @@ class ChatService:
             if objs:
                 log.info(f"Inserting {len(objs)} topics to db")
                 db.session.add_all(objs)
-            self.init_sub_topics()
+            # self.init_sub_topics()
         db.session.commit()
 
     def init_sub_topics(self):
         """
-        A helper function to create a topic for all super_topics when booting
+        A helper function to create a topic for all super_topics when booting.
+        Not used for now (because we want to launch tasks with different settings dynamically)
         @return: None
         """
         super_topics = SuperTopic.query.all()
@@ -408,7 +437,9 @@ class ChatService:
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
-        self.exporter.export_thread(thread, rating_questions=self.ratings, bot_name=self.prompt)
+        topic = ChatTopic.query.get(thread.topic_id)
+        self.exporter.export_thread(thread, rating_questions=self.ratings, engine=topic.engine,
+                                    persona_id=topic.persona_id)
 
     @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
