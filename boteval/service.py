@@ -120,7 +120,6 @@ class DialogBotChatManager(ChatManager):
         return reply, episode_done
 
     def bot_reply(self) -> ChatMessage:
-        # TODO: specify a bot to reply
         reply: dict = self.bot_agent.talk()
         reply_text = reply.pop('text')
         reply = ChatMessage(user_id = self.bot_user_id, text=reply_text,
@@ -182,7 +181,7 @@ class ChatService:
         bot_args = config['chatbot'].get('bot_args') or {}
 
         # Currently, the engine names are hard-coded here
-        engines = ['text-davinci-003', 'gpt-3.5-turbo']
+        self.engines = ['text-davinci-003', 'gpt-3.5-turbo']
 
         # Starting to load all ids from persona_configs.json
 
@@ -195,12 +194,12 @@ class ChatService:
         print(persona_filepath)
         with open(persona_filepath, mode='r') as f:
             persona_jsons = json.load(f)
-            persona_id_list = [x['id'] for x in persona_jsons]
+            self.persona_id_list = [x['id'] for x in persona_jsons]
 
         # Initialize all possible bots
         self.bot_agent_dict = {}
-        for cur_engine_name in engines:
-            for cur_persona_id in persona_id_list:
+        for cur_engine_name in self.engines:
+            for cur_persona_id in self.persona_id_list:
                 tmp_dict = {
                     'engine': cur_engine_name,
                     'persona_id': cur_persona_id
@@ -208,7 +207,7 @@ class ChatService:
                 self.bot_agent_dict[(cur_engine_name, cur_persona_id)] = load_bot_agent(bot_name, tmp_dict)
 
         # self.persona_id = bot_args.get('persona_id')
-        self.bot_agent = load_bot_agent(bot_name, bot_args)
+        # self.bot_agent = load_bot_agent(bot_name, bot_args)
         self.limits = config.get('limits') or {}
         self.ratings = config['ratings']
 
@@ -332,21 +331,25 @@ class ChatService:
                 db.session.add(cur_topic)
         # db.session.commit()
 
-    def create_topic_from_super_topic(self, super_topic_id):
+    def create_topic_from_super_topic(self, super_topic_id, engine, persona_id, max_threads_per_user,
+                                      max_threads_per_topic, max_turns_per_thread, reward):
         super_topic = SuperTopic.query.get(super_topic_id)
-        new_topic = ChatTopic.create_new(super_topic)
+        new_topic = ChatTopic.create_new(super_topic, engine=engine, persona_id=persona_id,
+                                         max_threads_per_user=max_threads_per_user,
+                                         max_threads_per_topic=max_threads_per_topic,
+                                         max_turns_per_thread=max_turns_per_thread, reward=reward)
         db.session.add(new_topic)
         db.session.commit()
 
     def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
         # total_threads = db.session.query(func.count(ChatThread.id)).scalar()
-        if user and self.limits.get(C.LIMIT_MAX_THREADS_PER_USER, 0) > 0:
+        if user and topic.max_threads_per_user > 0:
             user_thread_count = ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).count()
-            if user_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_USER]:
+            if user_thread_count >= topic.max_threads_per_user:
                 return True, 'User has exceeded maximum permissible threads'
-        if topic and self.limits.get(C.LIMIT_MAX_THREADS_PER_TOPIC, 0):
+        if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
-            if topic_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_TOPIC]:
+            if topic_thread_count >= topic.max_threads_per_topic:
                 return True, 'This topic has exceeded maximum permissible threads'
         return False, ''
 
@@ -437,16 +440,17 @@ class ChatService:
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
-        topic = ChatTopic.query.get(thread.topic_id)
+        topic = self.get_topic(thread.topic_id)
         self.exporter.export_thread(thread, rating_questions=self.ratings, engine=topic.engine,
                                     persona_id=topic.persona_id)
 
     @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
-        max_turns = self.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD,
-                                    C.DEF_MAX_TURNS_PER_THREAD)
+        cur_task: ChatTopic = self.get_topic(thread.topic_id)
+        max_turns = cur_task.max_turns_per_thread
+        cur_bot_agent = self.bot_agent_dict[(cur_task.engine, cur_task.persona_id)]
         return DialogBotChatManager(thread=thread,
-                                    bot_agent=self.bot_agent,
+                                    bot_agent=cur_bot_agent,
                                     max_turns=max_turns,
                                     bot_transforms=self.bot_transforms,
                                     human_transforms=self.human_transforms)
@@ -473,8 +477,8 @@ class ChatService:
                                         _external=True, _scheme='https')
             log.info(f'mturk landing URL {landing_url}')
             ext_id, task_url, result = self.crowd_service.create_HIT(landing_url, 
-                max_assignments=self.limits.get(C.LIMIT_MAX_THREADS_PER_TOPIC, C.DEF_MAX_THREADS_PER_TOPIC),
-                reward=self.limits.get(C.LIMIT_REWARD, C.DEF_REWARD),
+                max_assignments=topic.max_threads_per_topic,
+                reward=topic.reward,
                 description=topic.name,
                 title=f'{topic.id}')
             ext_src = self.crowd_service.name

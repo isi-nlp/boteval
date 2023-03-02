@@ -274,8 +274,8 @@ def user_controllers(router, service: ChatService):
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
         ratings = service.get_rating_questions()
-        topic = service.get_topic(thread.topic_id)
-        max_turns = service.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD, C.DEF_MAX_TURNS_PER_THREAD)
+        topic: ChatTopic = service.get_topic(thread.topic_id)
+        max_turns = topic.max_turns_per_thread
         remaining_turns = max_turns - thread.count_turns(FL.current_user)
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
 
@@ -454,22 +454,34 @@ def admin_controllers(router, service: ChatService):
         threads = ChatThread.query.order_by(ChatThread.time_updated.desc(), ChatThread.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
         return render_template('admin/threads.html', threads=threads, **admin_templ_args)
 
-    @router.route('/topic/')
+    @router.route('/topic/', methods=['GET', 'POST'])
     @admin_login_required
     def get_topics():
-        all_super_topics = SuperTopic.query.order_by(SuperTopic.time_updated.desc(), SuperTopic.time_created.desc()).\
-            limit(C.MAX_PAGE_SIZE).all()
-        all_topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).\
-            limit(C.MAX_PAGE_SIZE).all()
-        topic_thread_counts = service.get_thread_counts(episode_done=True)
-        super_topic_thread_counts = service.get_thread_counts_of_super_topic(episode_done=True)
-        topics = [(topic, topic_thread_counts.get(topic.id, 0)) for topic in all_topics]
-        topic_thread_counts_dict = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
-        super_topics = \
-            [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
-        return render_template('admin/topics.html', topics=topics, super_topics=super_topics,
-                               external_url_ok=service.is_external_url_ok, **admin_templ_args,
-                               topic_thread_counts_dict=topic_thread_counts_dict)
+        if request.method == 'GET':
+            all_super_topics = SuperTopic.query.order_by(SuperTopic.time_updated.desc(), SuperTopic.time_created.desc()).\
+                limit(C.MAX_PAGE_SIZE).all()
+            all_topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).\
+                limit(C.MAX_PAGE_SIZE).all()
+            topic_thread_counts = service.get_thread_counts(episode_done=True)
+            super_topic_thread_counts = service.get_thread_counts_of_super_topic(episode_done=True)
+            topics = [(topic, topic_thread_counts.get(topic.id, 0)) for topic in all_topics]
+            topic_thread_counts_dict = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
+            super_topics = \
+                [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
+            return render_template('admin/topics.html', topics=topics, super_topics=super_topics,
+                                   external_url_ok=service.is_external_url_ok, **admin_templ_args,
+                                   topic_thread_counts_dict=topic_thread_counts_dict, engines=service.engines,
+                                   persona_ids=service.persona_id_list)
+        else:
+            args = dict(request.form)
+            print(args)
+            service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
+                                                  persona_id=args['persona_id'],
+                                                  max_threads_per_user=args['max_threads_per_user'],
+                                                  max_threads_per_topic=args['max_threads_per_topic'],
+                                                  max_turns_per_thread=args['max_turns_per_thread'],
+                                                  reward=args['reward'])
+            return redirect(url_for('admin.get_topics'))
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
     @admin_login_required

@@ -15,7 +15,7 @@
     {%set ext_url= url_for('app.index', _external=True, _scheme='https')%}
         External URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a> Okay? {{external_url_ok and 'Yes' or 'No'}}
     <div class="alert {%if external_url_ok %} alert-info {%else%} alert-warning {%endif%}">
-    If you are planning to crowdsource tasks on platfoprms like MTurk, make sure to have the above URL is accessible via the (public) Internet.      <br/>
+    If you are planning to crowdsource tasks on platforms like MTurk, make sure to have the above URL is accessible via the (public) Internet.      <br/>
       <details>
         <summary>More Info:</summary>
         <ol>
@@ -59,14 +59,51 @@
           <td> {{num_threads}} </td>
           <td> Created {{super_topic.time_created|ctime}}; {{super_topic.time_modified|ctime}}  </td>
           <td>
-{#            <form method="POST" action=""#}
-            <li>
-              <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->
-              <a href="{{url_for('admin.create_topic', super_topic_id=super_topic.id)}}">Create New Task</a>
-            </li>
+            <form method="POST" action="#">
+                <div>
+                    <label for="engine">Engine:</label>
+                    <select name="engine" id="engine">
+                        {% for engine_name in engines %}
+                            <option value="{{ engine_name }}">{{ engine_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="persona_id">Persona_id:</label>
+                    <select name="persona_id" id="persona_id">
+                        {% for persona_id_name in persona_ids %}
+                            <option value="{{ persona_id_name }}">{{ persona_id_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="max_threads_per_user">max_threads_per_user:</label>
+                    <input type="number" name="max_threads_per_user" id="max_threads_per_user" value="3" />
+                </div>
+                <div>
+                    <label for="max_threads_per_topic">max_threads_per_topic:</label>
+                    <input type="number" name="max_threads_per_topic" id="max_threads_per_topic" value="10" />
+                </div>
+                <div>
+                    <label for="max_turns_per_thread">max_turns_per_thread:</label>
+                    <input type="number" name="max_turns_per_thread" id="max_turns_per_thread" value="10" />
+                </div>
+                <div>
+                    <label for="reward">reward:</label>
+                    <input type="text" name="reward" id="reward" value="0.0" />
+                </div>
+                <div>
+                    <input type="submit" value="Create New Task"/>
+                </div>
+                <input type="hidden" id="super_topic_id" name="super_topic_id" value="{{ super_topic.id }}">
+            </form>
+{#            <li>#}
+{#              <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->#}
+{#              <a href="{{url_for('admin.create_topic', super_topic_id=super_topic.id)}}">Create New Task</a>#}
+{#            </li>#}
           {% for topic in super_topic.topics %}
+              <div>Task ID: {{ topic.id }}</div>
           <ul>
-              <li>Task ID = {{ topic.id }}</li>
               <li>Num of Threads = {{ topic_thread_counts_dict.get(topic.id, 0) }}</li>
               <li>Engine: {{ topic.engine }}</li>
               <li>Persona_id: {{ topic.persona_id }}</li>
@@ -96,7 +133,7 @@
               <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->
               <a href="{{url_for('admin.delete_topic', topic_id=topic.id)}}">Delete Task</a>
             </li>
-            <li>Temporary Division line between two assignments</li>
+            <br/>
           </ul>
           {% endfor %}
         </td>
