@@ -226,6 +226,8 @@ def user_controllers(router, service: ChatService):
         max_threads_per_topic = limits['max_threads_per_topic']
         thread_counts = service.get_thread_counts(episode_done=True) # completed threads
         for thread in threads:
+            if ChatTopic.query.get(thread.topic_id) is None:
+                continue
             data[thread.topic_id][1] = thread
 
         for topic_id, n_threads in thread_counts.items():
