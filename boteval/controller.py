@@ -481,7 +481,7 @@ def admin_controllers(router, service: ChatService):
         else:
             args = dict(request.form)
             if C.LIMIT_MAX_THREADS_PER_USER in args.keys():
-                service.limits[C.LIMIT_MAX_THREADS_PER_USER] = args[C.LIMIT_MAX_THREADS_PER_USER]
+                service.limits[C.LIMIT_MAX_THREADS_PER_USER] = int(args[C.LIMIT_MAX_THREADS_PER_USER])
             else:
                 service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
                                                       persona_id=args['persona_id'],
