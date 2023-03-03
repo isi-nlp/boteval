@@ -331,11 +331,10 @@ class ChatService:
     #             db.session.add(cur_topic)
         # db.session.commit()
 
-    def create_topic_from_super_topic(self, super_topic_id, engine, persona_id, max_threads_per_user,
-                                      max_threads_per_topic, max_turns_per_thread, reward):
+    def create_topic_from_super_topic(self, super_topic_id, engine, persona_id, max_threads_per_topic,
+                                      max_turns_per_thread, reward):
         super_topic = SuperTopic.query.get(super_topic_id)
         new_topic = ChatTopic.create_new(super_topic, engine=engine, persona_id=persona_id,
-                                         max_threads_per_user=max_threads_per_user,
                                          max_threads_per_topic=max_threads_per_topic,
                                          max_turns_per_thread=max_turns_per_thread, reward=reward)
         db.session.add(new_topic)
@@ -343,9 +342,9 @@ class ChatService:
 
     def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
         # total_threads = db.session.query(func.count(ChatThread.id)).scalar()
-        if user and topic.max_threads_per_user > 0:
+        if user and self.limits.get(C.LIMIT_MAX_THREADS_PER_USER, 0) > 0:
             user_thread_count = ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).count()
-            if user_thread_count >= topic.max_threads_per_user:
+            if user_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_USER]:
                 return True, 'User has exceeded maximum permissible threads'
         if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
@@ -362,7 +361,7 @@ class ChatService:
     def get_topic(self, topic_id):
         return ChatTopic.query.get(topic_id)
 
-    def get_thread_for_topic(self, user, topic, create_if_missing=True,
+    def get_thread_for_topic(self, user, topic: ChatTopic, create_if_missing=True,
                              ext_id=None, ext_src=None, data=None) -> Optional[ChatThread]:
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
@@ -376,7 +375,10 @@ class ChatService:
         if not thread and create_if_missing:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
             data = data or {}
-            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data)
+            data.update(topic.data)
+            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.engine,
+                                persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
+                                max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward)
             thread.users.append(user)
             thread.users.append(self.bot_user)
             thread.users.append(self.context_user)
@@ -411,7 +413,7 @@ class ChatService:
             .with_entities(ChatThread.topic_id, func.count(ChatThread.topic_id))\
             .group_by(ChatThread.topic_id).all()
 
-        return {tid: count for tid, count in thread_counts }
+        return {tid: count for tid, count in thread_counts if ChatTopic.query.get(tid)}
 
     def get_thread_counts_of_super_topic(self, episode_done=True) -> Mapping[str, int]:
         """
@@ -440,18 +442,16 @@ class ChatService:
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
-        topic = self.get_topic(thread.topic_id)
-        self.exporter.export_thread(thread, rating_questions=self.ratings, engine=topic.engine,
-                                    persona_id=topic.persona_id)
+        self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
+                                    persona_id=thread.persona_id, max_threads_per_topic=thread.max_threads_per_topic,
+                                    max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
 
     @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
-        cur_task: ChatTopic = self.get_topic(thread.topic_id)
-        max_turns = cur_task.max_turns_per_thread
-        cur_bot_agent = self.bot_agent_dict[(cur_task.engine, cur_task.persona_id)]
+        cur_bot_agent = self.bot_agent_dict[(thread.engine, thread.persona_id)]
         return DialogBotChatManager(thread=thread,
                                     bot_agent=cur_bot_agent,
-                                    max_turns=max_turns,
+                                    max_turns=thread.max_turns_per_thread,
                                     bot_transforms=self.bot_transforms,
                                     human_transforms=self.human_transforms)
 
@@ -504,3 +504,12 @@ class ChatService:
         # print('delete topic function called !!! ', topic.id)
         db.session.delete(topic)
         db.session.commit()
+
+    def generate_limits(self, topic: ChatTopic):
+        limit_dict = {
+            'max_threads_per_user': topic.max_threads_per_user,
+            'max_threads_per_topic': topic.max_threads_per_topic,
+            'max_turns_per_thread': topic.max_turns_per_thread,
+            'reward': topic.reward
+        }
+        return limit_dict

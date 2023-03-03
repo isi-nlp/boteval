@@ -10,8 +10,8 @@
         <ul>
             <li>We have <code>{{data | length}}</code> chat topics in total.</li>
             <li>You have started chatting on <code>{{limits['threads_launched']}}</code> topics. You may work on upto <code>{{[data | length, limits['max_threads_per_user']]| min }}</code> items below.</li>
-            <li>We call the chat thread is complete after <code>{{limits['max_turns_per_thread']}}</code> turns (i.e., your replies). So far you have completed <code>{{limits['threads_completed']}}</code> of such.</li>
-            <li>We are trying to collect upto <code>{{limits['max_threads_per_topic']}}</code> threads per topic. You may not be able to start a chat if we have already recieved sufficient submissions.</li>
+            <li>We call the chat thread is complete after certain turns (i.e., your replies). So far you have completed <code>{{limits['threads_completed']}}</code> of such.</li>
+            <li>We are trying to collect upto <code>10</code> (might be different for different tasks) threads per topic. You may not be able to start a chat if we have already received sufficient submissions.</li>
         </ul>
         {% endif %}
     <ol class="list-group">

@@ -275,8 +275,15 @@ def user_controllers(router, service: ChatService):
             return f'Thread {thread_id}  NOT found', 404
         ratings = service.get_rating_questions()
         topic: ChatTopic = service.get_topic(thread.topic_id)
-        max_turns = topic.max_turns_per_thread
-        remaining_turns = max_turns - thread.count_turns(FL.current_user)
+        max_turns = thread.max_turns_per_thread
+        if topic is None:
+            # If topic has been deleted, it's still fine.
+            # The required data for rendering is also copied in the thread obj
+            topic = thread
+            remaining_turns = 0
+        else:
+            remaining_turns = max_turns - thread.count_turns(FL.current_user)
+
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
 
         return render_template('user/chatui.html', limits=service.limits,
@@ -470,17 +477,17 @@ def admin_controllers(router, service: ChatService):
                 [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
             return render_template('admin/topics.html', topics=topics, super_topics=super_topics,
                                    external_url_ok=service.is_external_url_ok, **admin_templ_args,
-                                   topic_thread_counts_dict=topic_thread_counts_dict, engines=service.engines,
-                                   persona_ids=service.persona_id_list)
+                                   topic_thread_counts_dict=topic_thread_counts_dict, service=service)
         else:
             args = dict(request.form)
-            # print(args)
-            service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
-                                                  persona_id=args['persona_id'],
-                                                  max_threads_per_user=args['max_threads_per_user'],
-                                                  max_threads_per_topic=args['max_threads_per_topic'],
-                                                  max_turns_per_thread=args['max_turns_per_thread'],
-                                                  reward=args['reward'])
+            if C.LIMIT_MAX_THREADS_PER_USER in args.keys():
+                service.limits[C.LIMIT_MAX_THREADS_PER_USER] = args[C.LIMIT_MAX_THREADS_PER_USER]
+            else:
+                service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
+                                                      persona_id=args['persona_id'],
+                                                      max_threads_per_topic=args['max_threads_per_topic'],
+                                                      max_turns_per_thread=args['max_turns_per_thread'],
+                                                      reward=args['reward'])
             return redirect(url_for('admin.get_topics'))
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')

@@ -216,6 +216,14 @@ class ChatThread(BaseModelWithExternal):
     users: List[User] = db.relationship(
         'User', secondary=UserThread, lazy='subquery',
         backref=db.backref('threads', lazy=True))
+    # We include the following rows because the topic may be deleted.
+    # But we still need to see the content of one thread even if the corresponding
+    # topic is gone.
+    engine: str = db.Column(db.String(64), nullable=True)
+    persona_id: str = db.Column(db.String(64), nullable=True)
+    max_threads_per_topic: int = db.Column(db.Integer, nullable=True)
+    max_turns_per_thread: int = db.Column(db.Integer, nullable=True)
+    reward: str = db.Column(db.String(32), nullable=True)
 
     def count_turns(self, user: User):
         return sum(msg.user_id == user.id for msg in self.messages)
@@ -257,27 +265,25 @@ class ChatTopic(BaseModelWithExternal):
     id: str = db.Column(db.String(64), primary_key=True)  # redefine id as str
     name: str = db.Column(db.String(100), nullable=False)
     super_topic_id: str = db.Column(db.String(32), db.ForeignKey('super_topic.id'), nullable=True)
-    engine: str = db.Column(db.String(64), nullable=True)
-    persona_id: str = db.Column(db.String(64), nullable=True)
-    max_threads_per_user: int = db.Column(db.Integer, nullable=True)
-    max_threads_per_topic: int = db.Column(db.Integer, nullable=True)
-    max_turns_per_thread: int = db.Column(db.Integer, nullable=True)
-    reward: str = db.Column(db.String(32), nullable=True)
+    engine: str = db.Column(db.String(64), nullable=False)
+    persona_id: str = db.Column(db.String(64), nullable=False)
+    max_threads_per_topic: int = db.Column(db.Integer, nullable=False)
+    max_turns_per_thread: int = db.Column(db.Integer, nullable=False)
+    reward: str = db.Column(db.String(32), nullable=False)
 
     def as_dict(self):
         return super().as_dict() | dict(name=self.name)
 
     @classmethod
-    def create_new(cls, super_topic: SuperTopic, engine, persona_id, max_threads_per_user, max_threads_per_topic,
+    def create_new(cls, super_topic: SuperTopic, engine, persona_id, max_threads_per_topic,
                    max_turns_per_thread, reward):
         cur_task_id = super_topic.next_task_id
         cur_id = f'{super_topic.id}_{cur_task_id:03d}'
         cur_name = f'{super_topic.name}_{cur_task_id:03d}'
         topic = ChatTopic(id=cur_id, name=cur_name, data=super_topic.data, super_topic_id=super_topic.id,
                           ext_id=super_topic.ext_id, ext_src=super_topic.ext_src, engine=engine,
-                          persona_id=persona_id, max_threads_per_user=max_threads_per_user,
-                          max_threads_per_topic=max_threads_per_topic, max_turns_per_thread=max_turns_per_thread,
-                          reward=reward)
+                          persona_id=persona_id, max_threads_per_topic=max_threads_per_topic,
+                          max_turns_per_thread=max_turns_per_thread, reward=reward)
         log.info(f'Creating New Task {topic.id}')
         super_topic.next_task_id += 1
         db.session.add(topic)

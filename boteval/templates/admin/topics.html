@@ -30,9 +30,19 @@
   <div class="row">
     <div class="col-12">
       <div class="card">
+        <div class="card-body">
+          <form method="POST" action="#">
+          <div>
+            <label for="max_threads_per_user">Max_threads_per_user:</label>
+            <input type="number" name="max_threads_per_user" id="max_threads_per_user" value="{{ service.limits["max_threads_per_user"] }}" />
+          </div>
+          <div>
+            <input type="submit" value="Set"/>
+          </div>
+          </form>
         </div>
         <div class="card-body">
-          <span>Found {{ topics | length }} topics </span>
+          <span>Found {{ super_topics | length }} topics </span>
         </div>
       </div>
       <table class="table table-striped">
@@ -54,7 +64,7 @@
                 <div>
                     <label for="engine">Engine:</label>
                     <select name="engine" id="engine">
-                        {% for engine_name in engines %}
+                        {% for engine_name in service.engines %}
                             <option value="{{ engine_name }}">{{ engine_name }}</option>
                         {% endfor %}
                     </select>
@@ -62,14 +72,10 @@
                 <div>
                     <label for="persona_id">Persona_id:</label>
                     <select name="persona_id" id="persona_id">
-                        {% for persona_id_name in persona_ids %}
+                        {% for persona_id_name in service.persona_id_list %}
                             <option value="{{ persona_id_name }}">{{ persona_id_name }}</option>
                         {% endfor %}
                     </select>
-                </div>
-                <div>
-                    <label for="max_threads_per_user">Max_threads_per_user:</label>
-                    <input type="number" name="max_threads_per_user" id="max_threads_per_user" value="3" />
                 </div>
                 <div>
                     <label for="max_threads_per_topic">Max_threads_per_topic:</label>
@@ -98,7 +104,6 @@
               <li>Num of Threads = {{ topic_thread_counts_dict.get(topic.id, 0) }}</li>
               <li>Engine: {{ topic.engine }}</li>
               <li>Persona_id: {{ topic.persona_id }}</li>
-              <li>Max threads per user: {{ topic.max_threads_per_user }}</li>
               <li>Max threads per topic: {{ topic.max_threads_per_topic }}</li>
               <li>Max turns per thread: {{ topic.max_turns_per_thread }}</li>
               <li>Reward: {{ topic.reward }}</li>
