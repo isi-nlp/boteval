@@ -474,7 +474,7 @@ def admin_controllers(router, service: ChatService):
                                    persona_ids=service.persona_id_list)
         else:
             args = dict(request.form)
-            print(args)
+            # print(args)
             service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
                                                   persona_id=args['persona_id'],
                                                   max_threads_per_user=args['max_threads_per_user'],
@@ -539,10 +539,10 @@ def admin_controllers(router, service: ChatService):
         # else:
         #     return 'Error: we couldnt launch on crowd', 400
 
-    @router.route(f'/topics/', methods=["POST"])
-    @admin_login_required
-    def create_topic():
-        # new_topic = service.create_topic_from_super_topic(super_topic_id)
-        args = dict(request.form)
-
-        return redirect(url_for('admin.get_topics'))
+    # @router.route(f'/topics/', methods=["POST"])
+    # @admin_login_required
+    # def create_topic():
+    #     # new_topic = service.create_topic_from_super_topic(super_topic_id)
+    #     args = dict(request.form)
+    #
+    #     return redirect(url_for('admin.get_topics'))

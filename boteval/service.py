@@ -318,17 +318,17 @@ class ChatService:
             # self.init_sub_topics()
         db.session.commit()
 
-    def init_sub_topics(self):
-        """
-        A helper function to create a topic for all super_topics when booting.
-        Not used for now (because we want to launch tasks with different settings dynamically)
-        @return: None
-        """
-        super_topics = SuperTopic.query.all()
-        for super_topic in super_topics:
-            if not super_topic.topics:
-                cur_topic = ChatTopic.create_new(super_topic)
-                db.session.add(cur_topic)
+    # def init_sub_topics(self):
+    #     """
+    #     A helper function to create a topic for all super_topics when booting.
+    #     Not used for now (because we want to launch tasks with different settings dynamically)
+    #     @return: None
+    #     """
+    #     super_topics = SuperTopic.query.all()
+    #     for super_topic in super_topics:
+    #         if not super_topic.topics:
+    #             cur_topic = ChatTopic.create_new(super_topic)
+    #             db.session.add(cur_topic)
         # db.session.commit()
 
     def create_topic_from_super_topic(self, super_topic_id, engine, persona_id, max_threads_per_user,
@@ -501,6 +501,6 @@ class ChatService:
 
     # @staticmethod
     def delete_topic(self, topic: ChatTopic):
-        print('delete topic function called !!! ', topic.id)
+        # print('delete topic function called !!! ', topic.id)
         db.session.delete(topic)
         db.session.commit()
