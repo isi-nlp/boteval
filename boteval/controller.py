@@ -487,8 +487,8 @@ def admin_controllers(router, service: ChatService):
             else:
                 service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
                                                       persona_id=args['persona_id'],
-                                                      max_threads_per_topic=args['max_threads_per_topic'],
-                                                      max_turns_per_thread=args['max_turns_per_thread'],
+                                                      max_threads_per_topic=int(args['max_threads_per_topic']),
+                                                      max_turns_per_thread=int(args['max_turns_per_thread']),
                                                       reward=args['reward'])
             return redirect(url_for('admin.get_topics'))
 
