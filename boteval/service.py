@@ -1,5 +1,4 @@
-
-
+import os
 from pathlib import Path
 import json
 from typing import List, Mapping, Optional, Tuple, Union
@@ -14,7 +13,7 @@ from sqlalchemy import func
 
 
 from  . import log, db, C, TaskConfig
-from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread
+from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread, SuperTopic
 from .bots import BotAgent, load_bot_agent
 from .transforms import load_transforms, Transforms
 from .mturk import MTurkService
@@ -154,7 +153,8 @@ class FileExportService:
 
 class ChatService:
 
-    def __init__(self, config: TaskConfig, task_dir:Path):
+    def __init__(self, config: TaskConfig, task_dir:Path,
+                 persona_configs_relative_filepath='darma-task/persona_configs.json'):
         self.config: TaskConfig = config
         self.task_dir = task_dir
         self.task_dir.mkdir(exist_ok=True, parents=True)
@@ -179,14 +179,41 @@ class ChatService:
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
         bot_args = config['chatbot'].get('bot_args') or {}
-        self.prompt = config['chatbot']['bot_args']['prompt']
-        self.bot_agent = load_bot_agent(bot_name, bot_args)
+
+        # Currently, the engine names are hard-coded here
+        self.engines = ['text-davinci-003', 'gpt-3.5-turbo']
+
+        # Starting to load all ids from persona_configs.json
+
+        persona_filepath = \
+            os.path.join(
+                Path(os.path.dirname(os.path.realpath(__file__))).parent,
+                persona_configs_relative_filepath
+            )
+        print("here!!!")
+        print(persona_filepath)
+        with open(persona_filepath, mode='r') as f:
+            persona_jsons = json.load(f)
+            self.persona_id_list = [x['id'] for x in persona_jsons]
+
+        # Initialize all possible bots
+        self.bot_agent_dict = {}
+        for cur_engine_name in self.engines:
+            for cur_persona_id in self.persona_id_list:
+                tmp_dict = {
+                    'engine': cur_engine_name,
+                    'persona_id': cur_persona_id
+                }
+                self.bot_agent_dict[(cur_engine_name, cur_persona_id)] = load_bot_agent(bot_name, tmp_dict)
+
+        # self.persona_id = bot_args.get('persona_id')
+        # self.bot_agent = load_bot_agent(bot_name, bot_args)
         self.limits = config.get('limits') or {}
         self.ratings = config['ratings']
 
         self.onboarding = config.get('onboarding') and copy.deepcopy(config['onboarding'])
         if self.onboarding and 'agreement_file' in self.onboarding:
-            self.onboarding['agreement_text'] = self.resolve_path(self.onboarding['agreement_file']).read_text()
+            self.onboarding['agreement_text'] = self.resolve_path(self.onboarding['agreement_file']).read_text(encoding='UTF-8')
 
 
         self.crowd_service = None
@@ -279,15 +306,38 @@ class ChatService:
             log.info(f'found {len(topics)} topics in {topics_file}')
             objs = []
             for topic in topics:
-                obj = ChatTopic.query.get(topic['id'])
+                obj = SuperTopic.query.get(topic['id'])
                 if obj:
                     log.warning(f'Chat topic exists {topic["id"]}, so skipping')
                     continue
-                obj = ChatTopic(id=topic['id'], name=topic['name'], data=topic)
+                obj = SuperTopic(id=topic['id'], name=topic['name'], data=topic, next_task_id=1)
                 objs.append(obj)
             if objs:
                 log.info(f"Inserting {len(objs)} topics to db")
                 db.session.add_all(objs)
+            # self.init_sub_topics()
+        db.session.commit()
+
+    # def init_sub_topics(self):
+    #     """
+    #     A helper function to create a topic for all super_topics when booting.
+    #     Not used for now (because we want to launch tasks with different settings dynamically)
+    #     @return: None
+    #     """
+    #     super_topics = SuperTopic.query.all()
+    #     for super_topic in super_topics:
+    #         if not super_topic.topics:
+    #             cur_topic = ChatTopic.create_new(super_topic)
+    #             db.session.add(cur_topic)
+        # db.session.commit()
+
+    def create_topic_from_super_topic(self, super_topic_id, engine, persona_id, max_threads_per_topic,
+                                      max_turns_per_thread, reward):
+        super_topic = SuperTopic.query.get(super_topic_id)
+        new_topic = ChatTopic.create_new(super_topic, engine=engine, persona_id=persona_id,
+                                         max_threads_per_topic=max_threads_per_topic,
+                                         max_turns_per_thread=max_turns_per_thread, reward=reward)
+        db.session.add(new_topic)
         db.session.commit()
 
     def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
@@ -296,9 +346,9 @@ class ChatService:
             user_thread_count = ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).count()
             if user_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_USER]:
                 return True, 'User has exceeded maximum permissible threads'
-        if topic and self.limits.get(C.LIMIT_MAX_THREADS_PER_TOPIC, 0):
+        if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
-            if topic_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_TOPIC]:
+            if topic_thread_count >= topic.max_threads_per_topic:
                 return True, 'This topic has exceeded maximum permissible threads'
         return False, ''
 
@@ -311,7 +361,7 @@ class ChatService:
     def get_topic(self, topic_id):
         return ChatTopic.query.get(topic_id)
 
-    def get_thread_for_topic(self, user, topic, create_if_missing=True,
+    def get_thread_for_topic(self, user, topic: ChatTopic, create_if_missing=True,
                              ext_id=None, ext_src=None, data=None) -> Optional[ChatThread]:
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
@@ -325,7 +375,10 @@ class ChatService:
         if not thread and create_if_missing:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
             data = data or {}
-            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data)
+            data.update(topic.data)
+            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.engine,
+                                persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
+                                max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward)
             thread.users.append(user)
             thread.users.append(self.bot_user)
             thread.users.append(self.context_user)
@@ -360,7 +413,23 @@ class ChatService:
             .with_entities(ChatThread.topic_id, func.count(ChatThread.topic_id))\
             .group_by(ChatThread.topic_id).all()
 
-        return {tid: count for tid, count in thread_counts }
+        return {tid: count for tid, count in thread_counts if ChatTopic.query.get(tid)}
+
+    def get_thread_counts_of_super_topic(self, episode_done=True) -> Mapping[str, int]:
+        """
+        Based on the get_thread_counts func, we want to get the thread count of each super topic
+        @param episode_done: whether you want to consider the completed or uncompleted threads
+        @return: a dict containing the thread count of each super topic.
+        """
+        tmp_res = self.get_thread_counts(episode_done)
+        all_topics = ChatTopic.query.all()
+        topic_thread_counts = [(topic, tmp_res.get(topic.id, 0)) for topic in all_topics]
+        super_topic_thread_counts_dict = {}
+        for topic, count in topic_thread_counts:
+            cur_super_topic = SuperTopic.query.get(topic.super_topic_id)
+            super_topic_thread_counts_dict[cur_super_topic.id] = \
+                super_topic_thread_counts_dict.get(cur_super_topic.id, 0) + count
+        return super_topic_thread_counts_dict
 
     def update_thread_ratings(self, thread: ChatThread, ratings:dict):
         if thread.data is None:
@@ -373,15 +442,16 @@ class ChatService:
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
-        self.exporter.export_thread(thread, rating_questions=self.ratings, bot_name=self.prompt)
+        self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
+                                    persona_id=thread.persona_id, max_threads_per_topic=thread.max_threads_per_topic,
+                                    max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
 
     @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
-        max_turns = self.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD,
-                                    C.DEF_MAX_TURNS_PER_THREAD)
+        cur_bot_agent = self.bot_agent_dict[(thread.engine, thread.persona_id)]
         return DialogBotChatManager(thread=thread,
-                                    bot_agent=self.bot_agent,
-                                    max_turns=max_turns,
+                                    bot_agent=cur_bot_agent,
+                                    max_turns=thread.max_turns_per_thread,
                                     bot_transforms=self.bot_transforms,
                                     human_transforms=self.human_transforms)
 
@@ -407,8 +477,8 @@ class ChatService:
                                         _external=True, _scheme='https')
             log.info(f'mturk landing URL {landing_url}')
             ext_id, task_url, result = self.crowd_service.create_HIT(landing_url, 
-                max_assignments=self.limits.get(C.LIMIT_MAX_THREADS_PER_TOPIC, C.DEF_MAX_THREADS_PER_TOPIC),
-                reward=self.limits.get(C.LIMIT_REWARD, C.DEF_REWARD),
+                max_assignments=topic.max_threads_per_topic,
+                reward=topic.reward,
                 description=topic.name,
                 title=f'{topic.id}')
             ext_src = self.crowd_service.name
@@ -428,3 +498,18 @@ class ChatService:
         else:
             log.error(f'Crowd name {self.crowd_name} not supported yet')
             return
+
+    # @staticmethod
+    def delete_topic(self, topic: ChatTopic):
+        # print('delete topic function called !!! ', topic.id)
+        db.session.delete(topic)
+        db.session.commit()
+
+    def generate_limits(self, topic: ChatTopic):
+        limit_dict = {
+            'max_threads_per_user': topic.max_threads_per_user,
+            'max_threads_per_topic': topic.max_threads_per_topic,
+            'max_turns_per_thread': topic.max_turns_per_thread,
+            'reward': topic.reward
+        }
+        return limit_dict

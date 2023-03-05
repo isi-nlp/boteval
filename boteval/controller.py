@@ -7,7 +7,7 @@ from threading import Thread
 import json
 
 import flask
-from flask import request, url_for
+from flask import request, url_for, redirect
 import flask_login as FL
 
 from boteval.service import ChatService
@@ -15,7 +15,7 @@ from boteval.service import ChatService
 
 from . import log, C, db
 from .utils import jsonify, render_template, register_template_filters
-from .model import ChatMessage, ChatThread, ChatTopic, User
+from .model import ChatMessage, ChatThread, ChatTopic, User, SuperTopic
 from .mturk import MTurkController
 
 
@@ -226,6 +226,8 @@ def user_controllers(router, service: ChatService):
         max_threads_per_topic = limits['max_threads_per_topic']
         thread_counts = service.get_thread_counts(episode_done=True) # completed threads
         for thread in threads:
+            if ChatTopic.query.get(thread.topic_id) is None:
+                continue
             data[thread.topic_id][1] = thread
 
         for topic_id, n_threads in thread_counts.items():
@@ -274,9 +276,16 @@ def user_controllers(router, service: ChatService):
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
         ratings = service.get_rating_questions()
-        topic = service.get_topic(thread.topic_id)
-        max_turns = service.limits.get(C.LIMIT_MAX_TURNS_PER_THREAD, C.DEF_MAX_TURNS_PER_THREAD)
-        remaining_turns = max_turns - thread.count_turns(FL.current_user)
+        topic: ChatTopic = service.get_topic(thread.topic_id)
+        max_turns = thread.max_turns_per_thread
+        if topic is None:
+            # If topic has been deleted, it's still fine.
+            # The required data for rendering is also copied in the thread obj
+            topic = thread
+            remaining_turns = 0
+        else:
+            remaining_turns = max_turns - thread.count_turns(FL.current_user)
+
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
 
         return render_template('user/chatui.html', limits=service.limits,
@@ -454,14 +463,34 @@ def admin_controllers(router, service: ChatService):
         threads = ChatThread.query.order_by(ChatThread.time_updated.desc(), ChatThread.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
         return render_template('admin/threads.html', threads=threads, **admin_templ_args)
 
-    @router.route('/topic/')
+    @router.route('/topic/', methods=['GET', 'POST'])
     @admin_login_required
     def get_topics():
-        topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
-        thread_counts = service.get_thread_counts(episode_done=True)
-        topics = [(topic, thread_counts.get(topic.id, 0)) for topic in topics]
-        return render_template('admin/topics.html', topics=topics,
-                               external_url_ok=service.is_external_url_ok, **admin_templ_args)
+        if request.method == 'GET':
+            all_super_topics = SuperTopic.query.order_by(SuperTopic.time_updated.desc(), SuperTopic.time_created.desc()).\
+                limit(C.MAX_PAGE_SIZE).all()
+            all_topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).\
+                limit(C.MAX_PAGE_SIZE).all()
+            topic_thread_counts = service.get_thread_counts(episode_done=True)
+            super_topic_thread_counts = service.get_thread_counts_of_super_topic(episode_done=True)
+            topics = [(topic, topic_thread_counts.get(topic.id, 0)) for topic in all_topics]
+            topic_thread_counts_dict = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
+            super_topics = \
+                [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
+            return render_template('admin/topics.html', topics=topics, super_topics=super_topics,
+                                   external_url_ok=service.is_external_url_ok, **admin_templ_args,
+                                   topic_thread_counts_dict=topic_thread_counts_dict, service=service)
+        else:
+            args = dict(request.form)
+            if C.LIMIT_MAX_THREADS_PER_USER in args.keys():
+                service.limits[C.LIMIT_MAX_THREADS_PER_USER] = int(args[C.LIMIT_MAX_THREADS_PER_USER])
+            else:
+                service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
+                                                      persona_id=args['persona_id'],
+                                                      max_threads_per_topic=int(args['max_threads_per_topic']),
+                                                      max_turns_per_thread=int(args['max_turns_per_thread']),
+                                                      reward=args['reward'])
+            return redirect(url_for('admin.get_topics'))
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
     @admin_login_required
@@ -487,3 +516,42 @@ def admin_controllers(router, service: ChatService):
         config_yaml = service.config.as_yaml_str()
         return render_template('admin/config.html', config_yaml=config_yaml)
 
+    @router.route(f'/topic/<topic_id>/delete_topic/')
+    @admin_login_required
+    def delete_topic(topic_id):
+        topic = ChatTopic.query.get(topic_id)
+        if topic.ext_id or topic.ext_src in [C.MTURK, C.MTURK_SANDBOX]:
+            MTurkController(service.crowd_service).expire_HIT(topic.ext_id)
+        # ret_a, ret_b = MTurkController(service.crowd_service).delete_hit(topic.ext_id)
+        # print('ret_a is: ')
+        # print(ret_a)
+        # print()
+        #
+        # print('ret_b is: ')
+        # print(ret_b)
+        # print()
+
+        service.delete_topic(topic)
+        return redirect(url_for('admin.get_topics'))
+
+        # if not topic:
+        #     return f'Topic {topic_id} not found', 404
+        # if crowd_name and service.crowd_name != crowd_name:
+        #     return f'Crowd backend {crowd_name} is not configured. Currently serving {service.crowd_name}', 400
+        #
+        # if topic.ext_id:
+        #     return f'Topic {topic_id} already has been launched on {topic.ext_src}'
+        # ext_id = service.launch_topic_on_crowd(topic)
+        # if ext_id:
+        #     flask.flash(f'Successfully launched {topic_id} on {crowd_name} as {ext_id}')
+        #     return flask.redirect(flask.url_for('admin.get_topics'))
+        # else:
+        #     return 'Error: we couldnt launch on crowd', 400
+
+    # @router.route(f'/topics/', methods=["POST"])
+    # @admin_login_required
+    # def create_topic():
+    #     # new_topic = service.create_topic_from_super_topic(super_topic_id)
+    #     args = dict(request.form)
+    #
+    #     return redirect(url_for('admin.get_topics'))
