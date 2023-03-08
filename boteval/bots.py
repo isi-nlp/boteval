@@ -91,7 +91,7 @@ class TransformerBot(BotAgent):
 
 
 def load_bot_agent(name: str, args: Dict[str, Any]) -> BotAgent:
-    log.info(f'Going to load bot {name} with args: {args}')
+    # log.info(f'Going to load bot {name} with args: {args}')
     bot_engines = R.registry[R.BOT]
     assert name in bot_engines, f'{name} not found; found={bot_engines.keys()}'
     return R.registry[R.BOT][name](**args)

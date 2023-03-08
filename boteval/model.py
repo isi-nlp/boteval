@@ -284,13 +284,11 @@ class ChatTopic(BaseModelWithExternal):
                           ext_id=super_topic.ext_id, ext_src=super_topic.ext_src, engine=engine,
                           persona_id=persona_id, max_threads_per_topic=max_threads_per_topic,
                           max_turns_per_thread=max_turns_per_thread, reward=reward)
-        log.info(f'Creating New Task {topic.id}')
+        # log.info(f'Creating New Task {topic.id}')
         super_topic.next_task_id += 1
         db.session.add(topic)
         db.session.commit()
         return cls.query.get(topic.id)
 
-    def as_dict(self):
-        return super().as_dict() | dict(name=self.name)
 
 
