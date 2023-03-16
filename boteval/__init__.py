@@ -1,6 +1,6 @@
 __version__ = '0.1'
 
-import logging as log
+from loguru import logger as log
 from flask_sqlalchemy import SQLAlchemy
 
 from . import (
@@ -9,7 +9,7 @@ from . import (
 )
 
 
-log.basicConfig(level=log.INFO)
+# log.basicConfig(level=log.INFO)
 db: SQLAlchemy = SQLAlchemy()
 
 

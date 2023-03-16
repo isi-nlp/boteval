@@ -7,7 +7,7 @@ NOTE: 1. Python 3.9 or newer is required to run this project. +
 .Install
 [source,shell]
 ----
-conda create env -n boteval python=3.9
+conda create -n boteval python=3.9
 conda activate boteval
 pip install boteval
 boteval -h

@@ -14,9 +14,6 @@ from .service import ChatService
 from .utils import register_template_filters
 
 
-log.basicConfig(level=log.INFO)
-
-
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 app.config['SECRET_KEY'] = 'abcd1234'
@@ -46,7 +43,7 @@ def parse_args():
     return args
 
 def load_dir_as_module(dir_path: Path):
-    log.info(f'Going tot import {dir_path} as a python module.')
+    log.info(f'Going to import {dir_path} as a python module.')
     module_name = dir_path.name
     parent_dir = dir_path.resolve().parent
 
@@ -104,8 +101,6 @@ def init_app(**args):
 
     if args.pop('debug'):
         app.debug = True
-        log.root.setLevel(level=log.DEBUG)
-
 
 args = parse_args()
 init_app(**args)
