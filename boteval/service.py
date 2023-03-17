@@ -48,7 +48,7 @@ class DialogBotChatManager(ChatManager):
         self.bot_agent: BotAgent = bot_agent
 
         humans = [ user for user in thread.users if user.role == User.ROLE_HUMAN ]
-        assert len(humans) == 1, f'Expect 1 human in thread {thread.id}; found {len(humans)}; Users: {user_ids}'
+        # assert len(humans) == 1, f'Expect 1 human in thread {thread.id}; found {len(humans)}; Users: {user_ids}'
         self.human_user_id = humans[0].id
 
         self.max_turns = max_turns
@@ -59,6 +59,14 @@ class DialogBotChatManager(ChatManager):
         
         topic = ChatTopic.query.get(thread.topic_id)
         self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
+
+        # todo: store speakers id in chat manager
+        loaded_users = [speaker_id for speaker_id in topic.data['conversation']]
+        self.speakers = []
+        # for i, cur_user in loaded_users:
+        #     self.speakers = loaded_users[i].get('speaker_id')
+        print('speakers are: ', loaded_users)
+
         self.init_chat_context(thread)
         
     def msg_as_dict(self, msg: ChatMessage) -> dict:
@@ -101,7 +109,7 @@ class DialogBotChatManager(ChatManager):
         return (bot reply, episode_done)
         """
         assert thread.id == self.thread_id
-        assert message.user_id == self.human_user_id        
+        # assert message.user_id == self.human_user_id
         if self.human_transforms:
             message = self.human_transforms(message)
         msg_dict = self.msg_as_dict(message)
@@ -370,6 +378,23 @@ class ChatService:
                 thread = tt
                 break
 
+            # if tt.human_user_2 is None or tt.human_user_2 == '':
+            humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
+            if len(humans) < 2:
+                log.info('human_user_2 join thread!')
+
+                tt.users.append(user)
+                tt.users.append(self.bot_user)
+                tt.users.append(self.context_user)
+                tt.human_user_2 = user.id
+
+                db.session.merge(tt)
+                db.session.flush()
+                db.session.commit()
+
+                thread = tt
+                break
+
         if not thread and create_if_missing:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
             data = data or {}
@@ -380,6 +405,9 @@ class ChatService:
             thread.users.append(user)
             thread.users.append(self.bot_user)
             thread.users.append(self.context_user)
+
+            thread.human_user_1 = user.id
+
             db.session.add(thread)
             db.session.flush()  # flush it to get thread_id
             for m in topic.data['conversation']:
