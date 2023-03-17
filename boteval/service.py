@@ -382,7 +382,7 @@ class ChatService:
 
             # if tt.human_user_2 is None or tt.human_user_2 == '':
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
-            if len(humans) < 2:
+            if len(humans) < topic.max_human_users_per_thread:
                 log.info('human_user_2 join thread!')
 
                 # store speakers id
