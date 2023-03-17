@@ -272,15 +272,11 @@ def user_controllers(router, service: ChatService):
     @FL.login_required
     def get_thread(thread_id, focus_mode=False):
         focus_mode = focus_mode or request.values.get('focus_mode')
-        thread: ChatThread = service.get_thread(thread_id)
+        thread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
         ratings = service.get_rating_questions()
         topic: ChatTopic = service.get_topic(thread.topic_id)
-        # print("here!!!!getusers!!!!")
-        # print(thread.users)
-        # print(thread.users[2])
-        # print(FL.current_user == thread.users[-1])
         max_turns = thread.max_turns_per_thread
         if topic is None:
             # If topic has been deleted, it's still fine.
@@ -291,30 +287,18 @@ def user_controllers(router, service: ChatService):
             remaining_turns = max_turns - thread.count_turns(FL.current_user)
 
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
-        if thread.max_human_users_per_thread == 1:
-            return render_template('user/chatui.html', limits=service.limits,
-                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
-                                   thread=thread,
-                                   topic=topic,
-                                   socket_name=thread.socket_name,
-                                   rating_questions=ratings,
-                                   focus_mode=focus_mode,
-                                   remaining_turns=remaining_turns,
-                                   instructions_html=service.instructions,
-                                   show_text_extra = FL.current_user.is_admin,
-                                   data=dict())
-        elif thread.max_human_users_per_thread == 2:
-            return render_template('user/chatui_two_users.html', limits=service.limits,
-                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
-                                   thread=thread,
-                                   topic=topic,
-                                   socket_name=thread.socket_name,
-                                   rating_questions=ratings,
-                                   focus_mode=focus_mode,
-                                   remaining_turns=remaining_turns,
-                                   instructions_html=service.instructions,
-                                   show_text_extra = FL.current_user.is_admin,
-                                   data=dict())
+
+        return render_template('user/chatui.html', limits=service.limits,
+                               thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
+                               thread=thread,
+                               topic=topic,
+                               socket_name=thread.socket_name,
+                               rating_questions=ratings,
+                               focus_mode=focus_mode,
+                               remaining_turns=remaining_turns,
+                               instructions_html=service.instructions,
+                               show_text_extra = FL.current_user.is_admin,
+                               data=dict())
 
     @router.route('/thread/<thread_id>/<user_id>/message', methods=['POST'])
     #@FL.login_required  <-- login didnt work in iframe in mturk
@@ -345,24 +329,6 @@ def user_controllers(router, service: ChatService):
         except Exception as e:
             log.exception(e)
             return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
-
-    @router.route('/thread/<thread_id>/<user_id>/latest_message', methods=['GET'])
-    def get_latest_message(thread_id, user_id):
-        thread = service.get_thread(thread_id)
-        if not thread:
-            return f'Thread {thread_id}  NOT found', 404
-        user = User.get(user_id)
-        if not user or user not in thread.users:
-            log.warning('user is not part of thread')
-            reply = dict(status=C.ERROR,
-                         description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
-            return flask.jsonify(reply), 400
-        latest_message: ChatMessage = thread.messages[-1]
-        reply_dict = latest_message.as_dict() | dict(updated='0')
-        if latest_message.user_id != user_id:
-            reply_dict['updated'] = '1'
-        return flask.jsonify(reply_dict), 200
-
 
     @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
     #@FL.login_required   <-- login didnt work in iframe in mturk
