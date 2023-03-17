@@ -104,7 +104,6 @@ class DialogBotChatManager(ChatManager):
             self.num_turns += 1
             log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
 
-
     def observe_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
         """
         Observe and reply; input message is from human;
@@ -112,18 +111,26 @@ class DialogBotChatManager(ChatManager):
         """
         assert thread.id == self.thread_id
         # assert message.user_id == self.human_user_id
-        if self.human_transforms:
-            message = self.human_transforms(message)
-        msg_dict = self.msg_as_dict(message)
-        self.bot_agent.hear(msg_dict)
         db.session.add(message)
         thread.messages.append(message)
-
-        reply: ChatMessage = self.bot_reply()
-
-        db.session.add(reply)
-        thread.messages.append(reply)
         db.session.commit()
+
+        if thread.max_human_users_per_thread == 1:
+            # Original code for single-user chatroom
+            if self.human_transforms:
+                message = self.human_transforms(message)
+            msg_dict = self.msg_as_dict(message)
+            self.bot_agent.hear(msg_dict)
+
+            reply: ChatMessage = self.bot_reply()
+
+            db.session.add(reply)
+            thread.messages.append(reply)
+            db.session.commit()
+        else:
+            # If we are in a 2-user chatroom, we don't have a reply here.
+            # So just create a dummy reply
+            reply = message
         self.num_turns += 1
         episode_done = self.num_turns >= self.max_turns
         log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
@@ -358,7 +365,8 @@ class ChatService:
                 return True, 'User has exceeded maximum permissible threads'
         if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
-            if topic_thread_count >= topic.max_threads_per_topic:
+            # TODO: Wrong logic when checking threshold for 2-user-chatrooms
+            if topic_thread_count > topic.max_threads_per_topic:
                 return True, 'This topic has exceeded maximum permissible threads'
         return False, ''
 
@@ -378,7 +386,7 @@ class ChatService:
         thread = None
         for tt in topic_threads:
             if any(user.id == tu.id for tu in tt.users):
-                log.info('Topic thread alredy exists; reusing it')
+                log.info('Topic thread already exists; reusing it')
                 thread = tt
                 break
 
@@ -388,9 +396,9 @@ class ChatService:
                 log.info('human_user_2 join thread!')
 
                 tt.users.append(user)
-                tt.users.append(self.bot_user)
-                tt.users.append(self.context_user)
-                tt.human_user_2 = user.id
+                # tt.users.append(self.bot_user)
+                # tt.users.append(self.context_user)
+                # tt.human_user_2 = user.id
 
                 db.session.merge(tt)
                 db.session.flush()
@@ -405,12 +413,13 @@ class ChatService:
             data.update(topic.data)
             thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.engine,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
-                                max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward)
+                                max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward,
+                                max_human_users_per_thread=topic.max_human_users_per_thread)
             thread.users.append(user)
             thread.users.append(self.bot_user)
             thread.users.append(self.context_user)
 
-            thread.human_user_1 = user.id
+            # thread.human_user_1 = user.id
 
             db.session.add(thread)
             db.session.flush()  # flush it to get thread_id
@@ -485,7 +494,7 @@ class ChatService:
                                     bot_transforms=self.bot_transforms,
                                     human_transforms=self.human_transforms)
 
-    def new_message(self, msg: ChatMessage, thread: ChatThread) -> ChatMessage:
+    def new_message(self, msg: ChatMessage, thread: ChatThread) -> tuple[ChatMessage, bool]:
         dialog = self.get_dialog_man(thread)
         reply, episode_done = dialog.observe_message(thread, msg)
         return reply, episode_done
