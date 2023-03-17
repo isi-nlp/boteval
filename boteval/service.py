@@ -190,6 +190,7 @@ class ChatService:
                 Path(os.path.dirname(os.path.realpath(__file__))).parent,
                 persona_configs_relative_filepath
             )
+
         with open(persona_filepath, mode='r') as f:
             persona_jsons = json.load(f)
             self.persona_id_list = [x['id'] for x in persona_jsons]
