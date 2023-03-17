@@ -79,7 +79,7 @@
                         Click the button below if you would like to view more detailed instructions and examples.
                     </li>
                     <li>
-                        Your remaining turns: <code><span id="remaining-turns-count">{{ remaining_turns }}</span> </code>(Refresh to update)
+                        Your remaining turns: <code> <span id="remaining-turns-count">{{ remaining_turns }} </span> </code>(Refresh to update)
                     </li>
                 </ul>
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
@@ -92,9 +92,9 @@
                         class="form">
 
                         Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
-                        {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}   
+                        {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
                         <ul class="list-group">
-                            {% for q in rating_questions %}                         
+                            {% for q in rating_questions %}
                             <li class="list-group-item my-1">
                                 <i>{{q['question']}}</i>
                                 <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="0"
@@ -135,7 +135,7 @@
         const show_text_extra = Boolean({{ 'true' if show_text_extra else 'false' }})
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
 
-        let waiting_for_bot_reply = false
+        let waiting_for_other_human_reply = false
 
         function show_new_message(msg, user_ids) {
 
@@ -157,13 +157,15 @@
                 side = 'right'
             } else if (msg['user_id'] == BOT_ID) {
                 theme = 'alert-success'
-            } else {
+            } else if (user_ids != null) {
                 for (let i = 0; i < user_ids.length; i++) {
                     if (msg['data']['speaker_id'] == user_ids[i]) {
                         set_color = colors[i % colors.length]
                         theme = 'alert-' + set_color
                     }
                 }
+            } else {
+                theme = 'alert-dark';
             }
 
             let text_display = msg['text']
@@ -195,13 +197,13 @@
 
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
-            if (remaining_turns < 1 || Boolean({{ 'true' if cur_user.is_admin else 'false' }}) {
+            if (remaining_turns < 1 || Boolean({{ 'true' if cur_user.is_admin else 'false' }})) {
                 $('#end_info').show() // show end info
                 $('#next_msg_form').hide()
                 $('#waiting_info').hide()
             } else { // ongoing conversation
                 $('#end_info').hide()
-                if (waiting_for_bot_reply) { // but wating for bot reply
+                if (waiting_for_other_human_reply) { // but wating for bot reply
                     $('#next_msg_form').hide()  // dont let human reply
                     $('#waiting_info').show()  // waiting animation show
                 } else {
@@ -229,9 +231,13 @@
                 if (add_element == true) {
                     user_ids.push(this_user_id)
                 }
-            }           
+            }
             for (const msg of thread['messages']) {
                 show_new_message(msg, user_ids)
+            }
+            let message_list = thread['messages'];
+            if (message_list[message_list.length - 1]['user_id'] === cur_user_id) {
+                waiting_for_other_human_reply = true;
             }
             refresh_view()
 
@@ -256,7 +262,7 @@
                     console.log('No text to send')
                     return
                 }
-                waiting_for_bot_reply = true
+                waiting_for_other_human_reply = true
                 data = { 'text': text, time_created: new Date().toISOString() }
                 data = { ...user_data, ...data }  //combine two
 
@@ -272,8 +278,7 @@
                         }
                         remaining_turns--;
                         $('#remaining-turns-count').html(remaining_turns);
-                        waiting_for_bot_reply = false
-                        msg_id = show_new_message(reply)
+                        // Here, we no longer need the reply from the bot.
                         // play_beep();
                     } catch {
                         alert('Something went wrong. See logs.')
@@ -299,6 +304,20 @@
                 event.preventDefault();
             }
         }
+
+        function getMessages() {
+            fetch({{ url_for("app.get_latest_message", thread_id=thread.id, user_id=cur_user.id) |tojson}})
+                .then(response => response.json())
+                .then(data => {
+                    if (data['updated'] === '1' && waiting_for_other_human_reply) {
+                        show_new_message(data, null);
+                        waiting_for_other_human_reply = false;
+                    }
+                    refresh_view();
+                })
+        }
+
+        window.setInterval(getMessages, 5000)
 
         function scroll_chat_to_bottom(){
             $("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow') 

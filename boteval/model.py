@@ -217,8 +217,8 @@ class ChatThread(BaseModelWithExternal):
         'User', secondary=UserThread, lazy='subquery',
         backref=db.backref('threads', lazy=True))
 
-    human_user_1: str = db.column(db.String(100))
-    human_user_2: str = db.column(db.String(100))
+    # human_user_1: str = db.column(db.String(100))
+    # human_user_2: str = db.column(db.String(100))
 
     # We include the following rows because the topic may be deleted.
     # But we still need to see the content of one thread even if the corresponding
