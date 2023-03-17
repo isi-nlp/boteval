@@ -59,16 +59,6 @@ class DialogBotChatManager(ChatManager):
         
         topic = ChatTopic.query.get(thread.topic_id)
         self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
-
-        # todo: store speakers id in chat manager
-        loaded_users = [speaker_id for speaker_id in topic.data['conversation']]
-        self.speakers = []
-
-        for cur_user in loaded_users:
-            self.speakers.append(cur_user.get('speaker_id'))
-
-        # print('speakers are: ', self.speakers)
-
         self.init_chat_context(thread)
         
     def msg_as_dict(self, msg: ChatMessage) -> dict:
@@ -387,6 +377,22 @@ class ChatService:
             if len(humans) < 2:
                 log.info('human_user_2 join thread!')
 
+                # store speakers id
+                chat_topic = ChatTopic.query.get(tt.topic_id)
+                loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
+                speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
+
+                i = -2
+                while len(speakers) + i >= 0:
+                    if speakers[i] != speakers[-1]:
+                        user.name = speakers[i]
+                        break
+                    else:
+                        i -= 1
+
+                # user.name = speakers[-2]
+                print('2nd user.name is: ', user.name)
+
                 tt.users.append(user)
                 tt.users.append(self.bot_user)
                 tt.users.append(self.context_user)
@@ -406,6 +412,14 @@ class ChatService:
             thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.engine,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
                                 max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward)
+
+            chat_topic = ChatTopic.query.get(thread.topic_id)
+            loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
+            speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
+
+            user.name = speakers[-1]
+            print('1st user.name is: ', user.name)
+
             thread.users.append(user)
             thread.users.append(self.bot_user)
             thread.users.append(self.context_user)
