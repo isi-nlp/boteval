@@ -63,9 +63,11 @@ class DialogBotChatManager(ChatManager):
         # todo: store speakers id in chat manager
         loaded_users = [speaker_id for speaker_id in topic.data['conversation']]
         self.speakers = []
-        # for i, cur_user in loaded_users:
-        #     self.speakers = loaded_users[i].get('speaker_id')
-        print('speakers are: ', loaded_users)
+
+        for cur_user in loaded_users:
+            self.speakers.append(cur_user.get('speaker_id'))
+
+        # print('speakers are: ', self.speakers)
 
         self.init_chat_context(thread)
         
