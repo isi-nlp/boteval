@@ -341,11 +341,12 @@ class ChatService:
         # db.session.commit()
 
     def create_topic_from_super_topic(self, super_topic_id, engine, persona_id, max_threads_per_topic,
-                                      max_turns_per_thread, reward):
+                                      max_turns_per_thread, max_human_users_per_thread, reward):
         super_topic = SuperTopic.query.get(super_topic_id)
         new_topic = ChatTopic.create_new(super_topic, engine=engine, persona_id=persona_id,
                                          max_threads_per_topic=max_threads_per_topic,
-                                         max_turns_per_thread=max_turns_per_thread, reward=reward)
+                                         max_turns_per_thread=max_turns_per_thread,
+                                         max_human_users_per_thread=max_human_users_per_thread, reward=reward)
         db.session.add(new_topic)
         db.session.commit()
 

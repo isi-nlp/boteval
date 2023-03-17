@@ -86,6 +86,13 @@
                     <input type="number" name="max_turns_per_thread" id="max_turns_per_thread" value="10" />
                 </div>
                 <div>
+                    <label for="max_human_users_per_thread">max_human_users_per_thread:</label>
+                    <select name="max_human_users_per_thread" id="max_human_users_per_thread">
+                        <option value=1>1</option>
+                        <option value=2>2</option>
+                    </select>
+                </div>
+                <div>
                     <label for="reward">Reward:</label>
                     <input type="text" name="reward" id="reward" value="0.0" />
                 </div>
@@ -106,6 +113,7 @@
               <li>Persona_id: {{ topic.persona_id }}</li>
               <li>Max threads per topic: {{ topic.max_threads_per_topic }}</li>
               <li>Max turns per thread: {{ topic.max_turns_per_thread }}</li>
+              <li>Max human users per thread: {{ topic.max_human_users_per_thread }}</li>
               <li>Reward: {{ topic.reward }}</li>
             {% if topic.ext_id %}
               {% set task_url = topic.data.get(topic.ext_src, {}).get('ext_url') %}
