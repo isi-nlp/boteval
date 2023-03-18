@@ -136,11 +136,13 @@
         const BOT_ID = 'bot01'
         const show_text_extra = Boolean({{ 'true' if show_text_extra else 'false' }})
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
+        // user_ids are moved to global scope, so that the bubble color can be found in AJAX (getMessages)
+        const user_ids = []
 
         let waiting_for_other_human_reply = false
         var prev_user_id;
 
-        function show_new_message(msg, user_ids) {
+        function show_new_message(msg) {
 
             const colors = ["secondary", "light", "dark", "info", "primary"]
 
@@ -160,15 +162,19 @@
                 side = 'right'
             } else if (msg['user_id'] == BOT_ID) {
                 theme = 'alert-success'
-            } else if (user_ids != null) {
+            } else {
+                let cur_speaker_id = msg['data']['speaker_id'];
+                if (cur_speaker_id === undefined) {
+                    cur_speaker_id = user_to_name.get(msg['user_id']);
+                }
                 for (let i = 0; i < user_ids.length; i++) {
-                    if (msg['data']['speaker_id'] == user_ids[i]) {
-                        set_color = colors[i % colors.length]
+                    if (cur_speaker_id == user_ids[i]) {
+                        let set_color = colors[i % colors.length]
                         theme = 'alert-' + set_color
+                        console.log(msg['data']['speaker_id']);
+                        console.log(theme);
                     }
                 }
-            } else {
-                theme = 'alert-dark';
             }
 
             let text_display = msg['text']
@@ -221,8 +227,8 @@
         }
 
         window.onload = () => {
-            const user_ids = []
-            const colors = ["secondary", "light", "dark"]
+            init_update_speaker_id();
+            {#const colors = ["secondary", "light", "dark"]#}
             for (const msg of thread['messages']) {
                 this_user_id = msg['data']['speaker_id']
                 add_element = true
@@ -236,7 +242,7 @@
                 }
             }
             for (const msg of thread['messages']) {
-                show_new_message(msg, user_ids)
+                show_new_message(msg)
             }
             let message_list = thread['messages'];
             prev_user_id = message_list[message_list.length - 1]['user_id'];
@@ -311,6 +317,13 @@
             }
         }
 
+        function init_update_speaker_id() {
+            console.log(thread)
+            Object.keys(thread['speakers']).forEach(key => {
+                user_to_name.set(key, thread['speakers'][key]);
+            })
+        }
+
         function getMessages() {
             fetch({{ url_for("app.get_latest_message", thread_id=thread.id, user_id=cur_user.id) |tojson}})
                 .then(response => response.json())
@@ -321,12 +334,12 @@
                         })
                     }
                     if (data['updated'] === '1' && waiting_for_other_human_reply) {
-                        show_new_message(data, null);
+                        show_new_message(data);
                         waiting_for_other_human_reply = false;
                         prev_user_id = data['user_id'];
                     }
                     if (data['user_id'] !== prev_user_id) {
-                        show_new_message(data, null);
+                        show_new_message(data);
                         prev_user_id = data['user_id'];
                     }
                     refresh_view();

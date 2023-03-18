@@ -240,7 +240,8 @@ class ChatThread(BaseModelWithExternal):
             topic_id=self.topic_id,
             episode_done=self.episode_done,
             users=[u.as_dict() for u in self.users],
-            messages=[m.as_dict() for m in self.messages]
+            messages=[m.as_dict() for m in self.messages],
+            speakers=self.speakers
         )
         
     @property
