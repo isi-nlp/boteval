@@ -356,7 +356,7 @@ def user_controllers(router, service: ChatService):
             return flask.jsonify(reply), 400
         latest_message: ChatMessage = thread.messages[-1]
         reply_dict = latest_message.as_dict() | dict(updated='0')
-        if latest_message.user_id != user_id:
+        if latest_message.user_id != user_id and latest_message.user_id != C.Auth.BOT_USER:
             reply_dict['updated'] = '1'
         return flask.jsonify(reply_dict), 200
 
