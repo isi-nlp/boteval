@@ -220,6 +220,8 @@ class ChatThread(BaseModelWithExternal):
     # key: userid;  value: speaker_id
     speakers = {}
 
+    thread_state: int = db.Column(db.Integer, nullable=False)
+
     # We include the following rows because the topic may be deleted.
     # But we still need to see the content of one thread even if the corresponding
     # topic is gone.

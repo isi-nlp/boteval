@@ -266,6 +266,10 @@ def user_controllers(router, service: ChatService):
             return msg, 400
 
         thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
+        if thread is None:
+            err_msg = 'Another user is loading this chat topic. Please retry after 10 seconds!'
+            return err_msg, 400
+
         return flask.redirect(url_for('app.get_thread', thread_id=thread.id))
 
     @router.route('/thread/<thread_id>', methods=['GET'])

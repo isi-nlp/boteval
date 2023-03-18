@@ -94,6 +94,11 @@ class DialogBotChatManager(ChatManager):
             self.num_turns += 1
             log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
 
+            thread.thread_state = 2
+            db.session.merge(thread)
+            db.session.flush()
+            db.session.commit()
+
     def observe_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
         """
         Observe and reply; input message is from human;
@@ -388,6 +393,9 @@ class ChatService:
             # if tt.human_user_2 is None or tt.human_user_2 == '':
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
             if len(humans) < topic.max_human_users_per_thread:
+                if tt.thread_state == 1:
+                    return None
+
                 log.info('human_user_2 join thread!')
 
                 # store speakers id
@@ -434,6 +442,7 @@ class ChatService:
 
             # user.name = speakers[-1]
             thread.speakers[user.id] = speakers[-1]
+            thread.thread_state = 1
             print('1st user.name is: ', thread.speakers[user.id])
 
             thread.users.append(user)
