@@ -9,7 +9,7 @@
     .dot.one {animation-delay: 0.2s;}
     .dot.two {animation-delay: 0.4s;}
     .dot.three {animation-delay: 0.6s;}
-    
+
     @keyframes showHideDot {
         0% { opacity: 0; }
         50% { opacity: 1; }
@@ -48,12 +48,12 @@
                     </div>
                 </form>
                 <div id="waiting_info" class="text-center alert alert-primary" style="display: none;">
-                        Wait for reply 
+                        Wait for reply
                         <span class="dot one">⦿</span>
                         <span class="dot two">⦿</span>
                         <span class="dot three">⦿</span>
                  </div>
-                
+
                 <div id="end_info" class="p-4 alert alert-info">
                     Thanks for participating in the chat! Please submit your ratings to complete this task and receive compensation.
                 </div>
@@ -79,7 +79,7 @@
                         Click the button below if you would like to view more detailed instructions and examples.
                     </li>
                     <li>
-                        Your remaining turns: <code><span id="remaining-turns-count">{{ remaining_turns }}</span> </code>(Refresh to update)
+                        Your remaining turns: <code>{{ remaining_turns }} </code>(Refresh to update)
                     </li>
                 </ul>
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
@@ -92,9 +92,9 @@
                         class="form">
 
                         Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
-                        {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}   
+                        {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
                         <ul class="list-group">
-                            {% for q in rating_questions %}                         
+                            {% for q in rating_questions %}
                             <li class="list-group-item my-1">
                                 <i>{{q['question']}}</i>
                                 <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="0"
@@ -195,7 +195,7 @@
 
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
-            if (remaining_turns < 1 || Boolean({{ 'true' if cur_user.is_admin else 'false' }}) {
+            if (remaining_turns < 1) {
                 $('#end_info').show() // show end info
                 $('#next_msg_form').hide()
                 $('#waiting_info').hide()
@@ -229,7 +229,7 @@
                 if (add_element == true) {
                     user_ids.push(this_user_id)
                 }
-            }           
+            }
             for (const msg of thread['messages']) {
                 show_new_message(msg, user_ids)
             }
@@ -270,18 +270,16 @@
                             $('#ratings-view').show()
                             remaining_turns = 0
                         }
-                        remaining_turns--;
-                        $('#remaining-turns-count').html(remaining_turns);
                         waiting_for_bot_reply = false
                         msg_id = show_new_message(reply)
                         // play_beep();
                     } catch {
                         alert('Something went wrong. See logs.')
-                    }                        
+                    }
                 }).fail(function(){
                     alert('Something went wrong. Could not send message.')
                 })
-            })   
+            })
         }
 
         function ratings_validation(){
@@ -301,7 +299,7 @@
         }
 
         function scroll_chat_to_bottom(){
-            $("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow') 
+            $("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow')
         }
     </script>
 </section>

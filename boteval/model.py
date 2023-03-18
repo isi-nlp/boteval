@@ -217,6 +217,8 @@ class ChatThread(BaseModelWithExternal):
         'User', secondary=UserThread, lazy='subquery',
         backref=db.backref('threads', lazy=True))
 
+    # speakers: List[]
+
     # human_user_1: str = db.column(db.String(100))
     # human_user_2: str = db.column(db.String(100))
 
