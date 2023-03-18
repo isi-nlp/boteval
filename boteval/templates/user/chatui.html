@@ -79,7 +79,7 @@
                         Click the button below if you would like to view more detailed instructions and examples.
                     </li>
                     <li>
-                        Your remaining turns: <code>{{ remaining_turns }} </code>(Refresh to update)
+                        Your remaining turns: <code><span id="remaining-turns-count">{{ remaining_turns }} </span> </code>
                     </li>
                 </ul>
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
@@ -270,6 +270,8 @@
                             $('#ratings-view').show()
                             remaining_turns = 0
                         }
+                        remaining_turns--;
+                        $('#remaining-turns-count').html(remaining_turns);
                         waiting_for_bot_reply = false
                         msg_id = show_new_message(reply)
                         // play_beep();

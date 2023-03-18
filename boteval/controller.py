@@ -358,6 +358,9 @@ def user_controllers(router, service: ChatService):
         reply_dict = latest_message.as_dict() | dict(updated='0')
         if latest_message.user_id != user_id and latest_message.user_id != C.Auth.BOT_USER:
             reply_dict['updated'] = '1'
+        if len(thread.speakers) > 1:
+            reply_dict = reply_dict | dict(updated_speakers=thread.speakers)
+        print(thread.speakers)
         return flask.jsonify(reply_dict), 200
 
     @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])

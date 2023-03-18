@@ -355,9 +355,14 @@ class ChatService:
                 return True, 'User has exceeded maximum permissible threads'
         if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
-            # TODO: Wrong logic when checking threshold for 2-user-chatrooms
-            if topic_thread_count >= topic.max_threads_per_topic:
-                return True, 'This topic has exceeded maximum permissible threads'
+            # If the user is entering a multi-user chatroom,
+            # then we can still possibly enter the room if threads are full
+            if topic.max_human_users_per_thread == 1:
+                if topic_thread_count >= topic.max_threads_per_topic:
+                    return True, 'This topic has exceeded maximum permissible threads'
+            else:
+                if topic_thread_count > topic.max_threads_per_topic:
+                    return True, 'This topic has exceeded maximum permissible threads'
         return False, ''
 
     def get_topics(self):
