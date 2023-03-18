@@ -393,13 +393,14 @@ class ChatService:
                 i = -2
                 while len(speakers) + i >= 0:
                     if speakers[i] != speakers[-1]:
-                        user.name = speakers[i]
+                        # user.name = speakers[i]
+                        tt.speakers[user.id] = speakers[i]
                         break
                     else:
                         i -= 1
 
                 # user.name = speakers[-2]
-                print('2nd user.name is: ', user.name)
+                print('2nd user.name is: ', tt.speakers[user.id])
 
                 tt.users.append(user)
                 # tt.users.append(self.bot_user)
@@ -426,8 +427,9 @@ class ChatService:
             loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
             speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
 
-            user.name = speakers[-1]
-            print('1st user.name is: ', user.name)
+            # user.name = speakers[-1]
+            thread.speakers[user.id] = speakers[-1]
+            print('1st user.name is: ', thread.speakers[user.id])
 
             thread.users.append(user)
             thread.users.append(self.bot_user)
