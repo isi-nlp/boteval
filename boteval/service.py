@@ -77,7 +77,7 @@ class DialogBotChatManager(ChatManager):
         if not thread.messages:
             log.info(f'{thread.id} has no messages, so nothing to init')
             return
-        log.info(f'Init {thread.id} context with {len(thread.messages)} msgs')
+        log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
         for msg in thread.messages:
             msg_dict = self.msg_as_dict(msg=msg)
             self.bot_agent.hear(msg_dict)
