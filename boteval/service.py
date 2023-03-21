@@ -80,7 +80,7 @@ class DialogBotChatManager(ChatManager):
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
         for msg in thread.messages:
             msg_dict = self.msg_as_dict(msg=msg)
-            self.bot_agent.hear(msg_dict)
+            self.bot_agent.hear(msg_dict, is_seed=True)
 
         last_msg = thread.messages[-1]
         if last_msg.user_id == self.human_user_id or (
