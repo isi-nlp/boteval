@@ -171,8 +171,6 @@
                     if (cur_speaker_id == user_ids[i]) {
                         let set_color = colors[i % colors.length]
                         theme = 'alert-' + set_color
-                        console.log(msg['data']['speaker_id']);
-                        console.log(theme);
                     }
                 }
             }
@@ -227,6 +225,13 @@
             new Audio('{{url_for("app.static", filename="img/beep.mp3")}}').play();
         }
 
+        function check_if_2nd_user_should_be_blocked_initially() {
+            let second_user_id = '{{ thread.users[-1].id  }}';
+            if (second_user_id === cur_user_id && prev_user_id === '{{ bot_name }}') {
+                waiting_for_other_human_reply = true;
+            }
+        }
+
         window.onload = () => {
             init_update_speaker_id();
             {#const colors = ["secondary", "light", "dark"]#}
@@ -250,7 +255,8 @@
             if (prev_user_id === cur_user_id) {
                 waiting_for_other_human_reply = true;
             }
-            refresh_view()
+            check_if_2nd_user_should_be_blocked_initially();
+            refresh_view();
 
             // include cross-origin session details with ajax calls
             $.ajaxSetup({
