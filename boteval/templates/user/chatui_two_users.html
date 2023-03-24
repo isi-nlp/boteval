@@ -206,6 +206,7 @@
 
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
+            scroll_chat_to_bottom();
             if (remaining_turns < 1 || Boolean({{ 'true' if cur_user.is_admin else 'false' }})) {
                 $('#end_info').show() // show end info
                 $('#next_msg_form').hide()
@@ -337,21 +338,23 @@
                         show_new_message(data);
                         waiting_for_other_human_reply = false;
                         prev_user_id = data['user_id'];
+                        refresh_view();
                     }
                     if (data['user_id'] !== prev_user_id) {
                         show_new_message(data);
                         prev_user_id = data['user_id'];
+                        refresh_view();
                     }
-                    refresh_view();
                 });
-            {#console.log([...thread.entries()]);#}
-            {#console.log([...user_to_name.entries()]);#}
+
         }
 
         window.setInterval(getMessages, 5000);
 
-        function scroll_chat_to_bottom(){
-            $("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow')
+        function scroll_chat_to_bottom() {
+            const chat_thread = document.getElementById('chat-thread');
+            chat_thread.scrollTop = chat_thread.scrollHeight;
+            {#$("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow')#}
         }
     </script>
 </section>

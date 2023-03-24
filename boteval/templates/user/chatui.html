@@ -195,6 +195,7 @@
 
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
+            scroll_chat_to_bottom();
             if (remaining_turns < 1) {
                 $('#end_info').show() // show end info
                 $('#next_msg_form').hide()
@@ -300,8 +301,10 @@
             }
         }
 
-        function scroll_chat_to_bottom(){
-            $("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow')
+        function scroll_chat_to_bottom() {
+            const chat_thread = document.getElementById('chat-thread');
+            chat_thread.scrollTop = chat_thread.scrollHeight;
+            {#$("#chat-thread").animate({scrollTop: $("#chat-thread").height()}, 'slow')#}
         }
     </script>
 </section>
