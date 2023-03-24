@@ -51,9 +51,11 @@ class DialogBotChatManager(ChatManager):
         # assert len(humans) == 1, f'Expect 1 human in thread {thread.id}; found {len(humans)}; Users: {user_ids}'
         self.human_user_id = humans[0].id
 
-        self.max_turns = max_turns
-        self.num_turns = thread.count_turns(humans[0])
-        
+        self.max_turns = max_turns * thread.max_human_users_per_thread
+        self.num_turns = 0
+        for human in humans:
+            self.num_turns += thread.count_turns(human)
+
         self.bot_transforms = bot_transforms
         self.human_transforms = human_transforms
         
@@ -83,21 +85,28 @@ class DialogBotChatManager(ChatManager):
             self.bot_agent.hear(msg_dict)
 
         last_msg = thread.messages[-1]
-        if last_msg.user_id == self.human_user_id or (
-            self.target_speaker_id and\
-                (last_msg.data or {}).get('speaker_id') == self.target_speaker_id):
-            # Last one was targeted speaker; bot reply here
-            reply: ChatMessage = self.bot_reply()
-            db.session.add(reply)
-            thread.messages.append(reply)
-            db.session.commit()
-            self.num_turns += 1
-            log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
+        if thread.max_human_users_per_thread == 1:
+            if last_msg.user_id == self.human_user_id or (
+                    self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id):
+                self.bot_init_reply(thread)
+        else:
+            if (self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id) \
+                    and thread.thread_state != 2:
+                self.bot_init_reply(thread)
 
-            thread.thread_state = 2
-            db.session.merge(thread)
-            db.session.flush()
-            db.session.commit()
+    def bot_init_reply(self, thread):
+        # Last one was targeted speaker; bot reply here
+        reply: ChatMessage = self.bot_reply()
+        db.session.add(reply)
+        thread.messages.append(reply)
+        db.session.commit()
+        # We should not increment num_turns here, as the bot reply shouldn't be counted.
+        # self.num_turns += 1
+        log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
+        thread.thread_state = 2
+        db.session.merge(thread)
+        db.session.flush()
+        db.session.commit()
 
     def observe_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
         """
@@ -127,8 +136,10 @@ class DialogBotChatManager(ChatManager):
             # So just create a dummy reply
             reply = message
         self.num_turns += 1
-        episode_done = self.num_turns >= self.max_turns
-        log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
+        # If we have >1 users in the chatroom, then we are done if the cur user has completed its
+        # final turn.
+        humans = [user for user in thread.users if user.role == User.ROLE_HUMAN]
+        episode_done = self.num_turns > self.max_turns - len(humans)
         return reply, episode_done
 
     def bot_reply(self) -> ChatMessage:
@@ -368,6 +379,15 @@ class ChatService:
             else:
                 if topic_thread_count > topic.max_threads_per_topic:
                     return True, 'This topic has exceeded maximum permissible threads'
+                elif topic_thread_count == topic.max_threads_per_topic:
+                    # Check if there is a thread with less than max_human_users_per_thread
+                    # If so, allow the user to enter the thread
+                    threads_under_this_topic = ChatThread.query.filter(ChatThread.topic_id == topic.id).all()
+                    for thr in threads_under_this_topic:
+                        humans = [user for user in thr.users if user.role == User.ROLE_HUMAN]
+                        if len(humans) < topic.max_human_users_per_thread:
+                            return False, ''
+                    return True, 'This topic has exceeded maximum permissible threads'
         return False, ''
 
     def get_topics(self):
@@ -386,7 +406,7 @@ class ChatService:
         thread = None
         for tt in topic_threads:
             if any(user.id == tu.id for tu in tt.users):
-                log.info('Topic thread alredy exists; reusing it')
+                log.info('Topic thread already exists; reusing it')
                 thread = tt
                 break
 

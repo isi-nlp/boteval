@@ -185,7 +185,7 @@ def user_controllers(router, service: ChatService):
         user = User.get(user_id)
         log.info(f'Form:: {user_id} {args}')
         if user:# user already exists
-            log.warning(f'User {user_id} lready exists')
+            log.warning(f'User {user_id} already exists')
         else:
             name = args.pop('name', None)
             user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
@@ -341,7 +341,7 @@ def user_controllers(router, service: ChatService):
         try:
             reply, episode_done = service.new_message(msg, thread)
             reply_dict = reply.as_dict() | dict(episode_done=episode_done)
-            log.info(f'Send reply : {reply_dict}')
+            # log.info(f'Send reply : {reply_dict}')
             return flask.jsonify(reply_dict), 200
         except Exception as e:
             log.exception(e)
