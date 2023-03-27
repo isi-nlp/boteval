@@ -339,6 +339,15 @@ class ChatService:
                 db.session.add_all(objs)
             # self.init_sub_topics()
         db.session.commit()
+        # The chatui_two_users.html requires the ChatThread.speakers map.
+        # Since the map cannot be stored in the database, we need to recreate the map if the server restarts.
+        threads = ChatThread.query.all()
+        for thread in threads:
+            if thread.max_human_users_per_thread > 1:
+                if thread.user_1st is not None:
+                    thread.speakers[thread.user_1st] = thread.speaker_1st
+                if thread.user_2nd is not None:
+                    thread.speakers[thread.user_2nd] = thread.speaker_2nd
 
     # def init_sub_topics(self):
     #     """

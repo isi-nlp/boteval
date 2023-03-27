@@ -360,12 +360,6 @@ def user_controllers(router, service: ChatService):
                          description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
             return flask.jsonify(reply), 400
 
-        if user_id == thread.user_1st:
-            thread.speakers[user_id] = thread.speaker_1st
-        else:
-            if thread.user_2nd is not None and user_id == thread.user_2nd:
-                thread.speakers[user_id] = thread.speaker_2nd
-
         latest_message: ChatMessage = thread.messages[-1]
         reply_dict = latest_message.as_dict() | dict(updated='0')
         if latest_message.user_id != user_id and latest_message.user_id != C.Auth.BOT_USER:
