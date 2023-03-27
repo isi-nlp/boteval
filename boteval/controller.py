@@ -366,7 +366,7 @@ def user_controllers(router, service: ChatService):
             reply_dict['updated'] = '1'
         if len(thread.speakers) > 1:
             reply_dict = reply_dict | dict(updated_speakers=thread.speakers)
-        print(thread.users)
+        # print(thread.users)
         return flask.jsonify(reply_dict), 200
 
     @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
