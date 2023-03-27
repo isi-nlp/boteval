@@ -181,7 +181,7 @@ class ChatService:
         bot_args = config['chatbot'].get('bot_args') or {}
 
         # Currently, the engine names are hard-coded here
-        self.engines = ['text-davinci-003', 'gpt-3.5-turbo']
+        self.engines = ['text-davinci-003', 'gpt-3.5-turbo', 'gpt-4']
 
         # Starting to load all ids from persona_configs.json
 
