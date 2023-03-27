@@ -428,17 +428,19 @@ class ChatService:
                     if speakers[i] != speakers[-1]:
                         # user.name = speakers[i]
                         tt.speakers[user.id] = speakers[i]
+                        tt.user_2nd = user.id
+                        tt.speaker_2nd = speakers[i]
                         break
                     else:
                         i -= 1
 
                 # user.name = speakers[-2]
-                print('2nd user.name is: ', tt.speakers[user.id])
+                log.info(f'2nd user is: {tt.user_2nd}, 2nd speaker is: {tt.speaker_2nd}')
 
                 tt.users.append(user)
                 # tt.users.append(self.bot_user)
                 # tt.users.append(self.context_user)
-                tt.human_user_2 = user.id
+                # tt.human_user_2 = user.id
 
                 db.session.merge(tt)
                 db.session.flush()
@@ -462,8 +464,11 @@ class ChatService:
 
             # user.name = speakers[-1]
             thread.speakers[user.id] = speakers[-1]
+            thread.user_1st = user.id
+            thread.speaker_1st = speakers[-1]
+
             thread.thread_state = 1
-            print('1st user.name is: ', thread.speakers[user.id])
+            log.info(f'1st user is: {thread.user_1st}, 1st speaker is: {thread.speaker_1st}')
 
             thread.users.append(user)
             thread.users.append(self.bot_user)

@@ -219,6 +219,10 @@ class ChatThread(BaseModelWithExternal):
 
     # key: userid;  value: speaker_id
     speakers = {}
+    user_1st = db.Column(db.String(64), nullable=True)
+    speaker_1st = db.Column(db.String(64), nullable=True)
+    user_2nd = db.Column(db.String(64), nullable=True)
+    speaker_2nd = db.Column(db.String(64), nullable=True)
 
     thread_state: int = db.Column(db.Integer, nullable=False)
 
