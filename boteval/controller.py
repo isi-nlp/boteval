@@ -403,6 +403,9 @@ def user_controllers(router, service: ChatService):
         hit_id = request.values.get('hitId')
         worker_id = request.values.get('workerId')          # wont be available while previewing
         submit_url = request.values.get('turkSubmitTo', '') # wont be available while previewing
+        log.info(f'worker {worker_id} is previewing {is_previewing} hit {hit_id} on {submit_url}')
+        log.info(f'submit_url: {submit_url}')
+        log.info(f'request.values: {request.values}')
         if not hit_id:
             return 'HITId not found. This URL is reserved for Mturk users only', 400
         
