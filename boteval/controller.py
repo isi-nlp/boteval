@@ -279,6 +279,7 @@ def user_controllers(router, service: ChatService):
         thread: ChatThread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
+        log.info(thread.data)
         ratings = service.get_rating_questions()
         topic: ChatTopic = service.get_topic(thread.topic_id)
         max_turns = thread.max_turns_per_thread
