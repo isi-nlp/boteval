@@ -331,7 +331,7 @@
         }
 
         function init_update_speaker_id() {
-            {#console.log(thread)#}
+            {#console.log(thread);#}
             Object.keys(thread['speakers']).forEach(key => {
                 user_to_name.set(key, thread['speakers'][key]);
             })
