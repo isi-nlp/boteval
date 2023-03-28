@@ -593,7 +593,7 @@ class ChatService:
                 topic.ext_id = ext_id
                 topic.ext_src = ext_src
                 topic.data[ext_src] = dict(
-                    is_sabdbox = self.crowd_service.is_sandbox,
+                    is_sandbox = self.crowd_service.is_sandbox,
                     time_created = datetime.now().isoformat(),
                     hit_id = ext_id,
                     ext_url = task_url

@@ -267,11 +267,11 @@
                 $.post(post_url, {text: text}).done(reply => {
                     $('#next_msg_text').val('')
                     try {
+                        remaining_turns--;
                         if (reply['episode_done']) {
                             $('#ratings-view').show()
                             remaining_turns = 0
                         }
-                        remaining_turns--;
                         $('#remaining-turns-count').html(remaining_turns);
                         waiting_for_bot_reply = false
                         msg_id = show_new_message(reply)
