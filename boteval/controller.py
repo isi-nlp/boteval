@@ -185,7 +185,7 @@ def user_controllers(router, service: ChatService):
         user = User.get(user_id)
         log.info(f'Form:: {user_id} {args}')
         if user:# user already exists
-            log.warning(f'User {user_id} lready exists')
+            log.warning(f'User {user_id} already exists')
         else:
             name = args.pop('name', None)
             user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
@@ -266,13 +266,17 @@ def user_controllers(router, service: ChatService):
             return msg, 400
 
         thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
+        if thread is None:
+            err_msg = 'Another user is loading this chat topic. Please retry after 10 seconds!'
+            return err_msg, 400
+
         return flask.redirect(url_for('app.get_thread', thread_id=thread.id))
 
     @router.route('/thread/<thread_id>', methods=['GET'])
     @FL.login_required
     def get_thread(thread_id, focus_mode=False):
         focus_mode = focus_mode or request.values.get('focus_mode')
-        thread = service.get_thread(thread_id)
+        thread: ChatThread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
         ratings = service.get_rating_questions()
@@ -288,17 +292,31 @@ def user_controllers(router, service: ChatService):
 
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
 
-        return render_template('user/chatui.html', limits=service.limits,
-                               thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
-                               thread=thread,
-                               topic=topic,
-                               socket_name=thread.socket_name,
-                               rating_questions=ratings,
-                               focus_mode=focus_mode,
-                               remaining_turns=remaining_turns,
-                               instructions_html=service.instructions,
-                               show_text_extra = FL.current_user.is_admin,
-                               data=dict())
+        if thread.max_human_users_per_thread == 1:
+            return render_template('user/chatui.html', limits=service.limits,
+                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
+                                   thread=thread,
+                                   topic=topic,
+                                   socket_name=thread.socket_name,
+                                   rating_questions=ratings,
+                                   focus_mode=focus_mode,
+                                   remaining_turns=remaining_turns,
+                                   instructions_html=service.instructions,
+                                   show_text_extra=FL.current_user.is_admin,
+                                   data=dict())
+        elif thread.max_human_users_per_thread == 2:
+            return render_template('user/chatui_two_users.html', limits=service.limits,
+                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
+                                   thread=thread,
+                                   topic=topic,
+                                   socket_name=thread.socket_name,
+                                   rating_questions=ratings,
+                                   focus_mode=focus_mode,
+                                   remaining_turns=remaining_turns,
+                                   instructions_html=service.instructions,
+                                   show_text_extra=FL.current_user.is_admin,
+                                   bot_name=C.Auth.BOT_USER,
+                                   data=dict())
 
     @router.route('/thread/<thread_id>/<user_id>/message', methods=['POST'])
     #@FL.login_required  <-- login didnt work in iframe in mturk
@@ -324,11 +342,32 @@ def user_controllers(router, service: ChatService):
         try:
             reply, episode_done = service.new_message(msg, thread)
             reply_dict = reply.as_dict() | dict(episode_done=episode_done)
-            log.info(f'Send reply : {reply_dict}')
+            # log.info(f'Send reply : {reply_dict}')
             return flask.jsonify(reply_dict), 200
         except Exception as e:
             log.exception(e)
             return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
+
+    @router.route('/thread/<thread_id>/<user_id>/latest_message', methods=['GET'])
+    def get_latest_message(thread_id, user_id):
+        thread = service.get_thread(thread_id)
+        if not thread:
+            return f'Thread {thread_id}  NOT found', 404
+        user = User.get(user_id)
+        if not user or user not in thread.users:
+            log.warning('user is not part of thread')
+            reply = dict(status=C.ERROR,
+                         description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
+            return flask.jsonify(reply), 400
+
+        latest_message: ChatMessage = thread.messages[-1]
+        reply_dict = latest_message.as_dict() | dict(updated='0')
+        if latest_message.user_id != user_id and latest_message.user_id != C.Auth.BOT_USER:
+            reply_dict['updated'] = '1'
+        if len(thread.speakers) > 1:
+            reply_dict = reply_dict | dict(updated_speakers=thread.speakers)
+        # print(thread.users)
+        return flask.jsonify(reply_dict), 200
 
     @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
     #@FL.login_required   <-- login didnt work in iframe in mturk
@@ -489,6 +528,7 @@ def admin_controllers(router, service: ChatService):
                                                       persona_id=args['persona_id'],
                                                       max_threads_per_topic=int(args['max_threads_per_topic']),
                                                       max_turns_per_thread=int(args['max_turns_per_thread']),
+                                                      max_human_users_per_thread=int(args['max_human_users_per_thread']),
                                                       reward=args['reward'])
             return redirect(url_for('admin.get_topics'))
 

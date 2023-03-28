@@ -216,6 +216,16 @@ class ChatThread(BaseModelWithExternal):
     users: List[User] = db.relationship(
         'User', secondary=UserThread, lazy='subquery',
         backref=db.backref('threads', lazy=True))
+
+    # key: userid;  value: speaker_id
+    speakers = {}
+    user_1st = db.Column(db.String(64), nullable=True)
+    speaker_1st = db.Column(db.String(64), nullable=True)
+    user_2nd = db.Column(db.String(64), nullable=True)
+    speaker_2nd = db.Column(db.String(64), nullable=True)
+
+    thread_state: int = db.Column(db.Integer, nullable=False)
+
     # We include the following rows because the topic may be deleted.
     # But we still need to see the content of one thread even if the corresponding
     # topic is gone.
@@ -223,6 +233,7 @@ class ChatThread(BaseModelWithExternal):
     persona_id: str = db.Column(db.String(64), nullable=True)
     max_threads_per_topic: int = db.Column(db.Integer, nullable=True)
     max_turns_per_thread: int = db.Column(db.Integer, nullable=True)
+    max_human_users_per_thread: int = db.Column(db.Integer, nullable=True)
     reward: str = db.Column(db.String(32), nullable=True)
 
     def count_turns(self, user: User):
@@ -233,7 +244,8 @@ class ChatThread(BaseModelWithExternal):
             topic_id=self.topic_id,
             episode_done=self.episode_done,
             users=[u.as_dict() for u in self.users],
-            messages=[m.as_dict() for m in self.messages]
+            messages=[m.as_dict() for m in self.messages],
+            speakers=self.speakers
         )
         
     @property
@@ -269,6 +281,7 @@ class ChatTopic(BaseModelWithExternal):
     persona_id: str = db.Column(db.String(64), nullable=False)
     max_threads_per_topic: int = db.Column(db.Integer, nullable=False)
     max_turns_per_thread: int = db.Column(db.Integer, nullable=False)
+    max_human_users_per_thread: int = db.Column(db.Integer, nullable=False)
     reward: str = db.Column(db.String(32), nullable=False)
 
     def as_dict(self):
@@ -276,21 +289,21 @@ class ChatTopic(BaseModelWithExternal):
 
     @classmethod
     def create_new(cls, super_topic: SuperTopic, engine, persona_id, max_threads_per_topic,
-                   max_turns_per_thread, reward):
+                   max_turns_per_thread, max_human_users_per_thread, reward):
         cur_task_id = super_topic.next_task_id
         cur_id = f'{super_topic.id}_{cur_task_id:03d}'
         cur_name = f'{super_topic.name}_{cur_task_id:03d}'
         topic = ChatTopic(id=cur_id, name=cur_name, data=super_topic.data, super_topic_id=super_topic.id,
                           ext_id=super_topic.ext_id, ext_src=super_topic.ext_src, engine=engine,
                           persona_id=persona_id, max_threads_per_topic=max_threads_per_topic,
-                          max_turns_per_thread=max_turns_per_thread, reward=reward)
-        log.info(f'Creating New Task {topic.id}')
+                          max_turns_per_thread=max_turns_per_thread,
+                          max_human_users_per_thread=max_human_users_per_thread,
+                          reward=reward)
+        # log.info(f'Creating New Task {topic.id}')
         super_topic.next_task_id += 1
         db.session.add(topic)
         db.session.commit()
         return cls.query.get(topic.id)
 
-    def as_dict(self):
-        return super().as_dict() | dict(name=self.name)
 
 

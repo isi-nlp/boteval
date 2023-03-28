@@ -9,7 +9,7 @@
     .dot.one {animation-delay: 0.2s;}
     .dot.two {animation-delay: 0.4s;}
     .dot.three {animation-delay: 0.6s;}
-
+    
     @keyframes showHideDot {
         0% { opacity: 0; }
         50% { opacity: 1; }
@@ -19,7 +19,9 @@
 </style>
 {%endblock%}
 {% block content %}
-{% set reply_as_user = topic.data.get('target_user') %}
+{#<!-- {% set reply_as_user = topic.data.get('target_user') %} -->#}
+{% set reply_as_user = thread.speakers[cur_user.id] %}
+
 <section style="background-color: #eee;">
     {% if not focus_mode %}
     <nav aria-label="breadcrumb">
@@ -48,12 +50,12 @@
                     </div>
                 </form>
                 <div id="waiting_info" class="text-center alert alert-primary" style="display: none;">
-                        Wait for reply
+                        Wait for reply 
                         <span class="dot one">⦿</span>
                         <span class="dot two">⦿</span>
                         <span class="dot three">⦿</span>
                  </div>
-
+                
                 <div id="end_info" class="p-4 alert alert-info">
                     Thanks for participating in the chat! Please submit your ratings to complete this task and receive compensation.
                 </div>
@@ -79,7 +81,7 @@
                         Click the button below if you would like to view more detailed instructions and examples.
                     </li>
                     <li>
-                        Your remaining turns: <code><span id="remaining-turns-count">{{ remaining_turns }} </span> </code>
+                        Your remaining turns: <code> <span id="remaining-turns-count">{{ remaining_turns }} </span> </code>
                     </li>
                 </ul>
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
@@ -134,10 +136,16 @@
         const BOT_ID = 'bot01'
         const show_text_extra = Boolean({{ 'true' if show_text_extra else 'false' }})
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
+        // all_speaker_ids are moved to global scope, so that the bubble color can be found in AJAX (getMessages)
+        // all_speaker_ids is a list of all speaker_id's in the current thread. It does not include any duplicated elements.
+        const all_speaker_ids = []
+        // If waiting_for_other_human_reply is true, then the user is not allowed to send any messages.
+        let waiting_for_other_human_reply = false
+        // prev_user_id is the user_id of the latest message.
+        // It is used to determine if the current human user is the "2nd human" in a 2-human conversation.
+        var prev_user_id;
 
-        let waiting_for_bot_reply = false
-
-        function show_new_message(msg, user_ids) {
+        function show_new_message(msg) {
 
             const colors = ["secondary", "light", "dark", "info", "primary"]
 
@@ -158,9 +166,16 @@
             } else if (msg['user_id'] == BOT_ID) {
                 theme = 'alert-success'
             } else {
-                for (let i = 0; i < user_ids.length; i++) {
-                    if (msg['data']['speaker_id'] == user_ids[i]) {
-                        set_color = colors[i % colors.length]
+                let cur_speaker_id = msg['data']['speaker_id'];
+                // If the current message is from AJAX "get_latest_messages",
+                // then the speaker_id is not included in the message.
+                // But we can still get the speaker_id from the user_to_name map.
+                if (cur_speaker_id === undefined) {
+                    cur_speaker_id = user_to_name.get(msg['user_id']);
+                }
+                for (let i = 0; i < all_speaker_ids.length; i++) {
+                    if (cur_speaker_id == all_speaker_ids[i]) {
+                        let set_color = colors[i % colors.length]
                         theme = 'alert-' + set_color
                     }
                 }
@@ -196,13 +211,13 @@
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
             scroll_chat_to_bottom();
-            if (remaining_turns < 1) {
+            if (remaining_turns < 1 || Boolean({{ 'true' if cur_user.is_admin else 'false' }})) {
                 $('#end_info').show() // show end info
                 $('#next_msg_form').hide()
                 $('#waiting_info').hide()
             } else { // ongoing conversation
                 $('#end_info').hide()
-                if (waiting_for_bot_reply) { // but wating for bot reply
+                if (waiting_for_other_human_reply) { // but wating for bot reply
                     $('#next_msg_form').hide()  // dont let human reply
                     $('#waiting_info').show()  // waiting animation show
                 } else {
@@ -216,25 +231,38 @@
             new Audio('{{url_for("app.static", filename="img/beep.mp3")}}').play();
         }
 
+        function check_if_2nd_user_should_be_blocked_initially() {
+            let second_user_id = '{{ thread.users[-1].id  }}';
+            if (second_user_id === cur_user_id && prev_user_id === '{{ bot_name }}') {
+                waiting_for_other_human_reply = true;
+            }
+        }
+
         window.onload = () => {
-            const user_ids = []
-            const colors = ["secondary", "light", "dark"]
+            init_update_speaker_id();
+            {#const colors = ["secondary", "light", "dark"]#}
             for (const msg of thread['messages']) {
                 this_user_id = msg['data']['speaker_id']
                 add_element = true
-                for (let i = 0; i < user_ids.length; i++) {
-                    if (user_ids[i] == this_user_id) {
+                for (let i = 0; i < all_speaker_ids.length; i++) {
+                    if (all_speaker_ids[i] == this_user_id) {
                         add_element = false
                     }
                 }
                 if (add_element == true) {
-                    user_ids.push(this_user_id)
+                    all_speaker_ids.push(this_user_id)
                 }
             }
             for (const msg of thread['messages']) {
-                show_new_message(msg, user_ids)
+                show_new_message(msg)
             }
-            refresh_view()
+            let message_list = thread['messages'];
+            prev_user_id = message_list[message_list.length - 1]['user_id'];
+            if (prev_user_id === cur_user_id) {
+                waiting_for_other_human_reply = true;
+            }
+            check_if_2nd_user_should_be_blocked_initially();
+            refresh_view();
 
             // include cross-origin session details with ajax calls
             $.ajaxSetup({
@@ -257,7 +285,7 @@
                     console.log('No text to send')
                     return
                 }
-                waiting_for_bot_reply = true
+                waiting_for_other_human_reply = true
                 data = { 'text': text, time_created: new Date().toISOString() }
                 data = { ...user_data, ...data }  //combine two
 
@@ -273,16 +301,17 @@
                         }
                         remaining_turns--;
                         $('#remaining-turns-count').html(remaining_turns);
-                        waiting_for_bot_reply = false
-                        msg_id = show_new_message(reply)
+
+                        // Here, we no longer need the reply from the bot.
+                        prev_user_id = cur_user_id;
                         // play_beep();
                     } catch {
                         alert('Something went wrong. See logs.')
-                    }
+                    }                        
                 }).fail(function(){
                     alert('Something went wrong. Could not send message.')
                 })
-            })
+            })   
         }
 
         function ratings_validation(){
@@ -300,6 +329,39 @@
                 event.preventDefault();
             }
         }
+
+        function init_update_speaker_id() {
+            {#console.log(thread)#}
+            Object.keys(thread['speakers']).forEach(key => {
+                user_to_name.set(key, thread['speakers'][key]);
+            })
+        }
+
+        function getMessages() {
+            fetch({{ url_for("app.get_latest_message", thread_id=thread.id, user_id=cur_user.id) |tojson}})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.hasOwnProperty('updated_speakers')) {
+                        Object.keys(data['updated_speakers']).forEach(key => {
+                            user_to_name.set(key, data['updated_speakers'][key]);
+                        })
+                    }
+                    if (data['updated'] === '1' && waiting_for_other_human_reply) {
+                        show_new_message(data);
+                        waiting_for_other_human_reply = false;
+                        prev_user_id = data['user_id'];
+                        refresh_view();
+                    }
+                    if (data['user_id'] !== prev_user_id) {
+                        show_new_message(data);
+                        prev_user_id = data['user_id'];
+                        refresh_view();
+                    }
+                });
+
+        }
+
+        window.setInterval(getMessages, 5000);
 
         function scroll_chat_to_bottom() {
             const chat_thread = document.getElementById('chat-thread');
