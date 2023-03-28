@@ -279,7 +279,6 @@ def user_controllers(router, service: ChatService):
         thread: ChatThread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
-        log.info(f'thread.data: {thread.data}')
         ratings = service.get_rating_questions()
         topic: ChatTopic = service.get_topic(thread.topic_id)
         max_turns = thread.max_turns_per_thread
@@ -404,9 +403,6 @@ def user_controllers(router, service: ChatService):
         hit_id = request.values.get('hitId')
         worker_id = request.values.get('workerId')          # wont be available while previewing
         submit_url = request.values.get('turkSubmitTo', '') # wont be available while previewing
-        log.info(f'worker {worker_id} is previewing {is_previewing} hit {hit_id} on {submit_url}')
-        log.info(f'submit_url: {submit_url}')
-        log.info(f'request.values: {request.values}')
         if not hit_id:
             return 'HITId not found. This URL is reserved for Mturk users only', 400
         

@@ -462,7 +462,10 @@ class ChatService:
         if not thread and create_if_missing:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
             data = data or {}
-            # data.update(topic.data)
+            # If there is no data from input, we directly use the data from the topic
+            # If there is data, we shouldn't update it with the topic data, otherwise the 'ext_src' might be
+            if not data:
+                data.update(topic.data)
             thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.endpoint,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
                                 max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward,
