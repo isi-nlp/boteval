@@ -204,7 +204,7 @@ class ChatService:
         bot_args = config['chatbot'].get('bot_args') or {}
 
         # Currently, the engine names are hard-coded here
-        self.engines = ['text-davinci-003', 'gpt-3.5-turbo', 'gpt-4']
+        self.endpoints = ['gpt3', 'chatgpt', 'gpt4']
 
         # Starting to load all ids from persona_configs.json
 
@@ -220,13 +220,14 @@ class ChatService:
 
         # Initialize all possible bots
         self.bot_agent_dict = {}
-        for cur_engine_name in self.engines:
+        for cur_endpoint_name in self.endpoints:
             for cur_persona_id in self.persona_id_list:
                 tmp_dict = {
-                    'engine': cur_engine_name,
+                    # 'engine': cur_engine_name,
+                    'default_endpoint': cur_endpoint_name,
                     'persona_id': cur_persona_id
                 }
-                self.bot_agent_dict[(cur_engine_name, cur_persona_id)] = load_bot_agent(bot_name, tmp_dict)
+                self.bot_agent_dict[(cur_endpoint_name, cur_persona_id)] = load_bot_agent(bot_name, tmp_dict)
 
         # self.persona_id = bot_args.get('persona_id')
         # self.bot_agent = load_bot_agent(bot_name, bot_args)
@@ -362,10 +363,10 @@ class ChatService:
     #             db.session.add(cur_topic)
         # db.session.commit()
 
-    def create_topic_from_super_topic(self, super_topic_id, engine, persona_id, max_threads_per_topic,
+    def create_topic_from_super_topic(self, super_topic_id, endpoint, persona_id, max_threads_per_topic,
                                       max_turns_per_thread, max_human_users_per_thread, reward):
         super_topic = SuperTopic.query.get(super_topic_id)
-        new_topic = ChatTopic.create_new(super_topic, engine=engine, persona_id=persona_id,
+        new_topic = ChatTopic.create_new(super_topic, endpoint=endpoint, persona_id=persona_id,
                                          max_threads_per_topic=max_threads_per_topic,
                                          max_turns_per_thread=max_turns_per_thread,
                                          max_human_users_per_thread=max_human_users_per_thread, reward=reward)
@@ -462,7 +463,7 @@ class ChatService:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
             data = data or {}
             data.update(topic.data)
-            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.engine,
+            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.endpoint,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
                                 max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward,
                                 max_human_users_per_thread=topic.max_human_users_per_thread)
