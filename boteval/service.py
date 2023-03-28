@@ -463,7 +463,7 @@ class ChatService:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
             data = data or {}
             # If there is no data from input, we directly use the data from the topic
-            # If there is data, we shouldn't update it with the topic data, otherwise the 'ext_src' might be
+            # If there is data, we shouldn't update it with the topic data, otherwise the 'ext_src' might be overridden
             if not data:
                 data.update(topic.data)
             thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.endpoint,
