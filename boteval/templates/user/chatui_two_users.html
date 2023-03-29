@@ -378,17 +378,31 @@
             fetch({{ url_for("app.get_latest_message", thread_id=thread.id, user_id=cur_user.id) |tojson}})
                 .then(response => response.json())
                 .then(data => {
+                    /**
+                     * If we are the first human user in the chatroom, the speakers dict in the 'thread' json
+                     * doesn't contain the <user_id, speaker_id> mapping for the 2nd human user.
+                     * We need update here.
+                     */
                     if (data.hasOwnProperty('updated_speakers')) {
                         Object.keys(data['updated_speakers']).forEach(key => {
                             user_to_name.set(key, data['updated_speakers'][key]);
                         })
                     }
+                    /**
+                     * If there's a new message from the other human user, we need to update the message and unblock
+                     * current user without refreshing the page.
+                     */
                     if (data['updated'] === '1' && waiting_for_other_human_reply) {
                         show_new_message(data);
                         waiting_for_other_human_reply = false;
                         prev_user_id = data['user_id'];
                         refresh_view();
                     }
+                    /**
+                     * This chuck of code is to handle the case when we don't block the 2nd human user at the beginning.
+                     * If both human users are not blocked, we need to update the message from the other user.
+                     * Of course, now it's not possible to have both human users not blocked, so it's not used.
+                     */
                     if (data['user_id'] !== prev_user_id) {
                         show_new_message(data);
                         prev_user_id = data['user_id'];
@@ -397,9 +411,10 @@
                 });
 
         }
-
+        // Update the chat thread every 5 seconds.
         window.setInterval(getMessages, 5000);
 
+        // Automatically scroll to the bottom of the chat box.
         function scroll_chat_to_bottom() {
             const chat_thread = document.getElementById('chat-thread');
             chat_thread.scrollTop = chat_thread.scrollHeight;
