@@ -524,7 +524,7 @@ def admin_controllers(router, service: ChatService):
             if C.LIMIT_MAX_THREADS_PER_USER in args.keys():
                 service.limits[C.LIMIT_MAX_THREADS_PER_USER] = int(args[C.LIMIT_MAX_THREADS_PER_USER])
             else:
-                service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], engine=args['engine'],
+                service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], endpoint=args['endpoint'],
                                                       persona_id=args['persona_id'],
                                                       max_threads_per_topic=int(args['max_threads_per_topic']),
                                                       max_turns_per_thread=int(args['max_turns_per_thread']),

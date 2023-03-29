@@ -62,10 +62,10 @@
           <td>
             <form method="POST" action="#">
                 <div>
-                    <label for="engine">Engine:</label>
-                    <select name="engine" id="engine">
-                        {% for engine_name in service.engines %}
-                            <option value="{{ engine_name }}">{{ engine_name }}</option>
+                    <label for="endpoint">Endpoint:</label>
+                    <select name="endpoint" id="endpoint">
+                        {% for endpoint_name in service.endpoints %}
+                            <option value="{{ endpoint_name }}">{{ endpoint_name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -109,7 +109,7 @@
               <div>Task ID: {{ topic.id }}</div>
           <ul>
               <li>Num of Threads = {{ topic_thread_counts_dict.get(topic.id, 0) }}</li>
-              <li>Engine: {{ topic.engine }}</li>
+              <li>Endpoint: {{ topic.endpoint }}</li>
               <li>Persona_id: {{ topic.persona_id }}</li>
               <li>Max threads per topic: {{ topic.max_threads_per_topic }}</li>
               <li>Max turns per thread: {{ topic.max_turns_per_thread }}</li>
