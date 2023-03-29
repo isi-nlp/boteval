@@ -145,6 +145,10 @@
         // It is used to determine if the current human user is the "2nd human" in a 2-human conversation.
         var prev_user_id;
 
+        /**
+         * Dynamically show a new message in the chat window.
+         * @param msg a json file containing the message to be shown.
+         */
         function show_new_message(msg) {
 
             const colors = ["secondary", "light", "dark", "info", "primary"]
@@ -160,15 +164,18 @@
 
             let theme = ''
             let side = 'left'
+            // If the message is from the current human user.
             if (msg['user_id'] == cur_user_id || msg['data']['speaker_id'] == reply_as_user) {
                 theme = 'alert-danger'
                 side = 'right'
+            // If the message is from the bot.
             } else if (msg['user_id'] == BOT_ID) {
                 theme = 'alert-success'
             } else {
+                // If the message is from another human user, or chat history.
                 let cur_speaker_id = msg['data']['speaker_id'];
                 // If the current message is from AJAX "get_latest_messages",
-                // then the speaker_id is not included in the message.
+                // then the speaker_id is not included in the message json.
                 // But we can still get the speaker_id from the user_to_name map.
                 if (cur_speaker_id === undefined) {
                     cur_speaker_id = user_to_name.get(msg['user_id']);
@@ -208,6 +215,9 @@
             refresh_view()
         }
 
+        /**
+         * Hide or show the message input form, the waiting animation, and the end survey.
+         */
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
             scroll_chat_to_bottom();
@@ -231,6 +241,10 @@
             new Audio('{{url_for("app.static", filename="img/beep.mp3")}}').play();
         }
 
+        /**
+         * At the beginning of the 2-user conversation, the 2nd human user should be blocked.
+         * The 2nd human user plays the role of the second last speaker in the conversation history.
+         */
         function check_if_2nd_user_should_be_blocked_initially() {
             let second_user_id = '{{ thread.users[-1].id  }}';
             if (second_user_id === cur_user_id && prev_user_id === '{{ bot_name }}') {
@@ -238,9 +252,21 @@
             }
         }
 
+        /**
+         * The "main" function to be called when the page is loaded.
+         */
         window.onload = () => {
             init_update_speaker_id();
             {#const colors = ["secondary", "light", "dark"]#}
+            /**
+             * Here we get the speaker ids of all the users in the conversation, and put them in all_speaker_ids.
+               The speaker ids are used to set the color of the message bubble (see the function show_new_message).
+
+               Their color will be colors[i % colors.length], where i is the index of the speaker id in all_speaker_ids.
+               Actually, we should use a set to first store all the speaker_ids, and then convert the set to an array.
+               But I don't want to change the logic of the original developer.
+             */
+
             for (const msg of thread['messages']) {
                 this_user_id = msg['data']['speaker_id']
                 add_element = true
@@ -257,6 +283,10 @@
                 show_new_message(msg)
             }
             let message_list = thread['messages'];
+            /**
+             * When the page is reloaded, the wait_for_other_human_reply flag will be reset. So we need to check it again.
+             * If the last message is from the current user, then the current user is waiting for the other human user to reply.
+             */
             prev_user_id = message_list[message_list.length - 1]['user_id'];
             if (prev_user_id === cur_user_id) {
                 waiting_for_other_human_reply = true;
@@ -278,6 +308,7 @@
                     $("#next_msg_form").submit();
                 }
             });
+            // When user submits a new message.
             $("#next_msg_form").submit(event => {
                 event.preventDefault();
                 var text = $('#next_msg_text').val().trim()
@@ -290,7 +321,7 @@
                 data = { ...user_data, ...data }  //combine two
 
                 msg_id = show_new_message(data, side = 'right')
-                console.log(data)
+                {#console.log(data)#}
                 var post_url = '{{url_for("app.post_new_message", thread_id=thread.id, user_id=cur_user.id)}}'
                 $.post(post_url, {text: text}).done(reply => {
                     $('#next_msg_text').val('')
@@ -330,6 +361,9 @@
             }
         }
 
+        /**
+         * We need to store "which human user is playing which role (speaker abcdef...)" in the conversation.
+         */
         function init_update_speaker_id() {
             {#console.log(thread)#}
             Object.keys(thread['speakers']).forEach(key => {
@@ -337,6 +371,9 @@
             })
         }
 
+        /**
+         * The AJAX call every 5 seconds.
+         */
         function getMessages() {
             fetch({{ url_for("app.get_latest_message", thread_id=thread.id, user_id=cur_user.id) |tojson}})
                 .then(response => response.json())
