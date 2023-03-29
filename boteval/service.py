@@ -201,6 +201,7 @@ class ChatService:
         
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
+        # bot_args are no longer used as we always load all possible bots and chose the one we need at launching.
         bot_args = config['chatbot'].get('bot_args') or {}
 
         # Currently, the engine names are hard-coded here
@@ -365,6 +366,11 @@ class ChatService:
 
     def create_topic_from_super_topic(self, super_topic_id, endpoint, persona_id, max_threads_per_topic,
                                       max_turns_per_thread, max_human_users_per_thread, reward):
+        """
+        Create a topic from a super topic
+        The terminology is confusing.  A super topic is a topic in the old version.
+        A topic is a task. Each task under the same super topic shares the same conversation history.
+        """
         super_topic = SuperTopic.query.get(super_topic_id)
         new_topic = ChatTopic.create_new(super_topic, endpoint=endpoint, persona_id=persona_id,
                                          max_threads_per_topic=max_threads_per_topic,
@@ -375,18 +381,22 @@ class ChatService:
 
     def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
         # total_threads = db.session.query(func.count(ChatThread.id)).scalar()
+        # Check if the user reached the max_threads_per_user.
         if user and self.limits.get(C.LIMIT_MAX_THREADS_PER_USER, 0) > 0:
             user_thread_count = ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).count()
             if user_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_USER]:
                 return True, 'User has exceeded maximum permissible threads'
         if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
-            # If the user is entering a multi-user chatroom,
-            # then we can still possibly enter the room if threads are full
+            # If the user is trying to enter a single-user chatroom,
+            # we just need to check if the topic has reached the max_threads_per_topic
             if topic.max_human_users_per_thread == 1:
                 if topic_thread_count >= topic.max_threads_per_topic:
                     return True, 'This topic has exceeded maximum permissible threads'
             else:
+                # If the user is entering a multi-user chatroom,
+                # then we can still possibly enter the room if max_threads_per_topic is reached
+                # (Because there might be a thread with less than max_human_users_per_thread number of users)
                 if topic_thread_count > topic.max_threads_per_topic:
                     return True, 'This topic has exceeded maximum permissible threads'
                 elif topic_thread_count == topic.max_threads_per_topic:
@@ -411,6 +421,14 @@ class ChatService:
 
     def get_thread_for_topic(self, user, topic: ChatTopic, create_if_missing=True,
                              ext_id=None, ext_src=None, data=None) -> Optional[ChatThread]:
+        """
+        Get the thread for the given topic and given user.
+        Since one user can only participate one thread of the same topic (task), with the given topic(task) and user,
+        there is only one thread that can be returned.
+
+        If there's no thread for the given topic and user (i.e., user first time clicking this topic),
+        create a new thread if create_if_missing is True.
+        """
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
         thread = None
@@ -423,6 +441,8 @@ class ChatService:
             # if tt.human_user_2 is None or tt.human_user_2 == '':
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
             if len(humans) < topic.max_human_users_per_thread:
+                # Mark the thread as "is being created".
+                # This is to prevent other users from joining the thread at the same time.
                 if tt.thread_state == 1:
                     return None
 

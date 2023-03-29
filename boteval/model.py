@@ -271,6 +271,9 @@ class SuperTopic(BaseModelWithExternal):
 
 
 class ChatTopic(BaseModelWithExternal):
+    """
+    A model represents a task. Each topic has an one-to-one relationship with one Mturk assignment.
+    """
 
     __tablename__ = 'topic'
 
