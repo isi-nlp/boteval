@@ -293,6 +293,8 @@ def user_controllers(router, service: ChatService):
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
 
         if thread.max_human_users_per_thread == 1:
+            log.info(f'thread messages: {thread.messages}')
+            log.info(f'thread json: {thread.as_dict()}')
             return render_template('user/chatui.html', limits=service.limits,
                                    thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
                                    thread=thread,
