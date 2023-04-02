@@ -341,15 +341,6 @@ class ChatService:
                 db.session.add_all(objs)
             # self.init_sub_topics()
         db.session.commit()
-        # The chatui_two_users.html requires the ChatThread.speakers map.
-        # Since the map cannot be stored in the database, we need to recreate the map if the server restarts.
-        threads = ChatThread.query.all()
-        for thread in threads:
-            if thread.max_human_users_per_thread > 1:
-                if thread.user_1st is not None:
-                    thread.speakers[thread.user_1st] = thread.speaker_1st
-                if thread.user_2nd is not None:
-                    thread.speakers[thread.user_2nd] = thread.speaker_2nd
 
     # def init_sub_topics(self):
     #     """
@@ -458,20 +449,21 @@ class ChatService:
                     if speakers[i] != speakers[-1]:
                         # user.name = speakers[i]
                         tt.speakers[user.id] = speakers[i]
-                        tt.user_2nd = user.id
-                        tt.speaker_2nd = speakers[i]
+                        # tt.user_2nd = user.id
+                        # tt.speaker_2nd = speakers[i]
                         break
                     else:
                         i -= 1
 
                 # user.name = speakers[-2]
-                log.info(f'2nd user is: {tt.user_2nd}, 2nd speaker is: {tt.speaker_2nd}')
+                log.info(f'2nd user is: {user.id}, 2nd speaker is: {tt.speakers[user.id]}')
 
                 tt.users.append(user)
                 # tt.users.append(self.bot_user)
                 # tt.users.append(self.context_user)
                 # tt.human_user_2 = user.id
 
+                tt.flag_speakers_modified()
                 db.session.merge(tt)
                 db.session.flush()
                 db.session.commit()
@@ -496,12 +488,15 @@ class ChatService:
             speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
 
             # user.name = speakers[-1]
+            if thread.speakers is None:
+                thread.speakers = {}
+
             thread.speakers[user.id] = speakers[-1]
-            thread.user_1st = user.id
-            thread.speaker_1st = speakers[-1]
+            # thread.user_1st = user.id
+            # thread.speaker_1st = speakers[-1]
 
             thread.thread_state = 1
-            log.info(f'1st user is: {thread.user_1st}, 1st speaker is: {thread.speaker_1st}')
+            log.info(f'1st user is: {user.id}, 1st speaker is: {thread.speakers[user.id]}')
 
             thread.users.append(user)
             thread.users.append(self.bot_user)
@@ -628,7 +623,6 @@ class ChatService:
 
     # @staticmethod
     def delete_topic(self, topic: ChatTopic):
-        # print('delete topic function called !!! ', topic.id)
         db.session.delete(topic)
         db.session.commit()
 
