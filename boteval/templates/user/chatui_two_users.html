@@ -412,7 +412,9 @@
 
         }
         // Update the chat thread every 5 seconds.
-        window.setInterval(getMessages, 5000);
+        if(!Boolean({{ 'true' if cur_user.is_admin else 'false' }})) {
+            window.setInterval(getMessages, 5000);
+        }
 
         // Automatically scroll to the bottom of the chat box.
         function scroll_chat_to_bottom() {
