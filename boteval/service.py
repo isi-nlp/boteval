@@ -377,6 +377,15 @@ class ChatService:
             user_thread_count = ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).count()
             if user_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_USER]:
                 return True, 'User has exceeded maximum permissible threads'
+        # Firstly, we check if the current user is trying to re-enter a chatroom
+        # In this case, even if we have reached the max_threads_per_topic limit, we should still let the user
+        # re-enter the chatroom and check their history.
+        topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
+        for tt in topic_threads:
+            if any(user.id == tu.id for tu in tt.users):
+                return False, ''
+        # If the user is not trying to re-enter a chatroom,
+        # we check if the topic has reached the max_threads_per_topic limit
         if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
             # If the user is trying to enter a single-user chatroom,
