@@ -527,9 +527,7 @@ class ChatService:
 
     def get_thread(self, thread_id) -> Optional[ChatThread]:
         result = ChatThread.query.get(thread_id)
-        print('before sorted: ', result.messages)
         result.messages = sorted(result.messages, key=lambda x: x.time_created)
-        print('after sorted: ', result.messages)
         return result
 
     def get_threads(self, user: User) -> List[ChatThread]:
