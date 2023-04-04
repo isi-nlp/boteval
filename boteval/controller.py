@@ -427,9 +427,9 @@ def user_controllers(router, service: ChatService):
         if not topic:
             return 'Invalid HIT or topic ID.', 400
 
-        limit_exceeded, msg = service.limit_check(topic=topic, user=None)
-        if limit_exceeded:
-            return msg, 400
+        # limit_exceeded, msg = service.limit_check(topic=topic, user=None)
+        # if limit_exceeded:
+        #     return msg, 400
 
         if is_previewing: 
             return instructions(focus_mode=True) # sending index page for now. We can do better later
