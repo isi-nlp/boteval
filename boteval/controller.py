@@ -275,6 +275,9 @@ def user_controllers(router, service: ChatService):
     @router.route('/thread/<thread_id>', methods=['GET'])
     @FL.login_required
     def get_thread(thread_id, focus_mode=False):
+        """
+        Go to the thread with the given thread id and user id (current login user).
+        """
         focus_mode = focus_mode or request.values.get('focus_mode')
         thread: ChatThread = service.get_thread(thread_id)
         if not thread:
@@ -350,6 +353,9 @@ def user_controllers(router, service: ChatService):
 
     @router.route('/thread/<thread_id>/<user_id>/latest_message', methods=['GET'])
     def get_latest_message(thread_id, user_id):
+        """
+        Func called by the AJAX script on the user side every 5 seconds.
+        """
         thread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
@@ -359,7 +365,9 @@ def user_controllers(router, service: ChatService):
             reply = dict(status=C.ERROR,
                          description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
             return flask.jsonify(reply), 400
-
+        # We only need to send the last message to the user.
+        # We don't need to worry about there might be >1 messages in the last 5 seconds,
+        # because one user is always blocked after sending one message.
         latest_message: ChatMessage = thread.messages[-1]
         reply_dict = latest_message.as_dict() | dict(updated='0')
         if latest_message.user_id != user_id and latest_message.user_id != C.Auth.BOT_USER:
@@ -419,9 +427,12 @@ def user_controllers(router, service: ChatService):
         if not topic:
             return 'Invalid HIT or topic ID.', 400
 
-        limit_exceeded, msg = service.limit_check(topic=topic, user=None)
-        if limit_exceeded:
-            return msg, 400
+        # We shouldn't check limit here, because we don't know the user yet.
+        # If the user has already participated in this task, we should still allow them to review the history.
+        # So, the following code is commented out.
+        # limit_exceeded, msg = service.limit_check(topic=topic, user=None)
+        # if limit_exceeded:
+        #     return msg, 400
 
         if is_previewing: 
             return instructions(focus_mode=True) # sending index page for now. We can do better later
@@ -506,6 +517,9 @@ def admin_controllers(router, service: ChatService):
     @admin_login_required
     def get_topics():
         if request.method == 'GET':
+            """
+            Go to admin "topics" page.
+            """
             all_super_topics = SuperTopic.query.order_by(SuperTopic.time_updated.desc(), SuperTopic.time_created.desc()).\
                 limit(C.MAX_PAGE_SIZE).all()
             all_topics = ChatTopic.query.order_by(ChatTopic.time_updated.desc(), ChatTopic.time_created.desc()).\
@@ -520,6 +534,9 @@ def admin_controllers(router, service: ChatService):
                                    external_url_ok=service.is_external_url_ok, **admin_templ_args,
                                    topic_thread_counts_dict=topic_thread_counts_dict, service=service)
         else:
+            """
+            "POST" request to create a new topic (task) under a super-topic.
+            """
             args = dict(request.form)
             if C.LIMIT_MAX_THREADS_PER_USER in args.keys():
                 service.limits[C.LIMIT_MAX_THREADS_PER_USER] = int(args[C.LIMIT_MAX_THREADS_PER_USER])

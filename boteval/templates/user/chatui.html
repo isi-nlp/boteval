@@ -217,22 +217,22 @@
         }
 
         window.onload = () => {
-            const user_ids = []
+            const speaker_ids = []
             const colors = ["secondary", "light", "dark"]
             for (const msg of thread['messages']) {
                 this_user_id = msg['data']['speaker_id']
                 add_element = true
-                for (let i = 0; i < user_ids.length; i++) {
-                    if (user_ids[i] == this_user_id) {
+                for (let i = 0; i < speaker_ids.length; i++) {
+                    if (speaker_ids[i] == this_user_id) {
                         add_element = false
                     }
                 }
                 if (add_element == true) {
-                    user_ids.push(this_user_id)
+                    speaker_ids.push(this_user_id)
                 }
             }
             for (const msg of thread['messages']) {
-                show_new_message(msg, user_ids)
+                show_new_message(msg, speaker_ids)
             }
             refresh_view()
 

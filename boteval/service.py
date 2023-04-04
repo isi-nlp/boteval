@@ -201,6 +201,7 @@ class ChatService:
         
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
         bot_name = config['chatbot']['bot_name']
+        # bot_args are no longer used as we always load all possible bots and chose the one we need at launching.
         bot_args = config['chatbot'].get('bot_args') or {}
 
         # Currently, the engine names are hard-coded here
@@ -340,15 +341,6 @@ class ChatService:
                 db.session.add_all(objs)
             # self.init_sub_topics()
         db.session.commit()
-        # The chatui_two_users.html requires the ChatThread.speakers map.
-        # Since the map cannot be stored in the database, we need to recreate the map if the server restarts.
-        threads = ChatThread.query.all()
-        for thread in threads:
-            if thread.max_human_users_per_thread > 1:
-                if thread.user_1st is not None:
-                    thread.speakers[thread.user_1st] = thread.speaker_1st
-                if thread.user_2nd is not None:
-                    thread.speakers[thread.user_2nd] = thread.speaker_2nd
 
     # def init_sub_topics(self):
     #     """
@@ -365,6 +357,11 @@ class ChatService:
 
     def create_topic_from_super_topic(self, super_topic_id, endpoint, persona_id, max_threads_per_topic,
                                       max_turns_per_thread, max_human_users_per_thread, reward):
+        """
+        Create a topic from a super topic
+        The terminology is confusing.  A super topic is a topic in the old version.
+        A topic is a task. Each task under the same super topic shares the same conversation history.
+        """
         super_topic = SuperTopic.query.get(super_topic_id)
         new_topic = ChatTopic.create_new(super_topic, endpoint=endpoint, persona_id=persona_id,
                                          max_threads_per_topic=max_threads_per_topic,
@@ -375,18 +372,32 @@ class ChatService:
 
     def limit_check(self, topic: ChatTopic=None, user: User=None) -> Tuple[bool, str]:
         # total_threads = db.session.query(func.count(ChatThread.id)).scalar()
+        # Check if the user reached the max_threads_per_user.
         if user and self.limits.get(C.LIMIT_MAX_THREADS_PER_USER, 0) > 0:
             user_thread_count = ChatThread.query.join(User, ChatThread.users).filter(User.id==user.id).count()
             if user_thread_count >= self.limits[C.LIMIT_MAX_THREADS_PER_USER]:
                 return True, 'User has exceeded maximum permissible threads'
+        # Firstly, we check if the current user is trying to re-enter a chatroom
+        # In this case, even if we have reached the max_threads_per_topic limit, we should still let the user
+        # re-enter the chatroom and check their history.
+        if User is not None:
+            topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
+            for tt in topic_threads:
+                if any(user.id == tu.id for tu in tt.users):
+                    return False, ''
+        # If the user is not trying to re-enter a chatroom,
+        # we check if the topic has reached the max_threads_per_topic limit
         if topic and topic.max_threads_per_topic:
             topic_thread_count = ChatThread.query.filter(ChatThread.topic_id==topic.id).count()
-            # If the user is entering a multi-user chatroom,
-            # then we can still possibly enter the room if threads are full
+            # If the user is trying to enter a single-user chatroom,
+            # we just need to check if the topic has reached the max_threads_per_topic
             if topic.max_human_users_per_thread == 1:
                 if topic_thread_count >= topic.max_threads_per_topic:
                     return True, 'This topic has exceeded maximum permissible threads'
             else:
+                # If the user is entering a multi-user chatroom,
+                # then we can still possibly enter the room if max_threads_per_topic is reached
+                # (Because there might be a thread with less than max_human_users_per_thread number of users)
                 if topic_thread_count > topic.max_threads_per_topic:
                     return True, 'This topic has exceeded maximum permissible threads'
                 elif topic_thread_count == topic.max_threads_per_topic:
@@ -411,6 +422,14 @@ class ChatService:
 
     def get_thread_for_topic(self, user, topic: ChatTopic, create_if_missing=True,
                              ext_id=None, ext_src=None, data=None) -> Optional[ChatThread]:
+        """
+        Get the thread for the given topic and given user.
+        Since one user can only participate one thread of the same topic (task), with the given topic(task) and user,
+        there is only one thread that can be returned.
+
+        If there's no thread for the given topic and user (i.e., user first time clicking this topic),
+        create a new thread if create_if_missing is True.
+        """
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
         thread = None
@@ -423,6 +442,8 @@ class ChatService:
             # if tt.human_user_2 is None or tt.human_user_2 == '':
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
             if len(humans) < topic.max_human_users_per_thread:
+                # Mark the thread as "is being created".
+                # This is to prevent other users from joining the thread at the same time.
                 if tt.thread_state == 1:
                     return None
 
@@ -438,20 +459,21 @@ class ChatService:
                     if speakers[i] != speakers[-1]:
                         # user.name = speakers[i]
                         tt.speakers[user.id] = speakers[i]
-                        tt.user_2nd = user.id
-                        tt.speaker_2nd = speakers[i]
+                        # tt.user_2nd = user.id
+                        # tt.speaker_2nd = speakers[i]
                         break
                     else:
                         i -= 1
 
                 # user.name = speakers[-2]
-                log.info(f'2nd user is: {tt.user_2nd}, 2nd speaker is: {tt.speaker_2nd}')
+                log.info(f'2nd user is: {user.id}, 2nd speaker is: {tt.speakers[user.id]}')
 
                 tt.users.append(user)
                 # tt.users.append(self.bot_user)
                 # tt.users.append(self.context_user)
                 # tt.human_user_2 = user.id
 
+                tt.flag_speakers_modified()
                 db.session.merge(tt)
                 db.session.flush()
                 db.session.commit()
@@ -476,12 +498,15 @@ class ChatService:
             speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
 
             # user.name = speakers[-1]
+            if thread.speakers is None:
+                thread.speakers = {}
+
             thread.speakers[user.id] = speakers[-1]
-            thread.user_1st = user.id
-            thread.speaker_1st = speakers[-1]
+            # thread.user_1st = user.id
+            # thread.speaker_1st = speakers[-1]
 
             thread.thread_state = 1
-            log.info(f'1st user is: {thread.user_1st}, 1st speaker is: {thread.speaker_1st}')
+            log.info(f'1st user is: {user.id}, 1st speaker is: {thread.speakers[user.id]}')
 
             thread.users.append(user)
             thread.users.append(self.bot_user)
@@ -608,7 +633,6 @@ class ChatService:
 
     # @staticmethod
     def delete_topic(self, topic: ChatTopic):
-        # print('delete topic function called !!! ', topic.id)
         db.session.delete(topic)
         db.session.commit()
 

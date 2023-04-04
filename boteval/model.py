@@ -218,11 +218,7 @@ class ChatThread(BaseModelWithExternal):
         backref=db.backref('threads', lazy=True))
 
     # key: userid;  value: speaker_id
-    speakers = {}
-    user_1st = db.Column(db.String(64), nullable=True)
-    speaker_1st = db.Column(db.String(64), nullable=True)
-    user_2nd = db.Column(db.String(64), nullable=True)
-    speaker_2nd = db.Column(db.String(64), nullable=True)
+    speakers = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     thread_state: int = db.Column(db.Integer, nullable=False)
 
@@ -238,6 +234,10 @@ class ChatThread(BaseModelWithExternal):
 
     def count_turns(self, user: User):
         return sum(msg.user_id == user.id for msg in self.messages)
+
+    def flag_speakers_modified(self):
+        # seql alchemy isnt reliable in recognising modifications to JSON, so we explicitely tell it
+        orm.attributes.flag_modified(self, 'speakers')
 
     def as_dict(self):
         return super().as_dict() | dict(
@@ -271,6 +271,9 @@ class SuperTopic(BaseModelWithExternal):
 
 
 class ChatTopic(BaseModelWithExternal):
+    """
+    A model represents a task. Each topic has an one-to-one relationship with one Mturk assignment.
+    """
 
     __tablename__ = 'topic'
 
