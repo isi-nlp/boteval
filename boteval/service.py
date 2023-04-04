@@ -531,7 +531,9 @@ class ChatService:
         return thread
 
     def get_thread(self, thread_id) -> Optional[ChatThread]:
-        return ChatThread.query.get(thread_id)
+        result = ChatThread.query.get(thread_id)
+        result.messages = sorted(result.messages, key=lambda x: x.time_created)
+        return result
 
     def get_threads(self, user: User) -> List[ChatThread]:
         log.info(f'Querying {user.id}')
