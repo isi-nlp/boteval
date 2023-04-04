@@ -427,6 +427,9 @@ def user_controllers(router, service: ChatService):
         if not topic:
             return 'Invalid HIT or topic ID.', 400
 
+        # We shouldn't check limit here, because we don't know the user yet.
+        # If the user has already participated in this task, we should still allow them to review the history.
+        # So, the following code is commented out.
         # limit_exceeded, msg = service.limit_check(topic=topic, user=None)
         # if limit_exceeded:
         #     return msg, 400
