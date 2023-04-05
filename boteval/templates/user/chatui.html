@@ -268,9 +268,9 @@
                     $('#next_msg_text').val('')
                     try {
                         remaining_turns--;
-                        if (reply['episode_done']) {
-                            $('#ratings-view').show()
-                            remaining_turns = 0
+                        if (remaining_turns == 0 || reply['episode_done']) {
+                            $('#ratings-view').show();
+                            remaining_turns = 0;
                         }
                         $('#remaining-turns-count').html(remaining_turns);
                         waiting_for_bot_reply = false
