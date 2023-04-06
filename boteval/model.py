@@ -173,6 +173,8 @@ class ChatMessage(BaseModelWithExternal):
 
     id: int = db.Column(db.Integer, primary_key=True)
     text: str = db.Column(db.String(2048), nullable=False)
+    is_seed: bool = db.Column(db.Boolean) 
+    
     user_id: str = db.Column(
         db.String(31), db.ForeignKey('user.id'), nullable=False)
     thread_id: int = db.Column(
@@ -185,6 +187,7 @@ class ChatMessage(BaseModelWithExternal):
     def as_dict(self):
         return super().as_dict() |  dict(
             text=self.text,
+            is_seed = self.is_seed, 
             user_id=self.user_id,
             thread_id=self.thread_id,
         )

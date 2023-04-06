@@ -131,7 +131,7 @@
         const reply_as_user = '{{reply_as_user}}'
         const thread = {{ thread_json| safe}}  // json data
         const user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
-        const BOT_ID = 'bot01'
+        const BOT_ID = 'Moderator'
         const show_text_extra = Boolean({{ 'true' if show_text_extra else 'false' }})
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
 
@@ -202,7 +202,7 @@
                 $('#waiting_info').hide()
             } else { // ongoing conversation
                 $('#end_info').hide()
-                if (waiting_for_bot_reply) { // but wating for bot reply
+                if (waiting_for_bot_reply) { // but waiting for bot reply
                     $('#next_msg_form').hide()  // dont let human reply
                     $('#waiting_info').show()  // waiting animation show
                 } else {
@@ -244,6 +244,24 @@
                 },
             });
 
+            // initial submit 
+            // if there is no message in the thread that is from a user with BOT_ID, submit
+            if (!thread['messages'].some(msg => msg['user_id'] == BOT_ID)) {
+                waiting_for_bot_reply = true 
+                refresh_view()
+                
+                var post_url = '{{url_for("app.post_current_thread", thread_id=thread.id, user_id=cur_user.id)}}'
+                $.post(post_url).done(reply => {
+                    try {
+                        waiting_for_bot_reply = false
+                        msg_id = show_new_message(reply)
+                    } catch {
+                        alert('Something went wrong. See logs.')
+                    }
+                }).fail(function(){
+                    alert('Something went wrong. Could not send message.')
+                })
+            }
 
             $("#next_msg_text").keyup(event => {  // submit on enter key
                 if (event.which === 13) {

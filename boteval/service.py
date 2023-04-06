@@ -82,17 +82,18 @@ class DialogBotChatManager(ChatManager):
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
         for msg in thread.messages:
             msg_dict = self.msg_as_dict(msg=msg)
-            self.bot_agent.hear(msg_dict, is_seed=True)
+            self.bot_agent.hear(msg_dict, msg.is_seed)
 
-        last_msg = thread.messages[-1]
-        if thread.max_human_users_per_thread == 1:
-            if last_msg.user_id == self.human_user_id or (
-                    self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id):
-                self.bot_init_reply(thread)
-        else:
-            if (self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id) \
-                    and thread.thread_state != 2:
-                self.bot_init_reply(thread)
+        # don't trigger the first response here, so that the user doesn't have to wait for the reply to see the UI 
+        # last_msg = thread.messages[-1]
+        # if thread.max_human_users_per_thread == 1:
+        #     if last_msg.user_id == self.human_user_id or (
+        #             self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id):
+        #         self.bot_init_reply(thread)
+        # else:
+        #     if (self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id) \
+        #             and thread.thread_state != 2:
+        #         self.bot_init_reply(thread)
 
     def bot_init_reply(self, thread):
         # Last one was targeted speaker; bot reply here
@@ -107,6 +108,9 @@ class DialogBotChatManager(ChatManager):
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
+        episode_done = False
+        
+        return reply, episode_done 
 
     def observe_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
         """
@@ -145,7 +149,7 @@ class DialogBotChatManager(ChatManager):
     def bot_reply(self) -> ChatMessage:
         reply: dict = self.bot_agent.talk()
         reply_text = reply.pop('text')
-        reply = ChatMessage(user_id = self.bot_user_id, text=reply_text,
+        reply = ChatMessage(user_id = self.bot_user_id, text=reply_text, is_seed=False,
                             thread_id = self.thread_id, data=reply)
         if self.bot_transforms:
             reply = self.bot_transforms(reply)
@@ -522,7 +526,7 @@ class ChatService:
                 data = dict(text_orig=m.get('text_orig'),
                             speaker_id=m.get('speaker_id'),
                             fake_start=True)
-                msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, data=data)
+                msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, is_seed=True, data=data)
                 db.session.add(msg)
                 thread.messages.append(msg)
             db.session.merge(thread)
@@ -592,6 +596,11 @@ class ChatService:
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> tuple[ChatMessage, bool]:
         dialog = self.get_dialog_man(thread)
         reply, episode_done = dialog.observe_message(thread, msg)
+        return reply, episode_done
+
+    def current_thread(self, thread:ChatThread) -> tuple[ChatMessage, bool]: 
+        dialog = self.get_dialog_man(thread)
+        reply, episode_done = dialog.bot_init_reply(thread)
         return reply, episode_done
 
     def get_rating_questions(self):

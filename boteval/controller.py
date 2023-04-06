@@ -351,6 +351,30 @@ def user_controllers(router, service: ChatService):
             log.exception(e)
             return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
 
+
+    # same as above but just post current thread without new text 
+    @router.route('/thread/<thread_id>/<user_id>/current_thread', methods=['POST'])
+    def post_current_thread(thread_id, user_id): 
+        thread = service.get_thread(thread_id)
+        if not thread: 
+            return f'Thread {thread_id}  NOT found', 404
+        
+        user = User.get(user_id)
+        if not user or user not in thread.users:
+            log.warning('user is not part of thread')
+            reply = dict(status=C.ERROR,
+                         description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
+            return flask.jsonify(reply), 400
+        
+        try: 
+            reply, episode_done = service.current_thread(thread)
+            reply_dict = reply.as_dict() | dict(episode_done=episode_done)
+            return flask.jsonify(reply_dict), 200
+        except Exception as e:
+            log.exception(e)
+            return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
+    
+
     @router.route('/thread/<thread_id>/<user_id>/latest_message', methods=['GET'])
     def get_latest_message(thread_id, user_id):
         """

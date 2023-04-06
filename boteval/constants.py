@@ -36,7 +36,7 @@ for env_key in ['GTAG']:
 
 class Auth:
     ADMIN_USER = 'admin'
-    BOT_USER = 'bot01'
+    BOT_USER = 'Moderator'
     DEV_USER = 'dev'
     CONTEXT_USER = 'context'
 

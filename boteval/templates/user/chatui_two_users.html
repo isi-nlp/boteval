@@ -133,7 +133,7 @@
         const reply_as_user = '{{reply_as_user}}'
         const thread = {{ thread_json| safe}}  // json data
         const user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
-        const BOT_ID = 'bot01'
+        const BOT_ID = 'Moderator'
         const show_text_extra = Boolean({{ 'true' if show_text_extra else 'false' }})
         const user_to_name = new Map(thread['users'].map(u => [u['id'], u['name']]))
         // all_speaker_ids are moved to global scope, so that the bubble color can be found in AJAX (getMessages)
