@@ -6,6 +6,7 @@ import functools
 from datetime import datetime
 import copy
 import time
+import re
 
 import flask
 import requests
@@ -82,7 +83,7 @@ class DialogBotChatManager(ChatManager):
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
         for msg in thread.messages:
             msg_dict = self.msg_as_dict(msg=msg)
-            self.bot_agent.hear(msg_dict, msg.is_seed)
+            self.bot_agent.hear(msg_dict)
 
         # don't trigger the first response here, so that the user doesn't have to wait for the reply to see the UI 
         # last_msg = thread.messages[-1]
@@ -148,7 +149,10 @@ class DialogBotChatManager(ChatManager):
 
     def bot_reply(self) -> ChatMessage:
         reply: dict = self.bot_agent.talk()
-        reply_text = reply.pop('text')
+        reply_text = reply['text']
+        # remove any formatting such that it doesn't show up in the UI
+        if re.match(rf"^{self.bot_user_id}: ", reply_text):
+            reply_text = re.sub(rf"^{self.bot_user_id}: ", "", reply_text)
         reply = ChatMessage(user_id = self.bot_user_id, text=reply_text, is_seed=False,
                             thread_id = self.thread_id, data=reply)
         if self.bot_transforms:
