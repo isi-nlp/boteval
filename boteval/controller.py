@@ -345,7 +345,6 @@ def user_controllers(router, service: ChatService):
         try:
             reply, episode_done = service.new_message(msg, thread)
             reply_dict = reply.as_dict() | dict(episode_done=episode_done)
-            # log.info(f'Send reply : {reply_dict}')
             return flask.jsonify(reply_dict), 200
         except Exception as e:
             log.exception(e)
@@ -394,12 +393,17 @@ def user_controllers(router, service: ChatService):
         # because one user is always blocked after sending one message.
         latest_message: ChatMessage = thread.messages[-1]
         reply_dict = latest_message.as_dict() | dict(updated='0')
-        if latest_message.user_id != user_id and latest_message.user_id != C.Auth.BOT_USER:
+        if latest_message.user_id != user_id:
             reply_dict['updated'] = '1'
         if len(thread.speakers) > 1:
             reply_dict = reply_dict | dict(updated_speakers=thread.speakers)
         # print(thread.users)
         return flask.jsonify(reply_dict), 200
+
+    @router.route('/thread/<thread_id>/get_thread_object', methods=['GET'])
+    def get_thread_object(thread_id) -> ChatThread: 
+        thread = service.get_thread(thread_id)
+        return flask.jsonify(thread.as_dict()), 200
 
     @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
     #@FL.login_required   <-- login didnt work in iframe in mturk

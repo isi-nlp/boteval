@@ -63,6 +63,7 @@ class DialogBotChatManager(ChatManager):
         topic = ChatTopic.query.get(thread.topic_id)
         self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
         self.init_chat_context(thread)
+        self.n_human_users = thread.max_human_users_per_thread
         
     def msg_as_dict(self, msg: ChatMessage) -> dict:
         msg_dict = msg.as_dict()
@@ -85,20 +86,9 @@ class DialogBotChatManager(ChatManager):
             msg_dict = self.msg_as_dict(msg=msg)
             self.bot_agent.hear(msg_dict)
 
-        # don't trigger the first response here, so that the user doesn't have to wait for the reply to see the UI 
-        # last_msg = thread.messages[-1]
-        # if thread.max_human_users_per_thread == 1:
-        #     if last_msg.user_id == self.human_user_id or (
-        #             self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id):
-        #         self.bot_init_reply(thread)
-        # else:
-        #     if (self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id) \
-        #             and thread.thread_state != 2:
-        #         self.bot_init_reply(thread)
-
     def bot_init_reply(self, thread):
         # Last one was targeted speaker; bot reply here
-        reply: ChatMessage = self.bot_reply()
+        reply: ChatMessage = self.bot_reply(n_users=self.n_human_users)
         db.session.add(reply)
         thread.messages.append(reply)
         db.session.commit()
@@ -113,46 +103,47 @@ class DialogBotChatManager(ChatManager):
         
         return reply, episode_done 
 
-    def observe_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
+    def observe_and_reply_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
         """
         Observe and reply; input message is from human;
         return (bot reply, episode_done)
         """
         assert thread.id == self.thread_id
-        # assert message.user_id == self.human_user_id
+
+        # add new message
         db.session.add(message)
         thread.messages.append(message)
         db.session.commit()
 
-        if thread.max_human_users_per_thread == 1:
-            # Original code for single-user chatroom
-            if self.human_transforms:
-                message = self.human_transforms(message)
-            msg_dict = self.msg_as_dict(message)
-            self.bot_agent.hear(msg_dict)
+        if self.human_transforms:
+            message = self.human_transforms(message)
+        msg_dict = self.msg_as_dict(message)
+        self.bot_agent.hear(msg_dict)
+        
+        reply: ChatMessage = self.bot_reply(n_users = self.n_human_users)
 
-            reply: ChatMessage = self.bot_reply()
-
+        if reply.text.strip(): # if bot responded 
             db.session.add(reply)
             thread.messages.append(reply)
             db.session.commit()
-        else:
-            # If we are in a 2-user chatroom, we don't have a reply here.
-            # So just create a dummy reply
-            reply = message
+
         self.num_turns += 1
         # If we have >1 users in the chatroom, then we are done if the cur user has completed its
         # final turn.
         humans = [user for user in thread.users if user.role == User.ROLE_HUMAN]
         episode_done = self.num_turns > self.max_turns - len(humans)
         return reply, episode_done
-
-    def bot_reply(self) -> ChatMessage:
-        reply: dict = self.bot_agent.talk()
-        reply_text = reply['text']
-        # remove any formatting such that it doesn't show up in the UI
-        if re.match(rf"^{self.bot_user_id}: ", reply_text):
-            reply_text = re.sub(rf"^{self.bot_user_id}: ", "", reply_text)
+        
+    def bot_reply(self, n_users:int=None) -> ChatMessage:
+        reply: dict = self.bot_agent.talk(n_users=n_users)
+        if not reply: #bot decided to not respond 
+            reply_text = ""
+        else: 
+            reply_text = reply['text']            
+            # remove any formatting such that it doesn't show up in the UI
+            if re.match(rf"^{self.bot_user_id}: ", reply_text):
+                reply_text = re.sub(rf"^{self.bot_user_id}: ", "", reply_text)
+                
         reply = ChatMessage(user_id = self.bot_user_id, text=reply_text, is_seed=False,
                             thread_id = self.thread_id, data=reply)
         if self.bot_transforms:
@@ -599,7 +590,7 @@ class ChatService:
 
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> tuple[ChatMessage, bool]:
         dialog = self.get_dialog_man(thread)
-        reply, episode_done = dialog.observe_message(thread, msg)
+        reply, episode_done = dialog.observe_and_reply_message(thread, msg)
         return reply, episode_done
 
     def current_thread(self, thread:ChatThread) -> tuple[ChatMessage, bool]: 
