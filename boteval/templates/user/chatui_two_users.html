@@ -50,7 +50,7 @@
                     </div>
                 </form>
                 <div id="waiting_info" class="text-center alert alert-primary" style="display: none;">
-                        Wait for reply 
+                        Wait for processing
                         <span class="dot one">⦿</span>
                         <span class="dot two">⦿</span>
                         <span class="dot three">⦿</span>
@@ -141,9 +141,11 @@
         const all_speaker_ids = []
         // If waiting_for_other_human_reply is true, then the user is not allowed to send any messages.
         let waiting_for_bot_reply = false
+        // Not used in the current version.
         let waiting_for_other_human_reply = false
         // prev_user_id is the user_id of the latest message.
         // It is used to determine if the current human user is the "2nd human" in a 2-human conversation.
+        // Not used in the current version.
         var prev_user_id;
 
         /**
@@ -201,7 +203,7 @@
                     <i class="text-muted">${text_extra}</i>
                 </details>`
             }
-            let chat_html = `<li style="width:100%">
+            let chat_html = `<li style="width:100%" id = "chat-message-${msg['id']}}">
                 <div class="card ${theme} mb-4" style="float:${side}; width:75%">
                     <div class="card-header d-flex justify-content-between p-2">
                         <p class="fw-bold mb-0"> ${display_user} </p>
@@ -220,7 +222,6 @@
          * Hide or show the message input form, the waiting animation, and the end survey.
          */
         function refresh_view() {
-            //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
             scroll_chat_to_bottom();
             if (remaining_turns < 1 || Boolean({{ 'true' if cur_user.is_admin else 'false' }})) {
                 $('#end_info').show() // show end info
@@ -228,13 +229,13 @@
                 $('#waiting_info').hide()
             } else { // ongoing conversation
                 $('#end_info').hide()
-                /* if (waiting_for_other_human_reply || waiting_for_bot_reply) { // but wating for bot or other human reply
+                if (waiting_for_bot_reply || waiting_for_other_human_reply) { // but wating for bot or other human reply
                     $('#next_msg_form').hide()  // dont let human reply
                     $('#waiting_info').show()  // waiting animation show
                 } else {
                     $('#next_msg_form').show() // let human reply
                     $('#waiting_info').hide() // waiting animation hide
-                }*/ 
+                }
             }
         }
 
@@ -257,7 +258,7 @@
          * The "main" function to be called when the page is loaded.
          */
         window.onload = () => {
-            init_update_speaker_id();
+            update_speaker_ids();
             {#const colors = ["secondary", "light", "dark"]#}
             /**
              * Here we get the speaker ids of all the users in the conversation, and put them in all_speaker_ids.
@@ -283,16 +284,18 @@
             for (const msg of thread['messages']) {
                 show_new_message(msg)
             }
-            let message_list = thread['messages'];
+
             /**
+             * Logic unused for now.
              * When the page is reloaded, the wait_for_other_human_reply flag will be reset. So we need to check it again.
              * If the last message is from the current user, then the current user is waiting for the other human user to reply.
              */
-            prev_user_id = message_list[message_list.length - 1]['user_id'];
-            if (prev_user_id === cur_user_id) {
-                waiting_for_other_human_reply = true;
-            }
-            check_if_2nd_user_should_be_blocked_initially();
+            {#let message_list = thread['messages'];#}
+            {#prev_user_id = message_list[message_list.length - 1]['user_id'];#}
+            {#if (prev_user_id === cur_user_id) {#}
+            {#    waiting_for_other_human_reply = true;#}
+            //}
+            {#check_if_2nd_user_should_be_blocked_initially();#}
             refresh_view();
 
             // include cross-origin session details with ajax calls
@@ -340,7 +343,7 @@
                     console.log('No text to send')
                     return
                 }
-                waiting_for_other_human_reply = true
+                {#waiting_for_other_human_reply = true#}
                 waiting_for_bot_reply = true 
 
                 data = { 'text': text, time_created: new Date().toISOString() }
@@ -368,8 +371,7 @@
                             console.log("showing bot reply: ", reply['text'])
                             msg_id = show_new_message(reply)
                         }
-                        // Here, we no longer need the reply from the bot.
-                        prev_user_id = cur_user_id;
+                        {#prev_user_id = cur_user_id;#}
                         // play_beep();
                     } catch {
                         alert('Something went wrong. See logs.')
@@ -399,8 +401,7 @@
         /**
          * We need to store "which human user is playing which role (speaker abcdef...)" in the conversation.
          */
-        function init_update_speaker_id() {
-            {#console.log(thread);#}
+        function update_speaker_ids() {
             Object.keys(thread['speakers']).forEach(key => {
                 user_to_name.set(key, thread['speakers'][key]);
             })
@@ -409,28 +410,32 @@
         /**
          * The AJAX call every 5 seconds.
          */
-        function getMessages() {
+        function get_messages() {
             fetch({{ url_for("app.get_thread_object", thread_id=thread.id) |tojson}})
                 .then(response => response.json())
                 .then(data => {
 
-                    // get current thread messages length 
-                    let len_current_shown_messages = thread['messages'].length;
-
-                    // for messages beyond current shown messages, show them
-                    for (let i = len_current_shown_messages; i < data['messages'].length; i++) {
-                        let msg = data['messages'][i];
-                        show_new_message(msg);
-                        refresh_view()
-                    }   
+                    render_message_list(data);
 
                     thread = data; // update thread object
+                    // If the current human user is the 1st one entering the chatroom, user_to_name map doesn't
+                    // have the 2nd human user's speaker id. So we need to update it.
+                    update_speaker_ids();
                 });
-
         }
+
+        function render_message_list(thread_object) {
+            // Render the messages.
+            thread_object['messages'].forEach(msg => {
+                if (document.getElementById("chat-message-" + msg['id']) == null) {
+                    show_new_message(msg);
+                }
+            });
+        }
+
         // Update the chat thread every 5 seconds.
         if(!Boolean({{ 'true' if cur_user.is_admin else 'false' }})) {
-            window.setInterval(getMessages, 5000);
+            window.setInterval(get_messages, 5000);
         }
 
         // Automatically scroll to the bottom of the chat box.
