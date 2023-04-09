@@ -128,11 +128,9 @@ class DialogBotChatManager(ChatManager):
             db.session.commit()
 
         self.num_turns += 1
-        log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
-        # If we have >1 users in the chatroom, then we are done if the cur user has completed its
-        # final turn.
+
         humans = [user for user in thread.users if user.role == User.ROLE_HUMAN]
-        episode_done = self.num_turns > self.max_turns - len(humans)
+        episode_done = self.num_turns >= self.max_turns
         return reply, episode_done
         
     def bot_reply(self, n_users:int=None) -> ChatMessage:
@@ -570,7 +568,7 @@ class ChatService:
             thread.data = {}
 
         thread.data.update(dict(ratings=ratings, rating_done=True))
-        # thread.episode_done = True
+        thread.episode_done = True
 
         thread.flag_data_modified()
         db.session.merge(thread)
