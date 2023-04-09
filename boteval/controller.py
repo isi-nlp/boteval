@@ -1,13 +1,13 @@
 
 import functools
-from typing import List
+from typing import List, Tuple
 import random
 from datetime import datetime
 from threading import Thread
 import json
 
 import flask
-from flask import request, url_for, redirect
+from flask import request, url_for, redirect, Response
 import flask_login as FL
 
 from boteval.service import ChatService
@@ -401,7 +401,7 @@ def user_controllers(router, service: ChatService):
         return flask.jsonify(reply_dict), 200
 
     @router.route('/thread/<thread_id>/get_thread_object', methods=['GET'])
-    def get_thread_object(thread_id) -> ChatThread: 
+    def get_thread_object(thread_id) -> tuple[Response, int]:
         thread = service.get_thread(thread_id)
         return flask.jsonify(thread.as_dict()), 200
 
