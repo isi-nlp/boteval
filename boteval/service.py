@@ -569,7 +569,7 @@ class ChatService:
             thread.data = {}
 
         thread.data.update(dict(ratings=ratings, rating_done=True))
-        thread.episode_done = True
+        # thread.episode_done = True
 
         thread.flag_data_modified()
         db.session.merge(thread)
