@@ -147,6 +147,8 @@
         // It is used to determine if the current human user is the "2nd human" in a 2-human conversation.
         // Not used in the current version.
         var prev_user_id;
+        // Record the ChatMessage.id of the latest message locally.
+        var cur_message_id;
 
         /**
          * Dynamically show a new message in the chat window.
@@ -203,7 +205,11 @@
                     <i class="text-muted">${text_extra}</i>
                 </details>`
             }
-            let chat_html = `<li style="width:100%" id = "chat-message-${msg['id']}}">
+            let tmp_id = msg['id'];
+            if (tmp_id === undefined) {
+                tmp_id = ++cur_message_id;
+            }
+            let chat_html = `<li style="width:100%" id = "chat-message-${tmp_id}">
                 <div class="card ${theme} mb-4" style="float:${side}; width:75%">
                     <div class="card-header d-flex justify-content-between p-2">
                         <p class="fw-bold mb-0"> ${display_user} </p>
@@ -284,6 +290,7 @@
             for (const msg of thread['messages']) {
                 show_new_message(msg)
             }
+            cur_message_id = thread['messages'][thread['messages'].length - 1]['id'];
 
             /**
              * Logic unused for now.
@@ -321,6 +328,9 @@
                         if (reply['text'] != ""){
                             console.log("showing bot reply: ", reply['text'])
                             msg_id = show_new_message(reply)
+                        } else {
+                            // Unblock the current user.
+                            refresh_view();
                         }
                     } catch {
                         alert('Something went wrong. See logs.')
@@ -370,6 +380,9 @@
                         if (reply['text'] != ""){
                             console.log("showing bot reply: ", reply['text'])
                             msg_id = show_new_message(reply)
+                        } else {
+                            // Unblock the current user.
+                            refresh_view();
                         }
                         {#prev_user_id = cur_user_id;#}
                         // play_beep();
@@ -421,13 +434,40 @@
                     // If the current human user is the 1st one entering the chatroom, user_to_name map doesn't
                     // have the 2nd human user's speaker id. So we need to update it.
                     update_speaker_ids();
+                    cur_message_id = thread['messages'][thread['messages'].length - 1]['id'];
                 });
         }
 
         function render_message_list(thread_object) {
-            // Render the messages.
+            /*** The message list is fetched every 5 seconds. What if the other user sends > 1 message in the past
+                 5 seconds? In that case, the cur_message_id is not the real last message id in the backend.
+
+             For example, if the latest message id is 10 and the current user is going to send a new message, the new
+             message id should be 11. However, if the other user and bot sent 2 messages in the past 5 seconds as well,
+             the correct id might be 13 instead of 11.
+
+             Illustration of what actually happened:
+             ajax_call ->
+             other user message (id = 11) ->
+             bot reply (id = 12) ->
+             current user message (id = 13) (but we don't know it should be 13 before the next ajax call. We thought it's 11) ->
+             ajax_call
+
+                 So, we need to delete all the messages that are dynamically rendered in the past 5 seconds.
+             */
+            let should_delete = false;
+            $("#chat-thread").forEach(li => {
+                if (li['id'] === "#chat-message-" + cur_message_id) {
+                    should_delete = true;
+                }
+                if (should_delete) {
+                    li.remove();
+                }
+            });
+
+            // Render/update all the messages.
             thread_object['messages'].forEach(msg => {
-                if (document.getElementById("chat-message-" + msg['id']) == null) {
+                if ($("#chat-message-" + msg['id'])[0] == null) {
                     show_new_message(msg);
                 }
             });
