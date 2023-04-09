@@ -453,17 +453,9 @@
              current user message (id = 13) (but we don't know it should be 13 before the next ajax call. We thought it's 11) ->
              ajax_call
 
-                 So, we need to delete all the messages that are dynamically rendered in the past 5 seconds.
+                 So, we need to delete all the messages to cope with such corner cases.
              */
-            let should_delete = false;
-            $("#chat-thread").forEach(li => {
-                if (li['id'] === "#chat-message-" + cur_message_id) {
-                    should_delete = true;
-                }
-                if (should_delete) {
-                    li.remove();
-                }
-            });
+            $("#chat-thread").empty();
 
             // Render/update all the messages.
             thread_object['messages'].forEach(msg => {
