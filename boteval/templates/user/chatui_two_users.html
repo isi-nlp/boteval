@@ -431,9 +431,17 @@
                 .then(data => {
 
                     render_message_list(data);
-                    // if the length of data is longer than the length of thread,
-                    // the user should be notified (new message)
-                    if (data['messages'].length > thread['messages'].length) {
+
+                    /**
+                     * If the length of data is longer than the length of thread, the user should be notified (new message).
+                     * But there are 2 corner cases:
+                     * 1. The last message is from the current user, but we haven't updated it to the local thread object yet.
+                     * 2. The last message is from the bot, replying to current user's last message.
+                     */
+                    if (data['messages'].length > thread['messages'].length &&
+                        data['messages'][data['messages'].length - 1]['user_id'] !== cur_user_id &&
+                        !(data['messages'][data['messages'].length - 1]['user_id'] === BOT_ID &&
+                            data['messages'][data['messages'].length - 2]['user_id'] === cur_user_id)) {
                         play_beep();
                     }
 
