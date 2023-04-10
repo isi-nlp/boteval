@@ -50,7 +50,7 @@
                     </div>
                 </form>
                 <div id="waiting_info" class="text-center alert alert-primary" style="display: none;">
-                        Wait for processing
+                        Waiting for response from bot or other user...
                         <span class="dot one">⦿</span>
                         <span class="dot two">⦿</span>
                         <span class="dot three">⦿</span>
@@ -249,23 +249,15 @@
             new Audio('{{url_for("app.static", filename="img/new_message_beep.mp3")}}').play();
         }
 
-        /**
-         * At the beginning of the 2-user conversation, the 2nd human user should be blocked.
-         * The 2nd human user plays the role of the second last speaker in the conversation history.
-         */
-        function check_if_2nd_user_should_be_blocked_initially() {
-            let second_user_id = '{{ thread.users[-1].id  }}';
-            if (second_user_id === cur_user_id && prev_user_id === '{{ bot_name }}') {
-                waiting_for_other_human_reply = true;
-            }
-        }
 
         /**
          * The "main" function to be called when the page is loaded.
          */
         window.onload = () => {
             update_speaker_ids();
-            {#const colors = ["secondary", "light", "dark"]#}
+            get_messages(); 
+            
+            block_second_user_first_turn(thread); 
             /**
              * Here we get the speaker ids of all the users in the conversation, and put them in all_speaker_ids.
                The speaker ids are used to set the color of the message bubble (see the function show_new_message).
@@ -302,7 +294,6 @@
             {#if (prev_user_id === cur_user_id) {#}
             {#    waiting_for_other_human_reply = true;#}
             //}
-            {#check_if_2nd_user_should_be_blocked_initially();#}
             refresh_view();
 
             // include cross-origin session details with ajax calls
@@ -354,7 +345,7 @@
                     console.log('No text to send')
                     return
                 }
-                {#waiting_for_other_human_reply = true#}
+                waiting_for_other_human_reply = true
                 waiting_for_bot_reply = true 
 
                 data = { 'text': text, time_created: new Date().toISOString() }
@@ -397,6 +388,34 @@
             })   
         }
 
+        function is_second_user(thread){
+            // if cur_user_id = id of last message with is_seed = true
+            last_seed_message = thread['messages'].filter(m => m['is_seed']).slice(-1)[0]
+            console.log(last_seed_message, cur_user_id, reply_as_user)
+            if (last_seed_message['data']['speaker_id'] !== reply_as_user){
+                return true
+            } else {
+                return false
+            }
+        }
+
+        function block_second_user_first_turn(thread){
+            // if bot's first response is in
+            if (is_second_user(thread)) {
+                if (
+                    (!thread['messages'][thread['messages'].length - 1]['is_seed'] && thread['messages'].slice(0, -1).every(m => m['is_seed'])) || 
+                    thread['messages'].every(m => m['is_seed'])) 
+                    {
+                        waiting_for_other_human_reply = true; 
+                        refresh_view();
+                        console.log("should block")
+                        return 
+                    }
+            }
+
+            console.log("should not block")
+        }
+
         function ratings_validation(){
             let invalid = false
             for (const el of $('#ratings-form').find(":input[type='range']")){
@@ -430,26 +449,55 @@
                 .then(response => response.json())
                 .then(data => {
 
-                    render_message_list(data);
+                    // if the number of messages in the thread is different from the number of messages loaded from thread
+                    if (data['messages'].length !== thread['messages'].length) {
+                        render_message_list(data);
+                    
 
-                    /**
-                     * If the length of data is longer than the length of thread, the user should be notified (new message).
-                     * But there are 2 corner cases:
-                     * 1. The last message is from the current user, but we haven't updated it to the local thread object yet.
-                     * 2. The last message is from the bot, replying to current user's last message.
-                     */
-                    if (data['messages'].length > thread['messages'].length &&
-                        data['messages'][data['messages'].length - 1]['user_id'] !== cur_user_id &&
-                        !(data['messages'][data['messages'].length - 1]['user_id'] === BOT_ID &&
-                            data['messages'][data['messages'].length - 2]['user_id'] === cur_user_id)) {
-                        play_beep();
+                        /**
+                        * If the length of data is longer than the length of thread, the user should be notified (new message).
+                        * But there are 2 corner cases:
+                        * 1. The last message is from the current user, but we haven't updated it to the local thread object yet.
+                        * 2. The last message is from the bot, replying to current user's last message.
+                        */
+                        /* if (data['messages'].length > thread['messages'].length &&
+                            data['messages'][data['messages'].length - 1]['user_id'] !== cur_user_id &&
+                            !(data['messages'][data['messages'].length - 1]['user_id'] === BOT_ID &&
+                                data['messages'][data['messages'].length - 2]['user_id'] === cur_user_id)) {
+                            play_beep();
+                        } 
+                        */ 
+
+
+                        /**
+                        * At the beginning of the 2-user conversation, the 2nd human user should be blocked.
+                        * The 2nd human user plays the role of the second last speaker in the conversation history.
+                        */
+                        // if the latest message's is_seed is false and all the others are true
+
+
+
+                        console.log(data['messages'][data['messages'].length - 1]['user_id'], cur_user_id, BOT_ID)
+                        // if the last message is from the other user 
+                        if (data['messages'][data['messages'].length - 1]['user_id'] !== BOT_ID && data['messages'][data['messages'].length - 1]['user_id'] !== cur_user_id) {
+                            waiting_for_other_human_reply = false;
+                            refresh_view(); 
+                            play_beep();
+                        } 
+
+                        thread = data; // update thread object
+                        // If the current human user is the 1st one entering the chatroom, user_to_name map doesn't
+                        // have the 2nd human user's speaker id. So we need to update it.
+                        update_speaker_ids();
+                        cur_message_id = thread['messages'][thread['messages'].length - 1]['id'];  
                     }
 
-                    thread = data; // update thread object
-                    // If the current human user is the 1st one entering the chatroom, user_to_name map doesn't
-                    // have the 2nd human user's speaker id. So we need to update it.
-                    update_speaker_ids();
-                    cur_message_id = thread['messages'][thread['messages'].length - 1]['id'];
+                    if (
+                        (data['messages'][data['messages'].length - 2]['user_id'] === cur_user_id && data['messages'][data['messages'].length - 1]['user_id'] === BOT_ID) || 
+                        data['messages'][data['messages'].length - 1]['user_id'] === cur_user_id) {
+                        waiting_for_other_human_reply = true; 
+                        refresh_view(); 
+                    }
                 });
         }
 
@@ -482,7 +530,7 @@
 
         // Update the chat thread every 5 seconds.
         if(!Boolean({{ 'true' if cur_user.is_admin else 'false' }})) {
-            window.setInterval(get_messages, 5000);
+            window.setInterval(get_messages, 1000);
         }
 
         // Automatically scroll to the bottom of the chat box.
