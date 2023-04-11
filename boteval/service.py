@@ -464,7 +464,8 @@ class ChatService:
                         i -= 1
 
                 tt.assignment_id_dict[user.id] = ext_id
-                tt.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
+                if tt.data.get(ext_src) is not None:
+                    tt.submit_url_dict[user.id] = tt.data.get(ext_src).get('submit_url')
 
                 # user.name = speakers[-2]
                 log.info(f'2nd user is: {user.id}, 2nd speaker is: {tt.speakers[user.id]}')
@@ -515,7 +516,8 @@ class ChatService:
             # thread.speaker_1st = speakers[-1]
 
             thread.assignment_id_dict[user.id] = ext_id
-            thread.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
+            if data.get(ext_src):
+                thread.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
 
             thread.thread_state = 1
             log.info(f'1st user is: {user.id}, 1st speaker is: {thread.speakers[user.id]}')
@@ -577,21 +579,28 @@ class ChatService:
                 super_topic_thread_counts_dict.get(cur_super_topic.id, 0) + count
         return super_topic_thread_counts_dict
 
-    def update_thread_ratings(self, thread: ChatThread, ratings:dict):
+    def update_thread_ratings(self, thread: ChatThread, ratings: dict, user_id: str):
         if thread.data is None:
             thread.data = {}
+        # Initialize ratings dict
+        if thread.data.get('ratings') is None:
+            thread.data['ratings'] = {}
+        # Update ratings dict based on the user_id
+        thread.data.get('ratings').update(dict([[user_id, ratings]]))
 
-        # TODO: split the ratings into 2
-        thread.data.update(dict(ratings=ratings, rating_done=True))
-        thread.episode_done = True
+        if len(thread.data.get('ratings')) == thread.max_human_users_per_thread:
+            thread.data.update(dict(rating_done=True))
+            thread.episode_done = True
 
         thread.flag_data_modified()
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
-        self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
-                                    persona_id=thread.persona_id, max_threads_per_topic=thread.max_threads_per_topic,
-                                    max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
+        if len(thread.data.get('ratings')) == thread.max_human_users_per_thread:
+            self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
+                                        persona_id=thread.persona_id,
+                                        max_threads_per_topic=thread.max_threads_per_topic,
+                                        max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
 
     @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:

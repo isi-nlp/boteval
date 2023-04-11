@@ -294,7 +294,7 @@ def user_controllers(router, service: ChatService):
             remaining_turns = max_turns - thread.count_turns(FL.current_user)
 
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
-
+        log.info(f'data:!!!: {thread.data}')
         if thread.max_human_users_per_thread == 1:
             return render_template('user/chatui.html', limits=service.limits,
                                    thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
@@ -418,8 +418,9 @@ def user_controllers(router, service: ChatService):
             return f'User {user_id} is NOT part of thread', 403
         log.info(f'updating ratings for {thread.id}')
         ratings = {key: val for key, val in request.form.items()}
+        log.info(f'ratings: {ratings}')
         focus_mode = ratings.pop('focus_mode', None)
-        service.update_thread_ratings(thread, ratings=ratings)
+        service.update_thread_ratings(thread, ratings=ratings, user_id=user_id)
         if thread.ext_src in (C.MTURK, C.MTURK_SANDBOX):
             return render_template('user/mturk_submit.html', thread=thread,
                                    user=user, focus_mode=focus_mode)
