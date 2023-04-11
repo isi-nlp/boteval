@@ -463,6 +463,9 @@ class ChatService:
                     else:
                         i -= 1
 
+                tt.assignment_id_dict[user.id] = ext_id
+                tt.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
+
                 # user.name = speakers[-2]
                 log.info(f'2nd user is: {user.id}, 2nd speaker is: {tt.speakers[user.id]}')
 
@@ -499,9 +502,18 @@ class ChatService:
             if thread.speakers is None:
                 thread.speakers = {}
 
+            if thread.assignment_id_dict is None:
+                thread.assignment_id_dict = {}
+
+            if thread.submit_url_dict is None:
+                thread.submit_url_dict = {}
+
             thread.speakers[user.id] = speakers[-1]
             # thread.user_1st = user.id
             # thread.speaker_1st = speakers[-1]
+
+            thread.assignment_id_dict[user.id] = ext_id
+            thread.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
 
             thread.thread_state = 1
             log.info(f'1st user is: {user.id}, 1st speaker is: {thread.speakers[user.id]}')
@@ -567,6 +579,7 @@ class ChatService:
         if thread.data is None:
             thread.data = {}
 
+        # TODO: split the ratings into 2
         thread.data.update(dict(ratings=ratings, rating_done=True))
         thread.episode_done = True
 

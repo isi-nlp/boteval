@@ -222,6 +222,13 @@ class ChatThread(BaseModelWithExternal):
 
     # key: userid;  value: speaker_id
     speakers = db.Column(db.JSON(), nullable=False, server_default='{}')
+    # key: userid;  value: assignment_id
+    # Originally, ChatThread.ext_id is used to store the Assignment_Id.
+    # However, in a multi-user chat, there are multiple assignments, and each user needs their unique assignment_id
+    # to get credits. Thus we need to store the assignment_id for each user.
+    assignment_id_dict = db.Column(db.JSON(), nullable=False, server_default='{}')
+    # key: userid;  value: submit_url
+    submit_url_dict = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     thread_state: int = db.Column(db.Integer, nullable=False)
 
