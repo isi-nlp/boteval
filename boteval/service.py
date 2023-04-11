@@ -82,9 +82,14 @@ class DialogBotChatManager(ChatManager):
             log.info(f'{thread.id} has no messages, so nothing to init')
             return
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
+        topic_appeared = False 
+        self.bot_agent.reset() # important to reset context, otherwise conversations will get mixed up 
+        
         for msg in thread.messages:
             msg_dict = self.msg_as_dict(msg=msg)
             self.bot_agent.hear(msg_dict)
+            
+        assert len(thread.messages) == len(self.bot_agent.context)
 
     def bot_init_reply(self, thread):
         # Last one was targeted speaker; bot reply here
@@ -602,7 +607,7 @@ class ChatService:
                                         max_threads_per_topic=thread.max_threads_per_topic,
                                         max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
 
-    @functools.lru_cache(maxsize=256)
+    # @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
         cur_bot_agent = self.bot_agent_dict[(thread.engine, thread.persona_id)]
         return DialogBotChatManager(thread=thread,
