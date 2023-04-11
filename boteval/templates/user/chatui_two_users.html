@@ -89,7 +89,7 @@
                 {%endif%}
                 <div {% if cur_user.is_admin or remaining_turns> 0 %} style="display:none" {%endif%}
                     id="ratings-view">
-                    {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
+                    {% set is_disabled = 'disabled' if ((thread.data or {}).get('ratings') or {}).get(cur_user.id) else '' %}
                     <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form" onsubmit="ratings_validation()"
                         class="form">
 
