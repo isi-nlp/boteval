@@ -125,7 +125,7 @@
                     {% set is_disabled = 'disabled' %}
                     {% set all_ratings = thread.data.get('ratings') or {} %}
                     {% for one_user_rating in all_ratings.items() %}
-                        Ratings from the user_id: {{one_user_rating[0]}}
+                        Ratings from user: {{one_user_rating[0]}}
                         {% set prev_ratings = one_user_rating[1] or {}%}
                         <ul class="list-group">
                             {% for q in rating_questions %}
