@@ -475,6 +475,8 @@ class ChatService:
                 # tt.human_user_2 = user.id
 
                 tt.flag_speakers_modified()
+                tt.flag_assignment_id_dict_modified()
+                tt.flag_submit_url_dict_modified()
                 db.session.merge(tt)
                 db.session.flush()
                 db.session.commit()

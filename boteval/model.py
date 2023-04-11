@@ -249,6 +249,13 @@ class ChatThread(BaseModelWithExternal):
         # seql alchemy isnt reliable in recognising modifications to JSON, so we explicitely tell it
         orm.attributes.flag_modified(self, 'speakers')
 
+    def flag_assignment_id_dict_modified(self):
+        # sql alchemy isn't reliable in recognising modifications to JSON, so we explicitly tell it
+        orm.attributes.flag_modified(self, 'assignment_id_dict')
+
+    def flag_submit_url_dict_modified(self):
+        orm.attributes.flag_modified(self, 'submit_url_dict')
+
     def as_dict(self):
         return super().as_dict() | dict(
             topic_id=self.topic_id,
