@@ -50,7 +50,6 @@ class DialogBotChatManager(ChatManager):
 
         humans = [ user for user in thread.users if user.role == User.ROLE_HUMAN ]
         # assert len(humans) == 1, f'Expect 1 human in thread {thread.id}; found {len(humans)}; Users: {user_ids}'
-        self.human_user_id = humans[0].id
 
         self.max_turns = max_turns * thread.max_human_users_per_thread
         self.num_turns = 0
@@ -59,22 +58,13 @@ class DialogBotChatManager(ChatManager):
 
         self.bot_transforms = bot_transforms
         self.human_transforms = human_transforms
-        
+                
         topic = ChatTopic.query.get(thread.topic_id)
-        self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
         self.init_chat_context(thread)
         self.n_human_users = thread.max_human_users_per_thread
         
     def msg_as_dict(self, msg: ChatMessage) -> dict:
         msg_dict = msg.as_dict()
-        # fake start user actual speaker Id
-        if msg_dict.get('data') and msg_dict['data'].get('fake_start')\
-            and msg_dict['data'].get('speaker_id'):
-            msg_dict['user_id'] = msg_dict['data']['speaker_id']
-
-        # human message, map to targeted user ID
-        if msg_dict['user_id'] == self.human_user_id and self.target_speaker_id:
-            msg_dict['user_id'] = self.target_speaker_id
         return msg_dict
 
     def init_chat_context(self, thread: ChatThread):
@@ -84,7 +74,7 @@ class DialogBotChatManager(ChatManager):
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
         topic_appeared = False 
         self.bot_agent.reset() # important to reset context, otherwise conversations will get mixed up 
-        
+
         for msg in thread.messages:
             msg_dict = self.msg_as_dict(msg=msg)
             self.bot_agent.hear(msg_dict)
@@ -122,6 +112,7 @@ class DialogBotChatManager(ChatManager):
 
         if self.human_transforms:
             message = self.human_transforms(message)
+            
         msg_dict = self.msg_as_dict(message)
         self.bot_agent.hear(msg_dict)
         
@@ -144,12 +135,9 @@ class DialogBotChatManager(ChatManager):
             reply_text = ""
         else: 
             reply_text = reply['text']            
-            # remove any formatting such that it doesn't show up in the UI
-            if re.match(rf"^{self.bot_user_id}: ", reply_text):
-                reply_text = re.sub(rf"^{self.bot_user_id}: ", "", reply_text)
                 
         reply = ChatMessage(user_id = self.bot_user_id, text=reply_text, is_seed=False,
-                            thread_id = self.thread_id, data=reply)
+                            thread_id = self.thread_id, data={"speaker_id": reply['speaker_id']})
         if self.bot_transforms:
             reply = self.bot_transforms(reply)
         return reply

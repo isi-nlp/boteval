@@ -335,13 +335,14 @@ def user_controllers(router, service: ChatService):
                          description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
             return flask.jsonify(reply), 400
         text = request.form.get('text', None)
+        speaker_id = request.form.get('speaker_id', None)
         if not text or not isinstance(text, str):
             reply = dict(status=C.ERROR,
                          description=f'requires "text" field of type string')
             return flask.jsonify(reply), 400
         
         text = text[:C.MAX_TEXT_LENGTH]
-        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
+        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={"speaker_id": speaker_id})
         try:
             reply, episode_done = service.new_message(msg, thread)
             reply_dict = reply.as_dict() | dict(episode_done=episode_done)

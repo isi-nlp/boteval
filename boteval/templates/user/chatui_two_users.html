@@ -379,13 +379,13 @@
                 waiting_for_other_human_reply = true
                 waiting_for_bot_reply = true 
 
-                data = { 'text': text, time_created: new Date().toISOString() }
+                data = { 'text': text, time_created: new Date().toISOString()}
                 data = { ...user_data, ...data }  //combine two
 
                 msg_id = show_new_message(data, side = 'right')
                 console.log("before posted")
                 var post_url = '{{url_for("app.post_new_message", thread_id=thread.id, user_id=cur_user.id)}}'
-                $.post(post_url, {text: text}).done(reply => {
+                $.post(post_url, {text: text, speaker_id: reply_as_user}).done(reply => {
                     $('#next_msg_text').val('')
                     console.log("posted")
                     try {
@@ -403,7 +403,6 @@
                         if (reply['text'] != ""){
                             console.log("showing bot reply: ", reply['text'])
                             msg_id = show_new_message(reply)
-                            play_beep();
                         } else {
                             // Unblock the current user.
                             refresh_view();

@@ -313,6 +313,10 @@ class ChatTopic(BaseModelWithExternal):
         cur_task_id = super_topic.next_task_id
         cur_id = f'{super_topic.id}_{cur_task_id:03d}'
         cur_name = f'{super_topic.name}_{cur_task_id:03d}'
+        
+        # update target user ids: 
+        
+        
         topic = ChatTopic(id=cur_id, name=cur_name, data=super_topic.data, super_topic_id=super_topic.id,
                           ext_id=super_topic.ext_id, ext_src=super_topic.ext_src, endpoint=endpoint,
                           persona_id=persona_id, max_threads_per_topic=max_threads_per_topic,
