@@ -314,7 +314,7 @@
                 msg_id = show_new_message(data, side = 'right')
                 console.log(data)
                 var post_url = '{{url_for("app.post_new_message", thread_id=thread.id, user_id=cur_user.id)}}'
-                $.post(post_url, {text: text}).done(reply => {
+                $.post(post_url, {text: text, speaker_id: reply_as_user}).done(reply => {
                     $('#next_msg_text').val('')
                     try {
                         remaining_turns--;
