@@ -2,8 +2,8 @@
 
 {% block content %}
 <div class="row">
-    {% set assignment_id = thread.ext_id %}
-    {% set submit_url = thread.data[thread.ext_src]['submit_url'] %}
+    {% set assignment_id = thread.assignment_id_dict[user.id] %}
+    {% set submit_url = thread.submit_url_dict[user.id] %}
 
     <div class="col-12">
         <p class="text"> Great job! This assignment is now complete.<br/><br/>

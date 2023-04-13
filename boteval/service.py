@@ -50,7 +50,6 @@ class DialogBotChatManager(ChatManager):
 
         humans = [ user for user in thread.users if user.role == User.ROLE_HUMAN ]
         # assert len(humans) == 1, f'Expect 1 human in thread {thread.id}; found {len(humans)}; Users: {user_ids}'
-        self.human_user_id = humans[0].id
 
         self.max_turns = max_turns * thread.max_human_users_per_thread
         self.num_turns = 0
@@ -59,21 +58,13 @@ class DialogBotChatManager(ChatManager):
 
         self.bot_transforms = bot_transforms
         self.human_transforms = human_transforms
-        
+                
         topic = ChatTopic.query.get(thread.topic_id)
-        self.target_speaker_id = topic and topic.data and topic.data.get('target_user', None) or None
         self.init_chat_context(thread)
+        self.n_human_users = thread.max_human_users_per_thread
         
     def msg_as_dict(self, msg: ChatMessage) -> dict:
         msg_dict = msg.as_dict()
-        # fake start user actual speaker Id
-        if msg_dict.get('data') and msg_dict['data'].get('fake_start')\
-            and msg_dict['data'].get('speaker_id'):
-            msg_dict['user_id'] = msg_dict['data']['speaker_id']
-
-        # human message, map to targeted user ID
-        if msg_dict['user_id'] == self.human_user_id and self.target_speaker_id:
-            msg_dict['user_id'] = self.target_speaker_id
         return msg_dict
 
     def init_chat_context(self, thread: ChatThread):
@@ -81,24 +72,18 @@ class DialogBotChatManager(ChatManager):
             log.info(f'{thread.id} has no messages, so nothing to init')
             return
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
+        topic_appeared = False 
+        self.bot_agent.reset() # important to reset context, otherwise conversations will get mixed up 
+
         for msg in thread.messages:
             msg_dict = self.msg_as_dict(msg=msg)
             self.bot_agent.hear(msg_dict)
-
-        # don't trigger the first response here, so that the user doesn't have to wait for the reply to see the UI 
-        # last_msg = thread.messages[-1]
-        # if thread.max_human_users_per_thread == 1:
-        #     if last_msg.user_id == self.human_user_id or (
-        #             self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id):
-        #         self.bot_init_reply(thread)
-        # else:
-        #     if (self.target_speaker_id and (last_msg.data or {}).get('speaker_id') == self.target_speaker_id) \
-        #             and thread.thread_state != 2:
-        #         self.bot_init_reply(thread)
+            
+        assert len(thread.messages) == len(self.bot_agent.context)
 
     def bot_init_reply(self, thread):
         # Last one was targeted speaker; bot reply here
-        reply: ChatMessage = self.bot_reply()
+        reply: ChatMessage = self.bot_reply(n_users=self.n_human_users)
         db.session.add(reply)
         thread.messages.append(reply)
         db.session.commit()
@@ -113,48 +98,46 @@ class DialogBotChatManager(ChatManager):
         
         return reply, episode_done 
 
-    def observe_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
+    def observe_and_reply_message(self, thread: ChatThread, message: ChatMessage) -> Tuple[ChatMessage, bool]:
         """
         Observe and reply; input message is from human;
         return (bot reply, episode_done)
         """
         assert thread.id == self.thread_id
-        # assert message.user_id == self.human_user_id
+
+        # add new message
         db.session.add(message)
         thread.messages.append(message)
         db.session.commit()
 
-        if thread.max_human_users_per_thread == 1:
-            # Original code for single-user chatroom
-            if self.human_transforms:
-                message = self.human_transforms(message)
-            msg_dict = self.msg_as_dict(message)
-            self.bot_agent.hear(msg_dict)
+        if self.human_transforms:
+            message = self.human_transforms(message)
+            
+        msg_dict = self.msg_as_dict(message)
+        self.bot_agent.hear(msg_dict)
+        
+        reply: ChatMessage = self.bot_reply(n_users = self.n_human_users)
 
-            reply: ChatMessage = self.bot_reply()
-
+        if reply.text.strip(): # if bot responded 
             db.session.add(reply)
             thread.messages.append(reply)
             db.session.commit()
-        else:
-            # If we are in a 2-user chatroom, we don't have a reply here.
-            # So just create a dummy reply
-            reply = message
-        self.num_turns += 1
-        # If we have >1 users in the chatroom, then we are done if the cur user has completed its
-        # final turn.
-        humans = [user for user in thread.users if user.role == User.ROLE_HUMAN]
-        episode_done = self.num_turns > self.max_turns - len(humans)
-        return reply, episode_done
 
-    def bot_reply(self) -> ChatMessage:
-        reply: dict = self.bot_agent.talk()
-        reply_text = reply['text']
-        # remove any formatting such that it doesn't show up in the UI
-        if re.match(rf"^{self.bot_user_id}: ", reply_text):
-            reply_text = re.sub(rf"^{self.bot_user_id}: ", "", reply_text)
+        self.num_turns += 1
+
+        humans = [user for user in thread.users if user.role == User.ROLE_HUMAN]
+        episode_done = self.num_turns >= self.max_turns
+        return reply, episode_done
+        
+    def bot_reply(self, n_users:int=None) -> ChatMessage:
+        reply: dict = self.bot_agent.talk(n_users=n_users)
+        if not reply: #bot decided to not respond 
+            reply_text = ""
+        else: 
+            reply_text = reply['text']            
+                
         reply = ChatMessage(user_id = self.bot_user_id, text=reply_text, is_seed=False,
-                            thread_id = self.thread_id, data=reply)
+                            thread_id = self.thread_id, data={"speaker_id": reply['speaker_id']})
         if self.bot_transforms:
             reply = self.bot_transforms(reply)
         return reply
@@ -473,6 +456,10 @@ class ChatService:
                     else:
                         i -= 1
 
+                tt.assignment_id_dict[user.id] = ext_id
+                if tt.data.get(ext_src) is not None:
+                    tt.submit_url_dict[user.id] = tt.data.get(ext_src).get('submit_url')
+
                 # user.name = speakers[-2]
                 log.info(f'2nd user is: {user.id}, 2nd speaker is: {tt.speakers[user.id]}')
 
@@ -482,6 +469,8 @@ class ChatService:
                 # tt.human_user_2 = user.id
 
                 tt.flag_speakers_modified()
+                tt.flag_assignment_id_dict_modified()
+                tt.flag_submit_url_dict_modified()
                 db.session.merge(tt)
                 db.session.flush()
                 db.session.commit()
@@ -509,9 +498,19 @@ class ChatService:
             if thread.speakers is None:
                 thread.speakers = {}
 
+            if thread.assignment_id_dict is None:
+                thread.assignment_id_dict = {}
+
+            if thread.submit_url_dict is None:
+                thread.submit_url_dict = {}
+
             thread.speakers[user.id] = speakers[-1]
             # thread.user_1st = user.id
             # thread.speaker_1st = speakers[-1]
+
+            thread.assignment_id_dict[user.id] = ext_id
+            if data.get(ext_src):
+                thread.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
 
             thread.thread_state = 1
             log.info(f'1st user is: {user.id}, 1st speaker is: {thread.speakers[user.id]}')
@@ -573,22 +572,30 @@ class ChatService:
                 super_topic_thread_counts_dict.get(cur_super_topic.id, 0) + count
         return super_topic_thread_counts_dict
 
-    def update_thread_ratings(self, thread: ChatThread, ratings:dict):
+    def update_thread_ratings(self, thread: ChatThread, ratings: dict, user_id: str):
         if thread.data is None:
             thread.data = {}
+        # Initialize ratings dict
+        if thread.data.get('ratings') is None:
+            thread.data['ratings'] = {}
+        # Update ratings dict based on the user_id
+        thread.data.get('ratings').update(dict([[user_id, ratings]]))
 
-        thread.data.update(dict(ratings=ratings, rating_done=True))
-        thread.episode_done = True
+        if len(thread.data.get('ratings')) == thread.max_human_users_per_thread:
+            thread.data.update(dict(rating_done=True))
+            thread.episode_done = True
 
         thread.flag_data_modified()
         db.session.merge(thread)
         db.session.flush()
         db.session.commit()
-        self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
-                                    persona_id=thread.persona_id, max_threads_per_topic=thread.max_threads_per_topic,
-                                    max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
+        if len(thread.data.get('ratings')) == thread.max_human_users_per_thread:
+            self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
+                                        persona_id=thread.persona_id,
+                                        max_threads_per_topic=thread.max_threads_per_topic,
+                                        max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
 
-    @functools.lru_cache(maxsize=256)
+    # @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
         cur_bot_agent = self.bot_agent_dict[(thread.engine, thread.persona_id)]
         return DialogBotChatManager(thread=thread,
@@ -599,7 +606,7 @@ class ChatService:
 
     def new_message(self, msg: ChatMessage, thread: ChatThread) -> tuple[ChatMessage, bool]:
         dialog = self.get_dialog_man(thread)
-        reply, episode_done = dialog.observe_message(thread, msg)
+        reply, episode_done = dialog.observe_and_reply_message(thread, msg)
         return reply, episode_done
 
     def current_thread(self, thread:ChatThread) -> tuple[ChatMessage, bool]: 

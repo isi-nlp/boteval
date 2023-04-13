@@ -10,7 +10,7 @@ from . import (
 )
 
 # get date as string
-date =  datetime.now().strftime('%Y-%m-%d_%H:%M:%S')    
+date =  datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     
 log.add(f"{date}.log")
 

@@ -8,3 +8,4 @@ build/
 darma-task
 # for PyCharm Users
 .idea
+*.log

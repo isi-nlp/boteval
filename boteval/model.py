@@ -222,6 +222,13 @@ class ChatThread(BaseModelWithExternal):
 
     # key: userid;  value: speaker_id
     speakers = db.Column(db.JSON(), nullable=False, server_default='{}')
+    # key: userid;  value: assignment_id
+    # Originally, ChatThread.ext_id is used to store the Assignment_Id.
+    # However, in a multi-user chat, there are multiple assignments, and each user needs their unique assignment_id
+    # to get credits. Thus we need to store the assignment_id for each user.
+    assignment_id_dict = db.Column(db.JSON(), nullable=False, server_default='{}')
+    # key: userid;  value: submit_url
+    submit_url_dict = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     thread_state: int = db.Column(db.Integer, nullable=False)
 
@@ -241,6 +248,13 @@ class ChatThread(BaseModelWithExternal):
     def flag_speakers_modified(self):
         # seql alchemy isnt reliable in recognising modifications to JSON, so we explicitely tell it
         orm.attributes.flag_modified(self, 'speakers')
+
+    def flag_assignment_id_dict_modified(self):
+        # sql alchemy isn't reliable in recognising modifications to JSON, so we explicitly tell it
+        orm.attributes.flag_modified(self, 'assignment_id_dict')
+
+    def flag_submit_url_dict_modified(self):
+        orm.attributes.flag_modified(self, 'submit_url_dict')
 
     def as_dict(self):
         return super().as_dict() | dict(
@@ -299,6 +313,10 @@ class ChatTopic(BaseModelWithExternal):
         cur_task_id = super_topic.next_task_id
         cur_id = f'{super_topic.id}_{cur_task_id:03d}'
         cur_name = f'{super_topic.name}_{cur_task_id:03d}'
+        
+        # update target user ids: 
+        
+        
         topic = ChatTopic(id=cur_id, name=cur_name, data=super_topic.data, super_topic_id=super_topic.id,
                           ext_id=super_topic.ext_id, ext_src=super_topic.ext_src, endpoint=endpoint,
                           persona_id=persona_id, max_threads_per_topic=max_threads_per_topic,

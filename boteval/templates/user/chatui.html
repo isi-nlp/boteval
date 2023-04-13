@@ -85,14 +85,15 @@
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
                     data-target="#instructionsmodal">Detailed Instructions</button>
                 {%endif%}
-                <div {% if not cur_user.is_admin and remaining_turns> 0 %} style="display:none" {%endif%}
+                <div {% if cur_user.is_admin or remaining_turns> 0 %} style="display:none" {%endif%}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
                     <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form" onsubmit="ratings_validation()"
                         class="form">
 
                         Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
-                        {% set prev_ratings = (thread.data or {}).get('ratings') or {}%}
+                        {% set ratings_dict = (thread.data or {}).get('ratings') or {} %}
+                        {% set prev_ratings = ratings_dict.get(cur_user.id) or {} %}
                         <ul class="list-group">
                             {% for q in rating_questions %}
                             <li class="list-group-item my-1">
@@ -118,6 +119,36 @@
                         <input type="submit" value="Submit" class="btn btn-primary my-4 ml-2" {{is_disabled}} />
                     </form>
                     <hr />
+                </div>
+                <div {% if not cur_user.is_admin %} style="display:none" {%endif%}
+                    id="ratings-view">
+                    {% set is_disabled = 'disabled' %}
+                    {% set all_ratings = thread.data.get('ratings') or {} %}
+                    {% for one_user_rating in all_ratings.items() %}
+                        Ratings from user: {{one_user_rating[0]}}
+                        {% set prev_ratings = one_user_rating[1] or {}%}
+                        <ul class="list-group">
+                            {% for q in rating_questions %}
+                            <li class="list-group-item my-1">
+                                <i>{{q['question']}}</i>
+                                <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="0"
+                                    max="{{q['choices']|length}}" name="{{q['question']}}" required
+                                    value="{{prev_ratings.get(q['question']) or 0}}" {{is_disabled}}>
+                                <datalist id="tickmarks-{{loop.index}}"
+                                    style="display: flex; justify-content: space-between; width: 100%;">
+                                    <option></option>
+                                    {% for ch in q['choices'] %}
+                                    <option>{{ch}}</option>
+                                    {%endfor%}
+                                </datalist>
+                            </li>
+                            {% endfor %}
+                            <li class="list-group-item my-1">
+                                <i>Let us know if you have any other thoughts about the chatbot (e.g. how would it have been more effective?) or feedback about the task itself:</i>
+                                <textarea name="optional_feedback" rows="4" style="width: 100%; max-width: 100%;" {{is_disabled}}>{{prev_ratings.get('optional_feedback') or "none"}}</textarea>
+                            </li>
+                        </ul>
+                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -213,7 +244,8 @@
         }
 
         function play_beep() {
-            new Audio('{{url_for("app.static", filename="img/beep.mp3")}}').play();
+            // don't play for single user setting. 
+            // new Audio('{{url_for("app.static", filename="img/new_message_beep.mp3")}}').play();
         }
 
         window.onload = () => {
@@ -293,7 +325,7 @@
                         $('#remaining-turns-count').html(remaining_turns);
                         waiting_for_bot_reply = false
                         msg_id = show_new_message(reply)
-                        // play_beep();
+                        play_beep();
                     } catch {
                         alert('Something went wrong. See logs.')
                     }

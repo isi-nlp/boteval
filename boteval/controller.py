@@ -1,13 +1,13 @@
 
 import functools
-from typing import List
+from typing import List, Tuple
 import random
 from datetime import datetime
 from threading import Thread
 import json
 
 import flask
-from flask import request, url_for, redirect
+from flask import request, url_for, redirect, Response
 import flask_login as FL
 
 from boteval.service import ChatService
@@ -294,7 +294,7 @@ def user_controllers(router, service: ChatService):
             remaining_turns = max_turns - thread.count_turns(FL.current_user)
 
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
-
+        log.info(f'data:!!!: {thread.data}')
         if thread.max_human_users_per_thread == 1:
             return render_template('user/chatui.html', limits=service.limits,
                                    thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
@@ -335,17 +335,17 @@ def user_controllers(router, service: ChatService):
                          description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
             return flask.jsonify(reply), 400
         text = request.form.get('text', None)
+        speaker_id = request.form.get('speaker_id', None)
         if not text or not isinstance(text, str):
             reply = dict(status=C.ERROR,
                          description=f'requires "text" field of type string')
             return flask.jsonify(reply), 400
         
         text = text[:C.MAX_TEXT_LENGTH]
-        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={})
+        msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={"speaker_id": speaker_id})
         try:
             reply, episode_done = service.new_message(msg, thread)
             reply_dict = reply.as_dict() | dict(episode_done=episode_done)
-            # log.info(f'Send reply : {reply_dict}')
             return flask.jsonify(reply_dict), 200
         except Exception as e:
             log.exception(e)
@@ -394,12 +394,17 @@ def user_controllers(router, service: ChatService):
         # because one user is always blocked after sending one message.
         latest_message: ChatMessage = thread.messages[-1]
         reply_dict = latest_message.as_dict() | dict(updated='0')
-        if latest_message.user_id != user_id and latest_message.user_id != C.Auth.BOT_USER:
+        if latest_message.user_id != user_id:
             reply_dict['updated'] = '1'
         if len(thread.speakers) > 1:
             reply_dict = reply_dict | dict(updated_speakers=thread.speakers)
         # print(thread.users)
         return flask.jsonify(reply_dict), 200
+
+    @router.route('/thread/<thread_id>/get_thread_object', methods=['GET'])
+    def get_thread_object(thread_id) -> tuple[Response, int]:
+        thread = service.get_thread(thread_id)
+        return flask.jsonify(thread.as_dict()), 200
 
     @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
     #@FL.login_required   <-- login didnt work in iframe in mturk
@@ -414,8 +419,9 @@ def user_controllers(router, service: ChatService):
             return f'User {user_id} is NOT part of thread', 403
         log.info(f'updating ratings for {thread.id}')
         ratings = {key: val for key, val in request.form.items()}
+        log.info(f'ratings: {ratings}')
         focus_mode = ratings.pop('focus_mode', None)
-        service.update_thread_ratings(thread, ratings=ratings)
+        service.update_thread_ratings(thread, ratings=ratings, user_id=user_id)
         if thread.ext_src in (C.MTURK, C.MTURK_SANDBOX):
             return render_template('user/mturk_submit.html', thread=thread,
                                    user=user, focus_mode=focus_mode)
