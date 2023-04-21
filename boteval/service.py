@@ -196,7 +196,9 @@ class ChatService:
         bot_args = config['chatbot'].get('bot_args') or {}
 
         # Currently, the engine names are hard-coded here
-        self.endpoints = ['gpt3', 'chatgpt', 'gpt4']
+        # self.endpoints = ['gpt3', 'chatgpt', 'gpt4']
+        self.endpoints = config['chatbot']['bot_args']['engines']
+        print('self.endpoints: ', self.endpoints)
 
         # Starting to load all ids from persona_configs.json
 
