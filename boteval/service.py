@@ -177,7 +177,9 @@ class ChatService:
         
         topics_file = self.config['chatbot'].get('topics_file', C.DEF_TOPICS_FILE)
         self.topics_file = self.resolve_path(topics_file)
-        instructions_file = self.config['chatbot'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
+        instructions_file = self.config['onboarding'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
+        log.info('instructions_file is: ', instructions_file)
+
         self.instructions_file = self.resolve_path(instructions_file)
         self._instructions = None
 
