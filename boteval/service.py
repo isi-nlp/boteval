@@ -168,7 +168,7 @@ class FileExportService:
 class ChatService:
 
     def __init__(self, config: TaskConfig, task_dir:Path,
-                 persona_configs_relative_filepath='darma-task/persona_configs.json'):
+                 persona_configs_relative_filepath='persona_configs.json'):
         self.config: TaskConfig = config
         self.task_dir = task_dir
         self.task_dir.mkdir(exist_ok=True, parents=True)
@@ -200,12 +200,7 @@ class ChatService:
         log.info('endpoints: ', self.endpoints)
 
         # Starting to load all ids from persona_configs.json
-
-        persona_filepath = \
-            os.path.join(
-                Path(os.path.dirname(os.path.realpath(__file__))).parent,
-                persona_configs_relative_filepath
-            )
+        persona_filepath = Path(task_dir) / persona_configs_relative_filepath
 
         with open(persona_filepath, mode='r') as f:
             persona_jsons = json.load(f)
