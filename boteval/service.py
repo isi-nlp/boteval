@@ -178,10 +178,13 @@ class ChatService:
         topics_file = self.config['chatbot'].get('topics_file', C.DEF_TOPICS_FILE)
         self.topics_file = self.resolve_path(topics_file)
         instructions_file = self.config['onboarding'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
+        simple_instructions_file = self.config['onboarding'].get('simple_instructions_file', C.DEF_INSTRUCTIONS_FILE)
         log.info('instructions_file is: ', instructions_file)
 
         self.instructions_file = self.resolve_path(instructions_file)
+        self.simple_instructions_file = self.resolve_path(simple_instructions_file)
         self._instructions = None
+        self._simple_instructions = None
 
         transforms_conf = self.config['chatbot'].get('transforms', {})
 
@@ -268,6 +271,15 @@ class ChatService:
             else:
                 self._instructions = 'No instructions have been found for this task'
         return self._instructions
+    
+    @property 
+    def simple_instructions(self) -> str:
+        if not self._simple_instructions:
+            if self.simple_instructions_file.exists():
+                self._simple_instructions = self.simple_instructions_file.read_text()
+            else:
+                self._simple_instructions = 'No simple instructions have been found for this task'
+        return self._simple_instructions
 
 
     @property

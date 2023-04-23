@@ -37,7 +37,7 @@
                         {{reply_as_user}}</b></div>
                 {% endif %}
 
-                <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; max-height: 600px;"></ul>
+                <ul id="chat-thread" class="list-unstyled" style="overflow-y:scroll; max-height: 800px;"></ul>
                 <form id="next_msg_form" class="form" action="#" method="POST">
                     <div class="form-group basic-textarea" style="display: flex">
                         <textarea id="next_msg_text" class="form-control pl-2 my-0" rows="2"
@@ -61,27 +61,7 @@
             <!-- hide this block when more turns to go; but show this to admin regardless -->
             <div class="col-md-7 col-lg-6 col-xl-5 mb-4 border-right border-left">
                 {%if instructions_html %}
-                <h3>Instructions:</h3>
-                <ul>
-                    <li>
-                        Read the conversation to the left.
-                    </li>
-                    <li>
-                        The last red box is a comment that has been moderated by a moderation bot (MODERATOR) in the green box.
-                    </li>
-                    <li>
-                        You will be asked to continue the conversation as if you were the speaker of the last red box. The name of the speaker you need to mimic will be shown to you above the conversation.
-                    </li>
-                    <li>
-                        Try to capture the attitudes and emotions exhibited by this speaker and respond in a way you would imagine the speaker doing so.
-                    </li>
-                    <li>
-                        Click the button below if you would like to view more detailed instructions and examples.
-                    </li>
-                    <li>
-                        Your remaining turns: <code><span id="remaining-turns-count">{{ remaining_turns }} </span> </code>
-                    </li>
-                </ul>
+                {{simple_instructions_html |safe}}
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
                     data-target="#instructionsmodal">Detailed Instructions</button>
                 {%endif%}
@@ -91,7 +71,7 @@
                     <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form" onsubmit="ratings_validation()"
                         class="form">
 
-                        Thank you for your time. To complete this task, <b>please submit the ratings below:</b>
+                        Thank you for your time. To complete this task, <b>please answer the questions below:</b>
                         {% set ratings_dict = (thread.data or {}).get('ratings') or {} %}
                         {% set prev_ratings = ratings_dict.get(cur_user.id) or {} %}
                         <ul class="list-group">
@@ -278,7 +258,7 @@
 
             // initial submit 
             // if there is no message in the thread that is from a user with BOT_ID, submit
-            if (!thread['messages'].some(msg => msg['user_id'] == BOT_ID)) {
+            if (remaining_turns > 0 && !thread['messages'].some(msg => msg['user_id'] == BOT_ID)) {
                 waiting_for_bot_reply = true 
                 refresh_view()
                 
