@@ -177,9 +177,14 @@ class ChatService:
         
         topics_file = self.config['chatbot'].get('topics_file', C.DEF_TOPICS_FILE)
         self.topics_file = self.resolve_path(topics_file)
-        instructions_file = self.config['chatbot'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
+        instructions_file = self.config['onboarding'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
+        simple_instructions_file = self.config['onboarding'].get('simple_instructions_file', C.DEF_INSTRUCTIONS_FILE)
+        log.info('instructions_file is: ', instructions_file)
+
         self.instructions_file = self.resolve_path(instructions_file)
+        self.simple_instructions_file = self.resolve_path(simple_instructions_file)
         self._instructions = None
+        self._simple_instructions = None
 
         transforms_conf = self.config['chatbot'].get('transforms', {})
 
@@ -195,8 +200,9 @@ class ChatService:
         # bot_args are no longer used as we always load all possible bots and chose the one we need at launching.
         bot_args = config['chatbot'].get('bot_args') or {}
 
-        # Currently, the engine names are hard-coded here
-        self.endpoints = ['gpt3', 'chatgpt', 'gpt4']
+        # get engine names
+        self.endpoints = config['chatbot']['bot_args']['engines']
+        log.info('endpoints: ', self.endpoints)
 
         # Starting to load all ids from persona_configs.json
         persona_filepath = Path(task_dir) / persona_configs_relative_filepath
@@ -265,6 +271,15 @@ class ChatService:
             else:
                 self._instructions = 'No instructions have been found for this task'
         return self._instructions
+    
+    @property 
+    def simple_instructions(self) -> str:
+        if not self._simple_instructions:
+            if self.simple_instructions_file.exists():
+                self._simple_instructions = self.simple_instructions_file.read_text()
+            else:
+                self._simple_instructions = 'No simple instructions have been found for this task'
+        return self._simple_instructions
 
 
     @property

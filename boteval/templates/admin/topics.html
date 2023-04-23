@@ -79,11 +79,11 @@
                 </div>
                 <div>
                     <label for="max_threads_per_topic">Max_threads_per_topic:</label>
-                    <input type="number" name="max_threads_per_topic" id="max_threads_per_topic" value="10" />
+                    <input type="number" name="max_threads_per_topic" id="max_threads_per_topic" value="{{ service.limits["max_threads_per_topic"] }}" />
                 </div>
                 <div>
                     <label for="max_turns_per_thread">Max_turns_per_thread:</label>
-                    <input type="number" name="max_turns_per_thread" id="max_turns_per_thread" value="10" />
+                    <input type="number" name="max_turns_per_thread" id="max_turns_per_thread" value="{{ service.limits["max_turns_per_thread"] }}" />
                 </div>
                 <div>
                     <label for="max_human_users_per_thread">max_human_users_per_thread:</label>
@@ -94,7 +94,7 @@
                 </div>
                 <div>
                     <label for="reward">Reward:</label>
-                    <input type="text" name="reward" id="reward" value="0.0" />
+                    <input type="text" name="reward" id="reward" value="{{service.limits["reward"]}}" />
                 </div>
                 <div>
                     <input type="submit" value="Create New Task"/>

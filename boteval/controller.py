@@ -305,6 +305,7 @@ def user_controllers(router, service: ChatService):
                                    focus_mode=focus_mode,
                                    remaining_turns=remaining_turns,
                                    instructions_html=service.instructions,
+                                   simple_instructions_html=service.simple_instructions,
                                    show_text_extra=FL.current_user.is_admin,
                                    data=dict())
         elif thread.max_human_users_per_thread == 2:
@@ -317,6 +318,7 @@ def user_controllers(router, service: ChatService):
                                    focus_mode=focus_mode,
                                    remaining_turns=remaining_turns,
                                    instructions_html=service.instructions,
+                                   simple_instructions_html=service.simple_instructions,
                                    show_text_extra=FL.current_user.is_admin,
                                    bot_name=C.Auth.BOT_USER,
                                    data=dict())
