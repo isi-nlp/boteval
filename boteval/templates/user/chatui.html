@@ -62,6 +62,8 @@
             <div class="col-md-7 col-lg-6 col-xl-5 mb-4 border-right border-left">
                 {%if instructions_html %}
                 {{simple_instructions_html |safe}}
+                <div> Your remaining turns: <code><span id="remaining-turns-count">{{ remaining_turns }} </span> </code> </div>
+
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
                     data-target="#instructionsmodal">Detailed Instructions</button>
                 {%endif%}
