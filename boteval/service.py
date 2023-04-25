@@ -137,7 +137,7 @@ class DialogBotChatManager(ChatManager):
             reply_text = reply['text']            
                 
         reply = ChatMessage(user_id = self.bot_user_id, text=reply_text, is_seed=False,
-                            thread_id = self.thread_id, data={"speaker_id": reply['speaker_id']})
+                            thread_id = self.thread_id, data={"speaker_id": reply['data']['speaker_id']})
         if self.bot_transforms:
             reply = self.bot_transforms(reply)
         return reply
