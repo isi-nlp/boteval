@@ -63,9 +63,7 @@ class DialogBotChatManager(ChatManager):
         self.init_chat_context(thread)
         self.n_human_users = thread.max_human_users_per_thread
         
-    def msg_as_dict(self, msg: ChatMessage) -> dict:
-        msg_dict = msg.as_dict()
-        return msg_dict
+
 
     def init_chat_context(self, thread: ChatThread):
         if not thread.messages:
@@ -73,13 +71,8 @@ class DialogBotChatManager(ChatManager):
             return
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
         topic_appeared = False 
-        self.bot_agent.reset() # important to reset context, otherwise conversations will get mixed up 
-
-        for msg in thread.messages:
-            msg_dict = self.msg_as_dict(msg=msg)
-            self.bot_agent.hear(msg_dict)
-            
-        assert len(thread.messages) == len(self.bot_agent.context)
+        messages = [msg.as_dict() for msg in thread.messages]
+        self.bot_agent.init_chat_context(messages)
 
     def bot_init_reply(self, thread):
         # Last one was targeted speaker; bot reply here
@@ -112,9 +105,8 @@ class DialogBotChatManager(ChatManager):
 
         if self.human_transforms:
             message = self.human_transforms(message)
-            
-        msg_dict = self.msg_as_dict(message)
-        self.bot_agent.hear(msg_dict)
+
+        self.bot_agent.hear(message.as_dict())
         
         reply: ChatMessage = self.bot_reply(n_users = self.n_human_users)
 
