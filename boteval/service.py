@@ -106,9 +106,12 @@ class DialogBotChatManager(ChatManager):
         if self.human_transforms:
             message = self.human_transforms(message)
 
-        self.bot_agent.hear(message.as_dict())
-        
-        reply: ChatMessage = self.bot_reply(n_users = self.n_human_users)
+        reply: ChatMessage
+
+        if thread.need_moderator_bot:
+            self.bot_agent.hear(message.as_dict())
+
+            reply = self.bot_reply(n_users = self.n_human_users)
 
         if reply.text.strip(): # if bot responded 
             db.session.add(reply)
@@ -423,6 +426,10 @@ class ChatService:
         If there's no thread for the given topic and user (i.e., user first time clicking this topic),
         create a new thread if create_if_missing is True.
         """
+
+        if user.id == 'test1':
+            user.role = User.ROLE_HUMAN_MODERATOR
+
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
         thread = None
@@ -433,7 +440,12 @@ class ChatService:
                 break
 
             # if tt.human_user_2 is None or tt.human_user_2 == '':
+            human_moderators = [user for user in tt.users if user.role == User.ROLE_HUMAN_MODERATOR]
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
+
+            if len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
+                continue
+
             if len(humans) < topic.max_human_users_per_thread:
                 # Mark the thread as "is being created".
                 # This is to prevent other users from joining the thread at the same time.
@@ -447,16 +459,22 @@ class ChatService:
                 loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
                 speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
 
-                i = -2
-                while len(speakers) + i >= 0:
-                    if speakers[i] != speakers[-1]:
-                        # user.name = speakers[i]
-                        tt.speakers[user.id] = speakers[i]
-                        # tt.user_2nd = user.id
-                        # tt.speaker_2nd = speakers[i]
-                        break
-                    else:
-                        i -= 1
+                if user.role == User.ROLE_HUMAN_MODERATOR:
+                    tt.need_moderator_bot = False
+                    tt.speakers[user.id] = 'Moderator'
+                elif len(human_moderators) == 1:
+                    tt.speakers[user.id] = speakers[-1]
+                else:
+                    i = -2
+                    while len(speakers) + i >= 0:
+                        if speakers[i] != speakers[-1]:
+                            # user.name = speakers[i]
+                            tt.speakers[user.id] = speakers[i]
+                            # tt.user_2nd = user.id
+                            # tt.speaker_2nd = speakers[i]
+                            break
+                        else:
+                            i -= 1
 
                 tt.assignment_id_dict[user.id] = ext_id
                 if tt.data.get(ext_src) is not None:
@@ -506,9 +524,13 @@ class ChatService:
             if thread.submit_url_dict is None:
                 thread.submit_url_dict = {}
 
-            thread.speakers[user.id] = speakers[-1]
-            # thread.user_1st = user.id
-            # thread.speaker_1st = speakers[-1]
+            if user.role == User.ROLE_HUMAN_MODERATOR:
+                thread.need_moderator_bot = False
+                thread.speakers[user.id] = 'Moderator'
+            else:
+                thread.speakers[user.id] = speakers[-1]
+                # thread.user_1st = user.id
+                # thread.speaker_1st = speakers[-1]
 
             thread.assignment_id_dict[user.id] = ext_id
             if data.get(ext_src):

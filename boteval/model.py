@@ -87,6 +87,7 @@ class User(BaseModelWithExternal):
     ROLE_HUMAN = 'human'
     ROLE_ADMIN = 'admin'
     ROLE_HIDDEN = 'hidden'
+    ROLE_HUMAN_MODERATOR = 'human_moderator'
 
     id: str = db.Column(db.String(31), primary_key=True)
     name: str = db.Column(db.String(100), nullable=False)
@@ -231,6 +232,8 @@ class ChatThread(BaseModelWithExternal):
     submit_url_dict = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     thread_state: int = db.Column(db.Integer, nullable=False)
+
+    need_moderator_bot = db.Column(db.Boolean, server_default=sql.expression.true(), nullable=False)
 
     # We include the following rows because the topic may be deleted.
     # But we still need to see the content of one thread even if the corresponding
