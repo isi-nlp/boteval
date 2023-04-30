@@ -68,7 +68,9 @@
                     data-target="#instructionsmodal">Detailed Instructions</button>
                 {%endif%}
 
-                <div {% if cur_user.is_admin or remaining_turns> 0 %} style="display:none" {% endif %}
+                <button id="end-convo-button" type="button" class="btn btn-info my-3" onclick="end_convo()">End conversation</button>
+
+                <div {% if cur_user.is_admin %} style="display:none" {% endif %}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
                     <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form" onsubmit="ratings_validation()"
@@ -183,6 +185,7 @@
         var remaining_turns = {{ remaining_turns }};
         //const socket_name = '{{socket_name}}'
         const cur_user_id = '{{cur_user.id}}'
+        let ended_convo = false 
         const reply_as_user = '{{reply_as_user}}'
         const thread = {{ thread_json| safe}}  // json data
         const user_data = { user_name: '{{cur_user.name}}', user_id: '{{cur_user.id}}', thread_id: '{{thread.id}}' }
@@ -248,15 +251,30 @@
             refresh_view()
         }
 
+        function end_convo(){
+            ended_convo = true; 
+            refresh_view(); 
+        }
+
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
             scroll_chat_to_bottom();
-            if (remaining_turns < 1) {
+            if (remaining_turns < 1 || reply['episode_done']) {
+                $('#end-convo-button').show(); 
+                // remaining_turns = 0;
+            }
+            else {
+                $('#end-convo-button').hide();
+            }
+
+            if (ended_convo) {
                 $('#end_info').show() // show end info
+                $('#ratings-view').show(); 
                 $('#next_msg_form').hide()
                 $('#waiting_info').hide()
             } else { // ongoing conversation
                 $('#end_info').hide()
+                $('#ratings-view').hide(); 
                 if (waiting_for_bot_reply) { // but waiting for bot reply
                     $('#next_msg_form').hide()  // dont let human reply
                     $('#waiting_info').show()  // waiting animation show
@@ -275,6 +293,7 @@
         window.onload = () => {
             const speaker_ids = []
             const colors = ["secondary", "light", "dark"]
+
             for (const msg of thread['messages']) {
                 this_user_id = msg['data']['speaker_id']
                 add_element = true
@@ -343,8 +362,7 @@
                     try {
                         remaining_turns--;
                         if (remaining_turns == 0 || reply['episode_done']) {
-                            $('#ratings-view').show();
-                            remaining_turns = 0;
+                            $('#end-convo-button').show(); 
                         }
                         $('#remaining-turns-count').html(remaining_turns);
                         waiting_for_bot_reply = false
