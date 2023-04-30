@@ -427,7 +427,16 @@ class ChatService:
         create a new thread if create_if_missing is True.
         """
 
-        if user.id == 'test1':
+        print('data is: ', data)
+
+        if data.get(ext_src) is not None:
+            user_worker_id = data.get(ext_src).get('worker_id')
+            workers = self.crowd_service.list_workers_for_qualtype(qual_id='3WHKV9Z6RA65CXV9QJHHXSAWCY4WAF', max_results=C.AWS_MAX_RESULTS)
+            print('user_worker_id is: ', user_worker_id)
+            print('qualified workers are: ', workers)
+            print('user.id is: ', user.id)
+
+        if user.id == 'A2S1N8GNXKN97Q':
             user.role = User.ROLE_HUMAN_MODERATOR
 
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
