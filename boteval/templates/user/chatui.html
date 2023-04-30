@@ -293,7 +293,7 @@
         window.onload = () => {
             const speaker_ids = []
             const colors = ["secondary", "light", "dark"]
-            end_convo= false; 
+            ended_convo= false; 
 
             for (const msg of thread['messages']) {
                 this_user_id = msg['data']['speaker_id']
@@ -362,8 +362,9 @@
                     $('#next_msg_text').val('')
                     try {
                         remaining_turns--;
-                        if (remaining_turns == 0 || reply['episode_done']) {
+                        if (remaining_turns < 1 || reply['episode_done']) {
                             $('#end-convo-button').show(); 
+                            remaining_turns = 0; 
                         }
                         $('#remaining-turns-count').html(remaining_turns);
                         waiting_for_bot_reply = false
