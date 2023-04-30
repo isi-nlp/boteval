@@ -259,7 +259,7 @@
         function refresh_view() {
             //$('#chat-thread').animate({ scrollTop: $('#chat-thread').last().offset().bottom }, 'slow');
             scroll_chat_to_bottom();
-            if (remaining_turns < 1 || reply['episode_done']) {
+            if (remaining_turns < 1 ) {
                 $('#end-convo-button').show(); 
                 // remaining_turns = 0;
             }
@@ -293,6 +293,7 @@
         window.onload = () => {
             const speaker_ids = []
             const colors = ["secondary", "light", "dark"]
+            end_convo= false; 
 
             for (const msg of thread['messages']) {
                 this_user_id = msg['data']['speaker_id']
