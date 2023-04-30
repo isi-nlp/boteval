@@ -60,13 +60,14 @@
             </div>
             <!-- hide this block when more turns to go; but show this to admin regardless -->
             <div class="col-md-7 col-lg-6 col-xl-5 mb-4 border-right border-left">
-                {%if instructions_html %}
                 {{simple_instructions_html |safe}}
                 <div> Your remaining turns: <code><span id="remaining-turns-count">{{ remaining_turns }} </span> </code> </div>
 
+                {%if instructions_html %}
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
                     data-target="#instructionsmodal">Detailed Instructions</button>
                 {%endif%}
+
                 <div {% if cur_user.is_admin or remaining_turns> 0 %} style="display:none" {% endif %}
                     id="ratings-view">
                     {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
