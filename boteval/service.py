@@ -436,8 +436,22 @@ class ChatService:
             print('qualified workers are: ', workers)
             print('user.id is: ', user.id)
 
-        if user.id == 'A2S1N8GNXKN97Q':
-            user.role = User.ROLE_HUMAN_MODERATOR
+            qual_list_js = workers.get('Qualifications')
+            qual_list = []
+            cur_user_is_qualified = False
+            for cur_qual in qual_list_js:
+                if user.id == cur_qual:
+                    cur_user_is_qualified = True
+
+                qual_list.append(cur_qual.get('WorkerId'))
+            
+            print('qual_list is: ', qual_list)
+
+            if cur_user_is_qualified:
+                print("Assign human moderator role to worker_id: ", user.id)
+                user.role = User.ROLE_HUMAN_MODERATOR
+            else:
+                print("Not Assign human moderator role to worker_id: ", user.id)
 
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
@@ -453,6 +467,7 @@ class ChatService:
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
 
             if len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
+                print("More than one human moderator not allowed")
                 continue
 
             if len(humans) < topic.max_human_users_per_thread:
