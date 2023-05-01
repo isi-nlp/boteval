@@ -444,7 +444,7 @@ class ChatService:
             qual_list = []
             cur_user_is_qualified = False
             for cur_qual in qual_list_js:
-                if user.id == cur_qual:
+                if user.id == cur_qual.get('WorkerId'):
                     cur_user_is_qualified = True
 
                 qual_list.append(cur_qual.get('WorkerId'))
