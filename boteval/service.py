@@ -430,7 +430,7 @@ class ChatService:
 
         print('data is: ', data)
 
-        if data.get(ext_src) is not None:
+        if data is not None and data.get(ext_src) is not None:
             user_worker_id = data.get(ext_src).get('worker_id')
             workers = self.crowd_service.list_workers_for_qualtype(qual_id='3WHKV9Z6RA65CXV9QJHHXSAWCY4WAF', max_results=C.AWS_MAX_RESULTS)
             print('user_worker_id is: ', user_worker_id)
