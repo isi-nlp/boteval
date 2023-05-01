@@ -106,12 +106,13 @@ class DialogBotChatManager(ChatManager):
         if self.human_transforms:
             message = self.human_transforms(message)
 
-        reply: ChatMessage
+        self.bot_agent.hear(message.as_dict())
 
-        if thread.need_moderator_bot:
-            self.bot_agent.hear(message.as_dict())
+        reply = self.bot_reply(n_users = self.n_human_users)
 
-            reply = self.bot_reply(n_users = self.n_human_users)
+        if not thread.need_moderator_bot:
+            print("Do not need moderator bot in this chat")
+            reply.text = ''
 
         if reply.text.strip(): # if bot responded 
             db.session.add(reply)
