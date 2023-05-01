@@ -76,7 +76,7 @@ class MTurkService:
             MaxResults=C.AWS_MAX_RESULTS)
 
         print('get_qualified_workers: ', data)
-        qtypes = data['QualificationType']
+        qtypes = data['QualificationTypes']
         for cur_type in qtypes:
             if cur_type['Name'] == qualification_name:
                 return cur_type['QualificationTypeId']
