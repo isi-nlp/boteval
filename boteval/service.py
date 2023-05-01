@@ -432,7 +432,10 @@ class ChatService:
 
         if data is not None and data.get(ext_src) is not None:
             user_worker_id = data.get(ext_src).get('worker_id')
-            workers = self.crowd_service.list_workers_for_qualtype(qual_id='3WHKV9Z6RA65CXV9QJHHXSAWCY4WAF', max_results=C.AWS_MAX_RESULTS)
+
+            human_moderator_qual_id = self.crowd_service.get_qualification_type_id_by_name(qualification_name='human_moderator_qualification')
+            print('human_moderator_qual_id: ', human_moderator_qual_id)
+            workers = self.crowd_service.list_workers_for_qualtype(qual_id=human_moderator_qual_id, max_results=C.AWS_MAX_RESULTS)
             print('user_worker_id is: ', user_worker_id)
             print('qualified workers are: ', workers)
             print('user.id is: ', user.id)
