@@ -589,6 +589,7 @@ def admin_controllers(router, service: ChatService):
                                                       max_threads_per_topic=int(args['max_threads_per_topic']),
                                                       max_turns_per_thread=int(args['max_turns_per_thread']),
                                                       max_human_users_per_thread=int(args['max_human_users_per_thread']),
+                                                      human_moderator=args['human_moderator'],
                                                       reward=args['reward'])
             return redirect(url_for('admin.get_topics'))
 

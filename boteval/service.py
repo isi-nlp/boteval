@@ -366,7 +366,7 @@ class ChatService:
         # db.session.commit()
 
     def create_topic_from_super_topic(self, super_topic_id, endpoint, persona_id, max_threads_per_topic,
-                                      max_turns_per_thread, max_human_users_per_thread, reward):
+                                      max_turns_per_thread, max_human_users_per_thread, human_moderator, reward):
         """
         Create a topic from a super topic
         The terminology is confusing.  A super topic is a topic in the old version.
@@ -376,7 +376,8 @@ class ChatService:
         new_topic = ChatTopic.create_new(super_topic, endpoint=endpoint, persona_id=persona_id,
                                          max_threads_per_topic=max_threads_per_topic,
                                          max_turns_per_thread=max_turns_per_thread,
-                                         max_human_users_per_thread=max_human_users_per_thread, reward=reward)
+                                         max_human_users_per_thread=max_human_users_per_thread,
+                                         human_moderator=human_moderator, reward=reward)
         db.session.add(new_topic)
         db.session.commit()
 
@@ -486,8 +487,12 @@ class ChatService:
             human_moderators = [user for user in tt.users if user.role == User.ROLE_HUMAN_MODERATOR]
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
 
+            if tt.need_moderator_bot and user.role == User.ROLE_HUMAN_MODERATOR:
+                print("Current chat thread does not need a human moderator, topic id: ", topic.id)
+                continue
+
             if len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
-                print("More than one human moderator not allowed")
+                print("More than one human moderator not allowed, topic id: ", topic.id)
                 continue
 
             if len(humans) < topic.max_human_users_per_thread:
@@ -504,7 +509,7 @@ class ChatService:
                 speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
 
                 if user.role == User.ROLE_HUMAN_MODERATOR:
-                    tt.need_moderator_bot = False
+                    # tt.need_moderator_bot = False
                     tt.speakers[user.id] = 'Moderator'
                 elif len(human_moderators) == 1:
                     tt.speakers[user.id] = speakers[-1]
@@ -551,12 +556,19 @@ class ChatService:
                 data.update(topic.data)
             thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.endpoint,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
-                                max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward,
-                                max_human_users_per_thread=topic.max_human_users_per_thread)
+                                max_turns_per_thread=topic.max_turns_per_thread, human_moderator=topic.human_moderator,
+                                reward=topic.reward, max_human_users_per_thread=topic.max_human_users_per_thread)
 
             chat_topic = ChatTopic.query.get(thread.topic_id)
             loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
             speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
+
+            if thread.human_moderator == 'yes':
+                thread.need_moderator_bot = False
+                print(topic.id, 'does not need a moderator bot')
+            else:
+                thread.need_moderator_bot = True
+                print(topic.id, 'needs a moderator bot')
 
             # user.name = speakers[-1]
             if thread.speakers is None:
@@ -569,7 +581,7 @@ class ChatService:
                 thread.submit_url_dict = {}
 
             if user.role == User.ROLE_HUMAN_MODERATOR:
-                thread.need_moderator_bot = False
+                # thread.need_moderator_bot = False
                 thread.speakers[user.id] = 'Moderator'
             else:
                 thread.speakers[user.id] = speakers[-1]
@@ -661,7 +673,8 @@ class ChatService:
             self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
                                         persona_id=thread.persona_id,
                                         max_threads_per_topic=thread.max_threads_per_topic,
-                                        max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
+                                        max_turns_per_thread=thread.max_turns_per_thread,
+                                        human_moderator=thread.human_moderator, reward=thread.reward)
 
     # @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
