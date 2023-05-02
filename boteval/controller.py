@@ -274,7 +274,7 @@ def user_controllers(router, service: ChatService):
 
     @router.route('/thread/<thread_id>', methods=['GET'])
     @FL.login_required
-    def get_thread(thread_id, focus_mode=False):
+    def get_thread(thread_id, request_worker_id=None, focus_mode=False):
         """
         Go to the thread with the given thread id and user id (current login user).
         """
@@ -295,6 +295,17 @@ def user_controllers(router, service: ChatService):
 
         dialog_man = service.get_dialog_man(thread)  # this will init the thread
         log.info(f'data:!!!: {thread.data}')
+
+        req_worker_is_human_mod = False
+        instructions_for_user = service.instructions
+        if request_worker_id is not None and request_worker_id != '':
+            req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
+                                                                                qual_name='human_moderator_qualification')
+
+        if req_worker_is_human_mod:
+            instructions_for_user = service.human_mod_instructions
+            print('Human moderator instructions should be used for user:', request_worker_id)
+
         if thread.max_human_users_per_thread == 1:
             return render_template('user/chatui.html', limits=service.limits,
                                    thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
@@ -317,7 +328,7 @@ def user_controllers(router, service: ChatService):
                                    rating_questions=ratings,
                                    focus_mode=focus_mode,
                                    remaining_turns=remaining_turns,
-                                   instructions_html=service.instructions,
+                                   instructions_html=instructions_for_user,
                                    simple_instructions_html=service.simple_instructions,
                                    show_text_extra=FL.current_user.is_admin,
                                    bot_name=C.Auth.BOT_USER,
@@ -498,7 +509,7 @@ def user_controllers(router, service: ChatService):
         chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
             ext_id=assignmet_id, ext_src=ext_src, data=data)
 
-        return get_thread(thread_id=chat_thread.id, focus_mode=True)
+        return get_thread(thread_id=chat_thread.id, request_worker_id=worker_id, focus_mode=True)
 
 
 

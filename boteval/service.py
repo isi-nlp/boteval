@@ -175,12 +175,16 @@ class ChatService:
         self.topics_file = self.resolve_path(topics_file)
         instructions_file = self.config['onboarding'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
         simple_instructions_file = self.config['onboarding'].get('simple_instructions_file', C.DEF_INSTRUCTIONS_FILE)
-        log.info('instructions_file is: ', instructions_file)
+        human_mod_instructions_file = self.config['onboarding'].get('human_moderator_instructions_file', C.DEF_INSTRUCTIONS_FILE)
+
+        log.info('human_mod_instructions_file is: ', human_mod_instructions_file)
 
         self.instructions_file = self.resolve_path(instructions_file)
         self.simple_instructions_file = self.resolve_path(simple_instructions_file)
+        self.human_mod_instructions_file = self.resolve_path(human_mod_instructions_file)
         self._instructions = None
         self._simple_instructions = None
+        self._human_mod_instructions = None
 
         transforms_conf = self.config['chatbot'].get('transforms', {})
 
@@ -276,6 +280,15 @@ class ChatService:
             else:
                 self._simple_instructions = 'No simple instructions have been found for this task'
         return self._simple_instructions
+
+    @property
+    def human_mod_instructions(self) -> str:
+        if not self._human_mod_instructions:
+            if self.human_mod_instructions_file.exists():
+                self._human_mod_instructions = self.human_mod_instructions_file.read_text()
+            else:
+                self._human_mod_instructions = 'No human moderator instructions have been found for this task'
+        return self._human_mod_instructions
 
 
     @property
@@ -431,25 +444,28 @@ class ChatService:
         print('data is: ', data)
 
         if data is not None and data.get(ext_src) is not None:
-            user_worker_id = data.get(ext_src).get('worker_id')
+            # user_worker_id = data.get(ext_src).get('worker_id')
+            #
+            # human_moderator_qual_id = self.crowd_service.get_qualification_type_id_by_name(qualification_name='human_moderator_qualification')
+            # print('human_moderator_qual_id: ', human_moderator_qual_id)
+            # workers = self.crowd_service.list_workers_for_qualtype(qual_id=human_moderator_qual_id, max_results=C.AWS_MAX_RESULTS)
+            # print('user_worker_id is: ', user_worker_id)
+            # print('qualified workers are: ', workers)
+            # print('user.id is: ', user.id)
+            #
+            # qual_list_js = workers.get('Qualifications')
+            # qual_list = []
+            # cur_user_is_qualified = False
+            # for cur_qual in qual_list_js:
+            #     if user.id == cur_qual.get('WorkerId'):
+            #         cur_user_is_qualified = True
+            #
+            #     qual_list.append(cur_qual.get('WorkerId'))
+            #
+            # print('qual_list is: ', qual_list)
 
-            human_moderator_qual_id = self.crowd_service.get_qualification_type_id_by_name(qualification_name='human_moderator_qualification')
-            print('human_moderator_qual_id: ', human_moderator_qual_id)
-            workers = self.crowd_service.list_workers_for_qualtype(qual_id=human_moderator_qual_id, max_results=C.AWS_MAX_RESULTS)
-            print('user_worker_id is: ', user_worker_id)
-            print('qualified workers are: ', workers)
-            print('user.id is: ', user.id)
-
-            qual_list_js = workers.get('Qualifications')
-            qual_list = []
-            cur_user_is_qualified = False
-            for cur_qual in qual_list_js:
-                if user.id == cur_qual.get('WorkerId'):
-                    cur_user_is_qualified = True
-
-                qual_list.append(cur_qual.get('WorkerId'))
-            
-            print('qual_list is: ', qual_list)
+            cur_user_is_qualified = self.crowd_service.is_worker_qualified(user_worker_id=user.id,
+                                                                           qual_name='human_moderator_qualification')
 
             if cur_user_is_qualified:
                 print("Assign human moderator role to worker_id: ", user.id)
