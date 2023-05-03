@@ -443,8 +443,9 @@ class ChatService:
         """
 
         print('data is: ', data)
+        print('topic.human_moderator is: ', topic.human_moderator)
 
-        if data is not None and data.get(ext_src) is not None:
+        if topic.human_moderator == 'yes' and data is not None and data.get(ext_src) is not None:
             # user_worker_id = data.get(ext_src).get('worker_id')
             #
             # human_moderator_qual_id = self.crowd_service.get_qualification_type_id_by_name(qualification_name='human_moderator_qualification')
@@ -487,9 +488,9 @@ class ChatService:
             human_moderators = [user for user in tt.users if user.role == User.ROLE_HUMAN_MODERATOR]
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
 
-            if tt.need_moderator_bot and user.role == User.ROLE_HUMAN_MODERATOR:
-                print("Current chat thread does not need a human moderator, topic id: ", topic.id)
-                continue
+            # if tt.need_moderator_bot and user.role == User.ROLE_HUMAN_MODERATOR:
+                # print("Current chat thread does not need a human moderator, topic id: ", topic.id, ' user.role:', user.role)
+                # continue
 
             if len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
                 print("More than one human moderator not allowed, topic id: ", topic.id)
@@ -508,10 +509,10 @@ class ChatService:
                 loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
                 speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
 
-                if user.role == User.ROLE_HUMAN_MODERATOR:
+                if topic.human_moderator == 'yes' and user.role == User.ROLE_HUMAN_MODERATOR:
                     # tt.need_moderator_bot = False
                     tt.speakers[user.id] = 'Moderator'
-                elif len(human_moderators) == 1:
+                elif topic.human_moderator == 'yes' and len(human_moderators) == 1:
                     tt.speakers[user.id] = speakers[-1]
                 else:
                     i = -2
@@ -580,7 +581,7 @@ class ChatService:
             if thread.submit_url_dict is None:
                 thread.submit_url_dict = {}
 
-            if user.role == User.ROLE_HUMAN_MODERATOR:
+            if topic.human_moderator == 'yes' and user.role == User.ROLE_HUMAN_MODERATOR:
                 # thread.need_moderator_bot = False
                 thread.speakers[user.id] = 'Moderator'
             else:

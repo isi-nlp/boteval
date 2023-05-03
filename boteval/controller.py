@@ -298,7 +298,7 @@ def user_controllers(router, service: ChatService):
 
         req_worker_is_human_mod = False
         instructions_for_user = service.instructions
-        if request_worker_id is not None and request_worker_id != '':
+        if topic.human_moderator == 'yes' and request_worker_id is not None and request_worker_id != '':
             req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
                                                                                 qual_name='human_moderator_qualification')
 
