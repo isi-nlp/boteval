@@ -111,7 +111,7 @@ class DialogBotChatManager(ChatManager):
         reply = self.bot_reply(n_users = self.n_human_users)
 
         if not thread.need_moderator_bot:
-            print("Do not need moderator bot in this chat")
+            log.info("Do not need moderator bot in this chat")
             reply.text = ''
 
         if reply.text.strip(): # if bot responded 
@@ -417,7 +417,8 @@ class ChatService:
                     threads_under_this_topic = ChatThread.query.filter(ChatThread.topic_id == topic.id).all()
                     for thr in threads_under_this_topic:
                         humans = [user for user in thr.users if user.role == User.ROLE_HUMAN]
-                        if len(humans) < topic.max_human_users_per_thread:
+                        human_moderators = [user for user in thr.users if user.role == User.ROLE_HUMAN_MODERATOR]
+                        if len(humans) + len(human_moderators) < topic.max_human_users_per_thread:
                             return False, ''
                     return True, 'This topic has exceeded maximum permissible threads'
         return False, ''
@@ -442,38 +443,18 @@ class ChatService:
         create a new thread if create_if_missing is True.
         """
 
-        print('data is: ', data)
-        print('topic.human_moderator is: ', topic.human_moderator)
+        # log.info('data is: ', data)
+        log.info('topic.human_moderator is: ', topic.human_moderator)
 
         if topic.human_moderator == 'yes' and data is not None and data.get(ext_src) is not None:
-            # user_worker_id = data.get(ext_src).get('worker_id')
-            #
-            # human_moderator_qual_id = self.crowd_service.get_qualification_type_id_by_name(qualification_name='human_moderator_qualification')
-            # print('human_moderator_qual_id: ', human_moderator_qual_id)
-            # workers = self.crowd_service.list_workers_for_qualtype(qual_id=human_moderator_qual_id, max_results=C.AWS_MAX_RESULTS)
-            # print('user_worker_id is: ', user_worker_id)
-            # print('qualified workers are: ', workers)
-            # print('user.id is: ', user.id)
-            #
-            # qual_list_js = workers.get('Qualifications')
-            # qual_list = []
-            # cur_user_is_qualified = False
-            # for cur_qual in qual_list_js:
-            #     if user.id == cur_qual.get('WorkerId'):
-            #         cur_user_is_qualified = True
-            #
-            #     qual_list.append(cur_qual.get('WorkerId'))
-            #
-            # print('qual_list is: ', qual_list)
-
             cur_user_is_qualified = self.crowd_service.is_worker_qualified(user_worker_id=user.id,
                                                                            qual_name='human_moderator_qualification')
 
             if cur_user_is_qualified:
-                print("Assign human moderator role to worker_id: ", user.id)
+                log.info("Assign human moderator role to worker_id: ", user.id)
                 user.role = User.ROLE_HUMAN_MODERATOR
             else:
-                print("Not Assign human moderator role to worker_id: ", user.id)
+                log.info("Not Assign human moderator role to worker_id: ", user.id)
 
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
@@ -492,11 +473,11 @@ class ChatService:
                 # print("Current chat thread does not need a human moderator, topic id: ", topic.id, ' user.role:', user.role)
                 # continue
 
-            if len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
-                print("More than one human moderator not allowed, topic id: ", topic.id)
+            if topic.human_moderator == 'yes' and len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
+                log.info("More than one human moderator not allowed, topic id: ", topic.id)
                 continue
 
-            if len(humans) < topic.max_human_users_per_thread:
+            if len(humans) + len(human_moderators) < topic.max_human_users_per_thread:
                 # Mark the thread as "is being created".
                 # This is to prevent other users from joining the thread at the same time.
                 if tt.thread_state == 1:
@@ -566,10 +547,10 @@ class ChatService:
 
             if thread.human_moderator == 'yes':
                 thread.need_moderator_bot = False
-                print(topic.id, 'does not need a moderator bot')
+                log.info(topic.id, 'does not need a moderator bot')
             else:
                 thread.need_moderator_bot = True
-                print(topic.id, 'needs a moderator bot')
+                log.info(topic.id, 'needs a moderator bot')
 
             # user.name = speakers[-1]
             if thread.speakers is None:

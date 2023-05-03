@@ -304,7 +304,7 @@ def user_controllers(router, service: ChatService):
 
         if req_worker_is_human_mod:
             instructions_for_user = service.human_mod_instructions
-            print('Human moderator instructions should be used for user:', request_worker_id)
+            log.info('Human moderator instructions should be used for user:', request_worker_id)
 
         if thread.max_human_users_per_thread == 1:
             return render_template('user/chatui.html', limits=service.limits,
@@ -624,13 +624,6 @@ def admin_controllers(router, service: ChatService):
         if topic.ext_id or topic.ext_src in [C.MTURK, C.MTURK_SANDBOX]:
             MTurkController(service.crowd_service).expire_HIT(topic.ext_id)
         # ret_a, ret_b = MTurkController(service.crowd_service).delete_hit(topic.ext_id)
-        # print('ret_a is: ')
-        # print(ret_a)
-        # print()
-        #
-        # print('ret_b is: ')
-        # print(ret_b)
-        # print()
 
         service.delete_topic(topic)
         return redirect(url_for('admin.get_topics'))

@@ -75,7 +75,6 @@ class MTurkService:
             MustBeRequestable=True, MustBeOwnedByCaller=True,
             MaxResults=C.AWS_MAX_RESULTS)
 
-        print('get_qualified_workers: ', data)
         qtypes = data['QualificationTypes']
         for cur_type in qtypes:
             if cur_type['Name'] == qualification_name:
@@ -85,12 +84,9 @@ class MTurkService:
 
     def is_worker_qualified(self, user_worker_id, qual_name):
         human_moderator_qual_id = self.get_qualification_type_id_by_name(
-            qualification_name='human_moderator_qualification')
+            qualification_name=qual_name)
 
-        print('human_moderator_qual_id: ', human_moderator_qual_id)
         workers = self.list_workers_for_qualtype(qual_id=human_moderator_qual_id, max_results=C.AWS_MAX_RESULTS)
-        print('qualified workers are: ', workers)
-        print('user_worker_id is: ', user_worker_id)
 
         qual_list_js = workers.get('Qualifications')
         for cur_qual in qual_list_js:
