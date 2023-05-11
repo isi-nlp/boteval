@@ -45,15 +45,35 @@
                   </div>
                   </form>
                 </div>
+{#                {% if crowd_name %}#}
+                  <div class="card-body">
+                    <h4>Multi-task Launch:</h4>
+                    <form method="POST" action="#">
+                        <div>
+                          <label for="multi-tasks-launch" style="vertical-align: top;">Unlaunched Tasks:</label>
+                          <select name="multi-tasks-launch" id="multi-tasks-launch" multiple style="height: 10rem;" class="form-control selectpicker" data-live-search="true">
+                                {% for task in tasks %}
+                                    {% if not task.ext_id %}
+                                        <option value="{{ task.id }}">{{ task.id }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                          </select>
+                        </div>
+                        <div>
+                            <input type="submit" value="Launch multiple tasks"/>
+                        </div>
+                    </form>
+                  </div>
+{#                {% endif %}#}
               </td>
               <td>
                   <h4>Multi-task Creation:</h4>
                   <form method="POST" action="#">
                   <div>
-                      <label for="multi-topics" style="vertical-align: top;">Topic:</label>
-                      <select name="multi-topics" id="multi-topics" multiple style="height: 10rem;" class="form-control selectpicker" data-live-search="true">
+                      <label for="multi-topics-creation" style="vertical-align: top;">Topics:</label>
+                      <select name="multi-topics-creation" id="multi-topics-creation" multiple style="height: 10rem;" class="form-control selectpicker" data-live-search="true">
                             {% for super_topic, num_threads in super_topics %}
-                                <option value="{{ super_topic.id }}" name="multi-topics">{{ super_topic.id }}</option>
+                                <option value="{{ super_topic.id }}">{{ super_topic.id }}</option>
                             {% endfor %}
                       </select>
                   </div>

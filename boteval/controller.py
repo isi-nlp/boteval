@@ -569,24 +569,23 @@ def admin_controllers(router, service: ChatService):
                 limit(C.MAX_PAGE_SIZE).all()
             topic_thread_counts = service.get_thread_counts(episode_done=True)
             super_topic_thread_counts = service.get_thread_counts_of_super_topic(episode_done=True)
-            topics = [(topic, topic_thread_counts.get(topic.id, 0)) for topic in all_topics]
             topic_thread_counts_dict = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
             super_topics = \
                 [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
-            return render_template('admin/topics.html', topics=topics, super_topics=super_topics,
+            return render_template('admin/topics.html', tasks=all_topics, super_topics=super_topics,
                                    external_url_ok=service.is_external_url_ok, **admin_templ_args,
                                    topic_thread_counts_dict=topic_thread_counts_dict, service=service)
         else:
             """
-            "POST" request to create a new topic (task) under a super-topic.
+            "POST" request to 1.create a new topic (task) under a super-topic 2. update the thread limit of all users
+            3. create multiple tasks(topics) under a super-topic  4. launch multiple topics(tasks) 
             """
-            print(request.form)
+            print("request.form: ", request.form)
             args = dict(request.form)
             if C.LIMIT_MAX_THREADS_PER_USER in args.keys():
                 service.limits[C.LIMIT_MAX_THREADS_PER_USER] = int(args[C.LIMIT_MAX_THREADS_PER_USER])
-            elif "multi-topics" in args.keys():
-                selected_super_topic_ids = request.form.getlist('multi-topics')
-                print(selected_super_topic_ids)
+            elif "multi-topics-creation" in args.keys():
+                selected_super_topic_ids = request.form.getlist('multi-topics-creation')
                 for super_topic_id in selected_super_topic_ids:
                     service.create_topic_from_super_topic(super_topic_id=super_topic_id, endpoint=args['endpoint'],
                                                           persona_id=args['persona_id'],
@@ -595,6 +594,10 @@ def admin_controllers(router, service: ChatService):
                                                           max_human_users_per_thread=int(args['max_human_users_per_thread']),
                                                           human_moderator=args['human_moderator'],
                                                           reward=args['reward'])
+            elif "multi-tasks-launch" in args.keys():
+                selected_task_ids = request.form.getlist('multi-tasks-launch')
+                for task_id in selected_task_ids:
+                    launch_topic_on_crowd(topic_id=task_id, crowd_name=service.crowd_name)
             else:
                 service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], endpoint=args['endpoint'],
                                                       persona_id=args['persona_id'],
