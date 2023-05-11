@@ -580,9 +580,21 @@ def admin_controllers(router, service: ChatService):
             """
             "POST" request to create a new topic (task) under a super-topic.
             """
+            print(request.form)
             args = dict(request.form)
             if C.LIMIT_MAX_THREADS_PER_USER in args.keys():
                 service.limits[C.LIMIT_MAX_THREADS_PER_USER] = int(args[C.LIMIT_MAX_THREADS_PER_USER])
+            elif "multi-topics" in args.keys():
+                selected_super_topic_ids = request.form.getlist('multi-topics')
+                print(selected_super_topic_ids)
+                for super_topic_id in selected_super_topic_ids:
+                    service.create_topic_from_super_topic(super_topic_id=super_topic_id, endpoint=args['endpoint'],
+                                                          persona_id=args['persona_id'],
+                                                          max_threads_per_topic=int(args['max_threads_per_topic']),
+                                                          max_turns_per_thread=int(args['max_turns_per_thread']),
+                                                          max_human_users_per_thread=int(args['max_human_users_per_thread']),
+                                                          human_moderator=args['human_moderator'],
+                                                          reward=args['reward'])
             else:
                 service.create_topic_from_super_topic(super_topic_id=args['super_topic_id'], endpoint=args['endpoint'],
                                                       persona_id=args['persona_id'],
