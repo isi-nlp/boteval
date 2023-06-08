@@ -77,9 +77,15 @@ class DialogBotChatManager(ChatManager):
     def bot_init_reply(self, thread):
         # Last one was targeted speaker; bot reply here
         reply: ChatMessage = self.bot_reply(n_users=self.n_human_users)
-        db.session.add(reply)
-        thread.messages.append(reply)
-        db.session.commit()
+
+        if not thread.need_moderator_bot:
+            log.info("Do not need moderator bot in this chat")
+            reply.text = ''
+
+        if reply.text.strip():  # if bot responded
+            db.session.add(reply)
+            thread.messages.append(reply)
+            db.session.commit()
         # We should not increment num_turns here, as the bot reply shouldn't be counted.
         # self.num_turns += 1
         log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
