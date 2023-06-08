@@ -17,7 +17,8 @@
           <span>Found {{threads | length }} threads </span>
         </div>
       </div>
-      <table class="table table-striped">
+      <table class="table-table-striped">
+        <thead>
         <tr>
           <th scope="col">ID</th>
           <th scope="col">Topic</th>
@@ -27,6 +28,8 @@
           <th scope="col">Actions</th>
           <th scope="col">Ext</th>
         </tr>
+        </thead>
+        <tbody>
         {% for thread in threads %}
         <tr>
           <td scope="row"> {{thread.id}} </td>
@@ -47,8 +50,35 @@
           </td>
         </tr>
         {% endfor %}
+        </tbody>
       </table>
     </div>
   </div>
 </div>
+
+<script>
+$('table.table-table-striped').each(function() {
+    var currentPage = 0;
+    var numPerPage = 1;
+    var $table = $(this);
+    $table.bind('repaginate', function() {
+        $table.find('tbody tr').hide().slice(currentPage * numPerPage, (currentPage + 1) * numPerPage).show();
+    });
+    $table.trigger('repaginate');
+    var numRows = $table.find('tbody tr').length;
+    var numPages = Math.ceil(numRows / numPerPage);
+    var $pager = $('<div class="pager"></div>');
+    for (var page = 0; page < numPages; page++) {
+        $('<span class="page-number"></span>').text(page + 1).bind('click', {
+            newPage: page
+        }, function(event) {
+            currentPage = event.data['newPage'];
+            $table.trigger('repaginate');
+            $(this).addClass('active').siblings().removeClass('active');
+        }).appendTo($pager).addClass('clickable');
+    }
+    $pager.insertAfter($table).find('span.page-number:first').addClass('active');
+});
+
+</script>
 {% endblock %}

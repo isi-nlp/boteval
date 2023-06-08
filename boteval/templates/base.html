@@ -53,6 +53,33 @@
   <!--  <script src="{{url_for('app.static', filename='js/socket.io.min.js')}}"></script> -->
   <script src="{{url_for('app.static', filename='js/mycode.js')}}"></script>
 
+    <style>
+
+        td {
+            padding-right: 2em;
+        }
+
+        div.pager {
+            text-align: center;
+            margin: 1em 0;
+        }
+        div.pager span {
+            display: inline-block;
+            width: 1.8em;
+            height: 1.8em;
+            line-height: 1.8;
+            text-align: center;
+            cursor: pointer;
+            background: #000;
+            color: #fff;
+            margin-right: 0.5em;
+        }
+        div.pager span.active {
+            background: #c00;
+        }
+
+    </style>
+
 </head>
 
 {% set is_admin_user = cur_user and cur_user.is_authenticated and cur_user.role == 'admin' %}
