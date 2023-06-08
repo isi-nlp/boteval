@@ -401,6 +401,17 @@
 
         function is_second_user(thread){
             // if cur_user_id = id of last message with is_seed = true
+            var need_moderator_bot  = {{ thread.need_moderator_bot|lower }};
+            console.log("need_moderator_bot is: ", need_moderator_bot)
+
+            if(need_moderator_bot === false) {
+                if(reply_as_user === "Moderator") {
+                    return false
+                } else {
+                    return true
+                }
+            }
+
             last_seed_message = thread['messages'].filter(m => m['is_seed']).slice(-1)[0]
             console.log(last_seed_message, cur_user_id, reply_as_user)
             if (last_seed_message['data']['speaker_id'] !== reply_as_user){
