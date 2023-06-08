@@ -70,6 +70,30 @@ class MTurkService:
                     if query in qt['Name'].lower() or query in qt['Description']]
         return qtypes
 
+    def get_qualification_type_id_by_name(self, qualification_name):
+        data = self.client.list_qualification_types(
+            MustBeRequestable=True, MustBeOwnedByCaller=True,
+            MaxResults=C.AWS_MAX_RESULTS)
+
+        qtypes = data['QualificationTypes']
+        for cur_type in qtypes:
+            if cur_type['Name'] == qualification_name:
+                return cur_type['QualificationTypeId']
+
+        return ''
+
+    def is_worker_qualified(self, user_worker_id, qual_name):
+        human_moderator_qual_id = self.get_qualification_type_id_by_name(
+            qualification_name=qual_name)
+
+        workers = self.list_workers_for_qualtype(qual_id=human_moderator_qual_id, max_results=C.AWS_MAX_RESULTS)
+
+        qual_list_js = workers.get('Qualifications')
+        for cur_qual in qual_list_js:
+            if user_worker_id == cur_qual.get('WorkerId'):
+                return True
+        return False
+
     def list_HITS(self, qual_id:str, max_results=C.AWS_MAX_RESULTS):
         return self.client.list_hits_for_qualification_type(
             QualificationTypeId=qual_id,

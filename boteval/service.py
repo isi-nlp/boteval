@@ -106,12 +106,13 @@ class DialogBotChatManager(ChatManager):
         if self.human_transforms:
             message = self.human_transforms(message)
 
-        reply: ChatMessage
+        self.bot_agent.hear(message.as_dict())
 
-        if thread.need_moderator_bot:
-            self.bot_agent.hear(message.as_dict())
+        reply = self.bot_reply(n_users = self.n_human_users)
 
-            reply = self.bot_reply(n_users = self.n_human_users)
+        if not thread.need_moderator_bot:
+            log.info("Do not need moderator bot in this chat")
+            reply.text = ''
 
         if reply.text.strip(): # if bot responded 
             db.session.add(reply)
@@ -174,12 +175,16 @@ class ChatService:
         self.topics_file = self.resolve_path(topics_file)
         instructions_file = self.config['onboarding'].get('instructions_file', C.DEF_INSTRUCTIONS_FILE)
         simple_instructions_file = self.config['onboarding'].get('simple_instructions_file', C.DEF_INSTRUCTIONS_FILE)
-        log.info('instructions_file is: ', instructions_file)
+        human_mod_instructions_file = self.config['onboarding'].get('human_moderator_instructions_file', C.DEF_INSTRUCTIONS_FILE)
+
+        log.info('human_mod_instructions_file is: ', human_mod_instructions_file)
 
         self.instructions_file = self.resolve_path(instructions_file)
         self.simple_instructions_file = self.resolve_path(simple_instructions_file)
+        self.human_mod_instructions_file = self.resolve_path(human_mod_instructions_file)
         self._instructions = None
         self._simple_instructions = None
+        self._human_mod_instructions = None
 
         transforms_conf = self.config['chatbot'].get('transforms', {})
 
@@ -276,6 +281,15 @@ class ChatService:
                 self._simple_instructions = 'No simple instructions have been found for this task'
         return self._simple_instructions
 
+    @property
+    def human_mod_instructions(self) -> str:
+        if not self._human_mod_instructions:
+            if self.human_mod_instructions_file.exists():
+                self._human_mod_instructions = self.human_mod_instructions_file.read_text()
+            else:
+                self._human_mod_instructions = 'No human moderator instructions have been found for this task'
+        return self._human_mod_instructions
+
 
     @property
     def bot_user(self):
@@ -352,7 +366,7 @@ class ChatService:
         # db.session.commit()
 
     def create_topic_from_super_topic(self, super_topic_id, endpoint, persona_id, max_threads_per_topic,
-                                      max_turns_per_thread, max_human_users_per_thread, reward):
+                                      max_turns_per_thread, max_human_users_per_thread, human_moderator, reward):
         """
         Create a topic from a super topic
         The terminology is confusing.  A super topic is a topic in the old version.
@@ -362,7 +376,8 @@ class ChatService:
         new_topic = ChatTopic.create_new(super_topic, endpoint=endpoint, persona_id=persona_id,
                                          max_threads_per_topic=max_threads_per_topic,
                                          max_turns_per_thread=max_turns_per_thread,
-                                         max_human_users_per_thread=max_human_users_per_thread, reward=reward)
+                                         max_human_users_per_thread=max_human_users_per_thread,
+                                         human_moderator=human_moderator, reward=reward)
         db.session.add(new_topic)
         db.session.commit()
 
@@ -402,7 +417,8 @@ class ChatService:
                     threads_under_this_topic = ChatThread.query.filter(ChatThread.topic_id == topic.id).all()
                     for thr in threads_under_this_topic:
                         humans = [user for user in thr.users if user.role == User.ROLE_HUMAN]
-                        if len(humans) < topic.max_human_users_per_thread:
+                        human_moderators = [user for user in thr.users if user.role == User.ROLE_HUMAN_MODERATOR]
+                        if len(humans) + len(human_moderators) < topic.max_human_users_per_thread:
                             return False, ''
                     return True, 'This topic has exceeded maximum permissible threads'
         return False, ''
@@ -427,8 +443,18 @@ class ChatService:
         create a new thread if create_if_missing is True.
         """
 
-        if user.id == 'test1':
-            user.role = User.ROLE_HUMAN_MODERATOR
+        # log.info('data is: ', data)
+        log.info('topic.human_moderator is: ', topic.human_moderator)
+
+        if topic.human_moderator == 'yes' and data is not None and data.get(ext_src) is not None:
+            cur_user_is_qualified = self.crowd_service.is_worker_qualified(user_worker_id=user.id,
+                                                                           qual_name='human_moderator_qualification')
+
+            if cur_user_is_qualified:
+                log.info("Assign human moderator role to worker_id: ", user.id)
+                user.role = User.ROLE_HUMAN_MODERATOR
+            else:
+                log.info("Not Assign human moderator role to worker_id: ", user.id)
 
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
@@ -443,10 +469,15 @@ class ChatService:
             human_moderators = [user for user in tt.users if user.role == User.ROLE_HUMAN_MODERATOR]
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
 
-            if len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
+            # if tt.need_moderator_bot and user.role == User.ROLE_HUMAN_MODERATOR:
+                # print("Current chat thread does not need a human moderator, topic id: ", topic.id, ' user.role:', user.role)
+                # continue
+
+            if topic.human_moderator == 'yes' and len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
+                log.info("More than one human moderator not allowed, topic id: ", topic.id)
                 continue
 
-            if len(humans) < topic.max_human_users_per_thread:
+            if len(humans) + len(human_moderators) < topic.max_human_users_per_thread:
                 # Mark the thread as "is being created".
                 # This is to prevent other users from joining the thread at the same time.
                 if tt.thread_state == 1:
@@ -459,10 +490,10 @@ class ChatService:
                 loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
                 speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
 
-                if user.role == User.ROLE_HUMAN_MODERATOR:
-                    tt.need_moderator_bot = False
+                if topic.human_moderator == 'yes' and user.role == User.ROLE_HUMAN_MODERATOR:
+                    # tt.need_moderator_bot = False
                     tt.speakers[user.id] = 'Moderator'
-                elif len(human_moderators) == 1:
+                elif topic.human_moderator == 'yes' and len(human_moderators) == 1:
                     tt.speakers[user.id] = speakers[-1]
                 else:
                     i = -2
@@ -507,12 +538,19 @@ class ChatService:
                 data.update(topic.data)
             thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.endpoint,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
-                                max_turns_per_thread=topic.max_turns_per_thread, reward=topic.reward,
-                                max_human_users_per_thread=topic.max_human_users_per_thread)
+                                max_turns_per_thread=topic.max_turns_per_thread, human_moderator=topic.human_moderator,
+                                reward=topic.reward, max_human_users_per_thread=topic.max_human_users_per_thread)
 
             chat_topic = ChatTopic.query.get(thread.topic_id)
             loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
             speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
+
+            if thread.human_moderator == 'yes':
+                thread.need_moderator_bot = False
+                log.info(topic.id, 'does not need a moderator bot')
+            else:
+                thread.need_moderator_bot = True
+                log.info(topic.id, 'needs a moderator bot')
 
             # user.name = speakers[-1]
             if thread.speakers is None:
@@ -524,8 +562,8 @@ class ChatService:
             if thread.submit_url_dict is None:
                 thread.submit_url_dict = {}
 
-            if user.role == User.ROLE_HUMAN_MODERATOR:
-                thread.need_moderator_bot = False
+            if topic.human_moderator == 'yes' and user.role == User.ROLE_HUMAN_MODERATOR:
+                # thread.need_moderator_bot = False
                 thread.speakers[user.id] = 'Moderator'
             else:
                 thread.speakers[user.id] = speakers[-1]
@@ -617,7 +655,8 @@ class ChatService:
             self.exporter.export_thread(thread, rating_questions=self.ratings, engine=thread.engine,
                                         persona_id=thread.persona_id,
                                         max_threads_per_topic=thread.max_threads_per_topic,
-                                        max_turns_per_thread=thread.max_turns_per_thread, reward=thread.reward)
+                                        max_turns_per_thread=thread.max_turns_per_thread,
+                                        human_moderator=thread.human_moderator, reward=thread.reward)
 
     # @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
