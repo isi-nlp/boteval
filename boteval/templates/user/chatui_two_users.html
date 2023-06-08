@@ -78,8 +78,7 @@
                         {% set ratings_dict = (thread.data or {}).get('ratings') or {} %}
                         {% set prev_ratings = ratings_dict.get(cur_user.id) or {} %}
                         <ul class="list-group">
-                            {% for q in rating_questions %}            if (remaining_turns > 0 && !thread['messages'].some(msg => msg['user_id'] == BOT_ID)) {
-
+                            {% for q in rating_questions %}           
                             <li class="list-group-item my-1">
                                 <i>{{q['question']}}</i>
                                 <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="0"
