@@ -170,6 +170,7 @@ class ChatService:
         self.task_dir.mkdir(exist_ok=True, parents=True)
         self._bot_user_id = C.Auth.BOT_USER
         self._context_user_id = C.Auth.CONTEXT_USER
+        self.hit_layout_id = None 
         
         topics_file = self.config['chatbot'].get('topics_file', C.DEF_TOPICS_FILE)
         self.topics_file = self.resolve_path(topics_file)
@@ -693,11 +694,15 @@ class ChatService:
             landing_url = flask.url_for('app.mturk_landing', topic_id=topic.id,
                                         _external=True, _scheme='https')
             log.info(f'mturk landing URL {landing_url}')
-            ext_id, task_url, result = self.crowd_service.create_HIT(landing_url, 
+            
+            ext_id, hit_layout_id, task_url, result = self.crowd_service.create_HIT(landing_url, 
                 max_assignments=topic.max_threads_per_topic,
                 reward=topic.reward,
                 description=topic.name,
+                hit_layout_id=self.hit_layout_id, 
                 title=f'{topic.id}')
+            self.hit_layout_id = hit_layout_id
+            
             ext_src = self.crowd_service.name
             if ext_id:
                 topic.ext_id = ext_id

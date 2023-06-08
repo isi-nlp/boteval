@@ -134,7 +134,7 @@ class MTurkService:
             Reason=reason
             )
 
-    def create_HIT(self, external_url, max_assignments, reward, description, title=None, frame_height=800, **kwargs):
+    def create_HIT(self, external_url, max_assignments, reward, description, title=None, hit_layout_id=None, frame_height=800, **kwargs):
         if not external_url.startswith('https://'):
             raise Exception(f"MTurk requires HTTPS URL")
 
@@ -153,27 +153,21 @@ class MTurkService:
             MaxAssignments=max_assignments,
             Reward=reward
         )
-        if title:
-            if 'Title' in args:
-                args['Title'] += f' ({title})'
-            else:
-                args['Title'] = title
-
-        if description:
-            if 'Description' in args:
-                description += '\n' + args['Description']
-            args['Description'] = description
+        
+        # group HITs together         
+        # if hit_layout_id:
+        #     args['HITLayoutId'] = hit_layout_id
 
         log.info(f'creating HIT..')
         response = self.client.create_hit(**args)['HIT']
         hit_id = response['HITId']
         hit_group_id = response['HITGroupId']
-        subdomain = 'workersandbox' if self.is_sandbox else 'www'
+        subdomain = 'workersandbox' if self.is_sandbox else 'worker'
         task_url = f'https://{subdomain}.mturk.com/projects/{hit_group_id}/tasks'
         log.info(f'HIT created: {hit_id}  {task_url}')
         
         log.info(f'Task URL: {task_url}')
-        return hit_id, task_url, response
+        return hit_id, hit_group_id, task_url, response
 
     def task_complete(self, thread: ChatThread, result):
         assert thread.ext_src == self.name
