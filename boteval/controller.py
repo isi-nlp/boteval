@@ -509,6 +509,8 @@ def user_controllers(router, service: ChatService):
         chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
             ext_id=assignment_id, ext_src=ext_src, data=data)
 
+        log.info(f'chat_thread: {chat_thread}')
+        log.info(f'worker_id: {worker_id}')
         return get_thread(thread_id=chat_thread.id, request_worker_id=worker_id, focus_mode=True)
 
 
