@@ -50,7 +50,7 @@
                     </div>
                 </form>
                 <div id="waiting_info" class="text-center alert alert-primary" style="display: none;">
-                        Waiting for response from bot or other user...
+                        Waiting for response from moderator or other user...
                         <span class="dot one">⦿</span>
                         <span class="dot two">⦿</span>
                         <span class="dot three">⦿</span>
@@ -68,9 +68,9 @@
                 <button type="button" class="btn btn-info my-3" data-toggle="modal"
                     data-target="#instructionsmodal">Detailed Instructions</button>
                 {%endif%}
-                <div {% if cur_user.is_admin or remaining_turns> 0 %} style="display:none" {%endif%}
+                <div {% if cur_user.is_admin or remaining_turns> 0 %} style="display:none" {% endif %}
                     id="ratings-view">
-                    {% set is_disabled = 'disabled' if ((thread.data or {}).get('ratings') or {}).get(cur_user.id) else '' %}
+                    {% set is_disabled = 'disabled' if (thread.data or {}).get('rating_done') else '' %}
                     <form action="{{url_for('app.thread_rating', thread_id=thread.id, user_id=cur_user.id)}}" method="POST" id="ratings-form" onsubmit="ratings_validation()"
                         class="form">
 
@@ -78,24 +78,46 @@
                         {% set ratings_dict = (thread.data or {}).get('ratings') or {} %}
                         {% set prev_ratings = ratings_dict.get(cur_user.id) or {} %}
                         <ul class="list-group">
-                            {% for q in rating_questions %}           
+                            {% for q in rating_questions %}
                             <li class="list-group-item my-1">
                                 <i>{{q['question']}}</i>
-                                <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="0"
-                                    max="{{q['choices']|length}}" name="{{q['question']}}" required
-                                    value="{{prev_ratings.get(q['question']) or 0}}" {{is_disabled}}>
-                                <datalist id="tickmarks-{{loop.index}}"
-                                    style="display: flex; justify-content: space-between; width: 100%;">
-                                    <option></option>
-                                    {% for ch in q['choices'] %}
-                                    <option>{{ch}}</option>
-                                    {%endfor%}
-                                </datalist>
+                                {% if q['choices'] %}
+                                    <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="-1"
+                                        max="{{q['choices']|length - 1}}" name="{{q['question']}}" required
+                                        value="{{prev_ratings.get(q['question']) or -1}}" {{is_disabled}}>
+                                    <datalist id="tickmarks-{{loop.index}}"
+                                        style="display: flex; justify-content: space-between; width: 100%;">
+                                        <option> - </option>
+                                        {% for ch in q['choices'] %}
+                                            <option>{{ch}}</option>
+                                        {%endfor%}
+                                    </datalist>
+                                {% endif %}
+                                {% if q['range'] %}
+                                    <input id="rating-{{loop.index}}" type="range" style="width: 100%;" min="{{q['range'][0] - 1}}"
+                                        max="{{q['range'][1]}}" name="{{q['question']}}" required
+                                        value="{{prev_ratings.get(q['question']) or -1}}" {{is_disabled}}>
+                                    <datalist id="tickmarks-{{loop.index}}"
+                                        style="display: flex; justify-content: space-between; width: 100%;">
+                                        <option> - </option>
+                                        {% for i in range(q['range'][0], q['range'][1] + 1) %}
+                                            {% if q['range'][1] - q['range'][0] > 40 %}
+                                                {% if loop.index0 % 10 == 0 %}
+                                                    <option>{{ i }}</option>
+                                                {% endif %}
+                                            {% else %}
+                                                <option>{{ i }}</option>
+                                            {% endif %}
+                                    {% endfor %}
+                                    </datalist>
+                                {% endif%}
+                                {% if q['freetext'] %}
+                                    <textarea name="{{q['question']}}" rows="4" style="width: 100%; max-width: 100%;" {{is_disabled}} placeholder="{{q['freetext']['default']}}" {% if q['freetext']['required'] %} required {% endif %}>{{prev_ratings.get('optional_feedback') or ""}}</textarea>
+                                {% endif %}
                             </li>
                             {% endfor %}
                             <li class="list-group-item my-1">
-                                <i>Let us know if you have any other thoughts about the chatbot (e.g. how would it have been more effective?) or feedback about the task itself:</i>
-                                <textarea name="optional_feedback" rows="4" style="width: 100%; max-width: 100%;" {{is_disabled}}>{{prev_ratings.get('optional_feedback') or "none"}}</textarea>
+
                             </li>
                         </ul>
                         {% if focus_mode %} <input name="focus_mode" value="True" type="hidden" /> {%endif%}
@@ -114,22 +136,41 @@
                             {% for q in rating_questions %}
                             <li class="list-group-item my-1">
                                 <i>{{q['question']}}</i>
-                                <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="0"
-                                    max="{{q['choices']|length}}" name="{{q['question']}}" required
-                                    value="{{prev_ratings.get(q['question']) or 0}}" {{is_disabled}}>
-                                <datalist id="tickmarks-{{loop.index}}"
-                                    style="display: flex; justify-content: space-between; width: 100%;">
-                                    <option></option>
-                                    {% for ch in q['choices'] %}
-                                    <option>{{ch}}</option>
-                                    {%endfor%}
-                                </datalist>
+                                {% if q['choices'] %}
+                                    <input id="rating-{{loop.index}}" type="range" list="tickmarks-{{loop.index}}" style="width: 100%;" min="-1"
+                                        max="{{q['choices']|length - 1}}" name="{{q['question']}}" required
+                                        value="{{prev_ratings.get(q['question']) or -1}}" {{is_disabled}}>
+                                    <datalist id="tickmarks-{{loop.index}}"
+                                        style="display: flex; justify-content: space-between; width: 100%;">
+                                        <option> - </option>
+                                        {% for ch in q['choices'] %}
+                                            <option>{{ch}}</option>
+                                        {%endfor%}
+                                    </datalist>
+                                {% endif %}
+                                {% if q['range'] %}
+                                    <input id="rating-{{loop.index}}" type="range" style="width: 100%;" min="{{q['range'][0] - 1}}"
+                                        max="{{q['range'][1]}}" name="{{q['question']}}" required
+                                        value="{{prev_ratings.get(q['question']) or -1}}" {{is_disabled}}>
+                                    <datalist id="tickmarks-{{loop.index}}"
+                                        style="display: flex; justify-content: space-between; width: 100%;">
+                                        <option> - </option>
+                                        {% for i in range(q['range'][0], q['range'][1] + 1) %}
+                                            {% if q['range'][1] - q['range'][0] > 40 %}
+                                                {% if loop.index0 % 10 == 0 %}
+                                                    <option>{{ i }}</option>
+                                                {% endif %}
+                                            {% else %}
+                                                <option>{{ i }}</option>
+                                            {% endif %}
+                                    {% endfor %}
+                                    </datalist>
+                                {% endif%}
                             </li>
+                            {% if q['freetext'] %}
+                                <textarea name="{{q['question']}}" rows="4" style="width: 100%; max-width: 100%;" {{is_disabled}} placeholder="{{q['freetext']['default']}}" {% if q['freetext']['required'] %} required {% endif %}>{{prev_ratings.get('optional_feedback') or ""}}</textarea>
+                            {% endif %}
                             {% endfor %}
-                            <li class="list-group-item my-1">
-                                <i>Let us know if you have any other thoughts about the chatbot (e.g. how would it have been more effective?) or feedback about the task itself:</i>
-                                <textarea name="optional_feedback" rows="4" style="width: 100%; max-width: 100%;" {{is_disabled}}>{{prev_ratings.get('optional_feedback') or "none"}}</textarea>
-                            </li>
                         </ul>
                     {% endfor %}
                 </div>
@@ -316,9 +357,11 @@
                 },
             });
 
+            var need_moderator_bot = {{ thread.need_moderator_bot|lower }};
+
             // initial submit 
             // if there is no message in the thread that is from a user with BOT_ID, submit
-            if (!thread['messages'].some(msg => msg['user_id'] == BOT_ID)) {
+            if (need_moderator_bot === true && !thread['messages'].some(msg => msg['user_id'] == BOT_ID)) {
                 waiting_for_bot_reply = true 
                 refresh_view()
                 console.log("submitting initial message...")
@@ -401,6 +444,17 @@
 
         function is_second_user(thread){
             // if cur_user_id = id of last message with is_seed = true
+            var need_moderator_bot  = {{ thread.need_moderator_bot|lower }};
+            console.log("need_moderator_bot is: ", need_moderator_bot)
+
+            if(need_moderator_bot === false) {
+                if(reply_as_user === "Moderator") {
+                    return false
+                } else {
+                    return true
+                }
+            }
+
             last_seed_message = thread['messages'].filter(m => m['is_seed']).slice(-1)[0]
             console.log(last_seed_message, cur_user_id, reply_as_user)
             if (last_seed_message['data']['speaker_id'] !== reply_as_user){
@@ -411,18 +465,32 @@
         }
 
         function block_second_user_first_turn(thread){
+            var need_moderator_bot = {{thread.need_moderator_bot|lower}}
             // if bot's first response is in
-            if (is_second_user(thread)) {
-                if (
-                    (!thread['messages'][thread['messages'].length - 1]['is_seed'] && thread['messages'].slice(0, -1).every(m => m['is_seed'])) || 
-                    thread['messages'].every(m => m['is_seed'])) 
-                    {
-                        waiting_for_other_human_reply = true; 
-                        refresh_view();
-                        console.log("should block")
-                        return 
-                    }
+
+            if(need_moderator_bot === false){
+                if (is_second_user(thread) && thread['messages'].every(m => m['is_seed'])){
+                    waiting_for_other_human_reply = true; 
+                    refresh_view();
+                    console.log("should block")
+                    return
+                }
             }
+            else{
+                if (is_second_user(thread)) {
+                    if (
+                        (!thread['messages'][thread['messages'].length - 1]['is_seed'] && thread['messages'].slice(0, -1).every(m => m['is_seed'])) || 
+                        thread['messages'].every(m => m['is_seed'])) 
+                        {
+                            console.log("in block condition")
+                            waiting_for_other_human_reply = true; 
+                            refresh_view();
+                            console.log("should block")
+                            return
+                        }
+                }         
+            }
+
 
             console.log("should not block")
         }
@@ -430,7 +498,7 @@
         function ratings_validation(){
             let invalid = false
             for (const el of $('#ratings-form').find(":input[type='range']")){
-                if (el.value == '0'){
+                if (el.value == el.min){
                     el.parentNode.classList.add('bg-warning')
                     invalid = true
                 } else {

@@ -76,18 +76,25 @@ class DialogBotChatManager(ChatManager):
 
     def bot_init_reply(self, thread):
         # Last one was targeted speaker; bot reply here
-        reply: ChatMessage = self.bot_reply(n_users=self.n_human_users)
-        db.session.add(reply)
-        thread.messages.append(reply)
-        db.session.commit()
-        # We should not increment num_turns here, as the bot reply shouldn't be counted.
-        # self.num_turns += 1
-        log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
-        thread.thread_state = 2
-        db.session.merge(thread)
-        db.session.flush()
-        db.session.commit()
+        
+        if not thread.need_moderator_bot:
+            log.info("Do not need moderator bot in this chat")
+            reply = ChatMessage(user_id = self.bot_user_id, text='', is_seed=False)
+        else: 
+            reply: ChatMessage = self.bot_reply(n_users=self.n_human_users)
+            if reply.text.strip():  # if bot responded
+                db.session.add(reply)
+                thread.messages.append(reply)
+                db.session.commit()
+            # We should not increment num_turns here, as the bot reply shouldn't be counted.
+            # self.num_turns += 1
+            log.info(f'{self.thread_id} turns:{self.num_turns} max:{self.max_turns}')
+            db.session.merge(thread)
+            db.session.flush()
+            db.session.commit()
+
         episode_done = False
+        thread.thread_state = 2
         
         return reply, episode_done 
 
@@ -108,16 +115,15 @@ class DialogBotChatManager(ChatManager):
 
         self.bot_agent.hear(message.as_dict())
 
-        reply = self.bot_reply(n_users = self.n_human_users)
-
         if not thread.need_moderator_bot:
             log.info("Do not need moderator bot in this chat")
-            reply.text = ''
-
-        if reply.text.strip(): # if bot responded 
-            db.session.add(reply)
-            thread.messages.append(reply)
-            db.session.commit()
+            reply = ChatMessage(user_id = self.bot_user_id, text='', is_seed=False)
+        else: 
+            reply = self.bot_reply(n_users = self.n_human_users)
+            if reply.text.strip(): # if bot responded 
+                db.session.add(reply)
+                thread.messages.append(reply)
+                db.session.commit()
 
         self.num_turns += 1
 
@@ -481,6 +487,7 @@ class ChatService:
                 # Mark the thread as "is being created".
                 # This is to prevent other users from joining the thread at the same time.
                 if tt.thread_state == 1:
+                    log.info("thread is being created")
                     return None
 
                 log.info('human_user_2 join thread!')
