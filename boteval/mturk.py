@@ -134,7 +134,7 @@ class MTurkService:
             Reason=reason
             )
 
-    def create_HIT(self, external_url, max_assignments, reward, description, title=None, hit_layout_id=None, frame_height=800, **kwargs):
+    def create_HIT(self, external_url, max_assignments, reward, frame_height=800, **kwargs):
         if not external_url.startswith('https://'):
             raise Exception(f"MTurk requires HTTPS URL")
 
@@ -154,9 +154,7 @@ class MTurkService:
             Reward=reward
         )
         
-        # group HITs together         
-        # if hit_layout_id:
-        #     args['HITLayoutId'] = hit_layout_id
+        # keeping title and description will group the HITs together
 
         log.info(f'creating HIT..')
         response = self.client.create_hit(**args)['HIT']
@@ -167,7 +165,7 @@ class MTurkService:
         log.info(f'HIT created: {hit_id}  {task_url}')
         
         log.info(f'Task URL: {task_url}')
-        return hit_id, hit_group_id, task_url, response
+        return hit_id, task_url, response
 
     def task_complete(self, thread: ChatThread, result):
         assert thread.ext_src == self.name
@@ -258,10 +256,8 @@ class MTurkController:
         bonus_settings = self.mturk.hit_settings
         if not "Reward" in bonus_settings:
             return "You must set a reward attribute in the conf.yaml file."
-        if not "DesiredRate" in bonus_settings:
-            return "You must set a bonus rate attribute in the conf.yaml file."
         base_pay = float(bonus_settings["Reward"])
-        pay_per_hour = float(bonus_settings["DesiredRate"])
+        pay_per_hour = float(bonus_settings.get("DesiredRate", 15))
         bonus_pay = []
         if data['Assignments']:
             qtypes = self.mturk.list_qualification_types(max_results=100)

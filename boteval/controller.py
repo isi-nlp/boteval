@@ -449,13 +449,13 @@ def user_controllers(router, service: ChatService):
     @router.route('/mturk-landing/<topic_id>', methods=['GET'])
     def mturk_landing(topic_id):  # this is where mturk worker should land first
 
-        assignmet_id = request.values.get('assignmentId')
-        is_previewing = assignmet_id == 'ASSIGNMENT_ID_NOT_AVAILABLE'
+        assignment_id = request.values.get('assignmentId')
+        is_previewing = assignment_id == 'ASSIGNMENT_ID_NOT_AVAILABLE'
         hit_id = request.values.get('hitId')
         worker_id = request.values.get('workerId')          # wont be available while previewing
         submit_url = request.values.get('turkSubmitTo', '') # wont be available while previewing
         if not hit_id:
-            return 'HITId not found. This URL is reserved for Mturk users only', 400
+            return f'HITId not found. {assignment_id=} {worker_id=} This URL is reserved for Mturk users only: {submit_url}', 400
         
         # because Jon suggested we make it seamless for mturk users
         seamless_login = service.config.is_seamless_crowd_login
@@ -501,13 +501,13 @@ def user_controllers(router, service: ChatService):
             ext_src : {
                 'submit_url': submit_url,
                 'is_sandbox': 'workersandbox' in submit_url,
-                'assignment_id': assignmet_id,
+                'assignment_id': assignment_id,
                 'hit_id': hit_id,
                 'worker_id': worker_id
             }
         }
         chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
-            ext_id=assignmet_id, ext_src=ext_src, data=data)
+            ext_id=assignment_id, ext_src=ext_src, data=data)
 
         return get_thread(thread_id=chat_thread.id, request_worker_id=worker_id, focus_mode=True)
 
