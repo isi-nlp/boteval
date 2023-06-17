@@ -268,8 +268,7 @@
         }
 
         function play_beep() {
-            // don't play for single user setting. 
-            // new Audio('{{url_for("app.static", filename="img/new_message_beep.mp3")}}').play();
+            new Audio('{{url_for("app.static", filename="img/new_message_beep.mp3")}}').play();
         }
 
         window.onload = () => {

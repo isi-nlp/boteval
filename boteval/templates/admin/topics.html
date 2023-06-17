@@ -125,6 +125,15 @@
                   </form>
               </td>
             </tr>
+            <tr>
+              <div class="card-body"> 
+                <form method="POST" action="{{url_for('admin.delete_all_topics')}}">
+                  <div>
+                    <input class="button btn btn-danger" type="submit" value="Delete All Tasks"/>
+                  </div>
+                </form>
+              </div> 
+            </tr>
           </table>
         <div class="card-body">
           <span>Found {{ super_topics | length }} topics </span>
