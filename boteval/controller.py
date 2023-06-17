@@ -558,6 +558,16 @@ def admin_controllers(router, service: ChatService):
         threads = ChatThread.query.order_by(ChatThread.time_updated.desc(), ChatThread.time_created.desc()).limit(C.MAX_PAGE_SIZE).all()
         return render_template('admin/threads.html', threads=threads, **admin_templ_args)
 
+    @router.route('/topic/delete_all', methods=['POST'])
+    @admin_login_required
+    def delete_all_topics():
+        # delete all topics
+        for topic in ChatTopic.query.all():
+            if topic.ext_id or topic.ext_src in [C.MTURK, C.MTURK_SANDBOX]:
+                MTurkController(service.crowd_service).expire_HIT(topic.ext_id)
+            service.delete_topic(topic)
+        return redirect(url_for('admin.get_topics'))
+
     @router.route('/topic/', methods=['GET', 'POST'])
     @admin_login_required
     def get_topics():
