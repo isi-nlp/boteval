@@ -268,6 +268,7 @@ def user_controllers(router, service: ChatService):
         thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
         if thread is None:
             err_msg = 'Another user is loading this chat topic. Please retry after 10 seconds!'
+            log.error(err_msg)
             return err_msg, 400
 
         return flask.redirect(url_for('app.get_thread', thread_id=thread.id))
@@ -304,6 +305,8 @@ def user_controllers(router, service: ChatService):
 
         if req_worker_is_human_mod:
             instructions_for_user = service.human_mod_instructions
+            # add one more turn for human mod: 
+            remaining_turns = remaining_turns + 1
             log.info('Human moderator instructions should be used for user:', request_worker_id)
 
         if thread.max_human_users_per_thread == 1:
@@ -508,6 +511,11 @@ def user_controllers(router, service: ChatService):
         }
         chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
             ext_id=assignment_id, ext_src=ext_src, data=data)
+        
+        if chat_thread is None: 
+            err_msg = 'Another user is loading this chat topic. Please retry after 10 seconds!'
+            log.error(err_msg)
+            return err_msg, 400
 
         log.info(f'chat_thread: {chat_thread}')
         log.info(f'worker_id: {worker_id}')

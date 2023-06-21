@@ -94,7 +94,6 @@ class DialogBotChatManager(ChatManager):
             db.session.commit()
 
         episode_done = False
-        thread.thread_state = 2
         
         return reply, episode_done 
 
@@ -450,17 +449,17 @@ class ChatService:
         """
 
         # log.info('data is: ', data)
-        log.info('topic.human_moderator is: ', topic.human_moderator)
+        log.info(f'topic.human_moderator is: {topic.human_moderator}')
 
         if topic.human_moderator == 'yes' and data is not None and data.get(ext_src) is not None:
             cur_user_is_qualified = self.crowd_service.is_worker_qualified(user_worker_id=user.id,
                                                                            qual_name='human_moderator_qualification')
 
             if cur_user_is_qualified:
-                log.info("Assign human moderator role to worker_id: ", user.id)
+                log.info(f"Assign human moderator role to worker_id: {user.id}")
                 user.role = User.ROLE_HUMAN_MODERATOR
             else:
-                log.info("Not Assign human moderator role to worker_id: ", user.id)
+                log.info(f"Not Assign human moderator role to worker_id: {user.id}")
 
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
@@ -487,7 +486,7 @@ class ChatService:
                 # Mark the thread as "is being created".
                 # This is to prevent other users from joining the thread at the same time.
                 if tt.thread_state == 1:
-                    log.info("thread is being created")
+                    log.error("thread is being created")
                     return None
 
                 log.info('human_user_2 join thread!')
@@ -582,6 +581,7 @@ class ChatService:
                 thread.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
 
             thread.thread_state = 1
+            log.info("Set thread state to 1")
             log.info(f'1st user is: {user.id}, 1st speaker is: {thread.speakers[user.id]}')
 
             thread.users.append(user)
@@ -601,6 +601,12 @@ class ChatService:
                 msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, is_seed=True, data=data)
                 db.session.add(msg)
                 thread.messages.append(msg)
+            thread.thread_state = 2
+            
+            # if moderator: 
+            if topic.human_moderator == 'yes':
+                log.info("Set thread state to 2")
+                
             db.session.merge(thread)
             db.session.flush()
             db.session.commit()
