@@ -69,7 +69,8 @@
               <td>
                   <h4>Multi-task Creation:</h4>
                   <form method="POST" action="#">
-                  <div>
+                  {% include "admin/customized_panel.html" %}
+                 <div>
                       <label for="multi-topics-creation" style="vertical-align: top;">Topics:</label>
                       <select name="multi-topics-creation" id="multi-topics-creation" multiple style="height: 10rem;" class="form-control selectpicker" data-live-search="true">
                             {% for super_topic, num_threads in super_topics %}
@@ -155,6 +156,7 @@
           <td> Created {{super_topic.time_created|ctime}}; {{super_topic.time_modified|ctime}}  </td>
           <td>
             <form method="POST" action="#">
+                {% include "admin/customized_panel.html" %}
                 <div>
                     <label for="endpoint">Endpoint:</label>
                     <select name="endpoint" id="endpoint">
