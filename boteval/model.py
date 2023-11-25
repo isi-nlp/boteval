@@ -245,6 +245,7 @@ class ChatThread(BaseModelWithExternal):
     max_human_users_per_thread: int = db.Column(db.Integer, nullable=True)
     human_moderator: str = db.Column(db.String(32), nullable=True)
     reward: str = db.Column(db.String(32), nullable=True)
+    parameters: str = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     def count_turns(self, user: User):
         return sum(msg.user_id == user.id for msg in self.messages)
@@ -308,13 +309,14 @@ class ChatTopic(BaseModelWithExternal):
     max_human_users_per_thread: int = db.Column(db.Integer, nullable=False)
     human_moderator: str = db.Column(db.String(32), nullable=True)
     reward: str = db.Column(db.String(32), nullable=False)
+    parameters: str = db.Column(db.JSON(), nullable=False, server_default='{}')
 
     def as_dict(self):
         return super().as_dict() | dict(name=self.name)
 
     @classmethod
     def create_new(cls, super_topic: SuperTopic, endpoint, persona_id, max_threads_per_topic,
-                   max_turns_per_thread, max_human_users_per_thread, human_moderator, reward):
+                   max_turns_per_thread, max_human_users_per_thread, human_moderator, reward, parameters):
         cur_task_id = super_topic.next_task_id
         cur_id = f'{super_topic.id}_{cur_task_id:03d}'
         cur_name = f'{super_topic.name}_{cur_task_id:03d}'
@@ -328,7 +330,8 @@ class ChatTopic(BaseModelWithExternal):
                           max_turns_per_thread=max_turns_per_thread,
                           max_human_users_per_thread=max_human_users_per_thread,
                           human_moderator=human_moderator,
-                          reward=reward)
+                          reward=reward,
+                          parameters=parameters)
         # log.info(f'Creating New Task {topic.id}')
         super_topic.next_task_id += 1
         db.session.add(topic)

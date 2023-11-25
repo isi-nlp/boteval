@@ -371,7 +371,7 @@ class ChatService:
         # db.session.commit()
 
     def create_topic_from_super_topic(self, super_topic_id, endpoint, persona_id, max_threads_per_topic,
-                                      max_turns_per_thread, max_human_users_per_thread, human_moderator, reward):
+                                      max_turns_per_thread, max_human_users_per_thread, human_moderator, reward, parameters):
         """
         Create a topic from a super topic
         The terminology is confusing.  A super topic is a topic in the old version.
@@ -382,7 +382,7 @@ class ChatService:
                                          max_threads_per_topic=max_threads_per_topic,
                                          max_turns_per_thread=max_turns_per_thread,
                                          max_human_users_per_thread=max_human_users_per_thread,
-                                         human_moderator=human_moderator, reward=reward)
+                                         human_moderator=human_moderator, reward=reward, parameters=parameters)
         db.session.add(new_topic)
         db.session.commit()
 
@@ -545,7 +545,7 @@ class ChatService:
             thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.endpoint,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
                                 max_turns_per_thread=topic.max_turns_per_thread, human_moderator=topic.human_moderator,
-                                reward=topic.reward, max_human_users_per_thread=topic.max_human_users_per_thread)
+                                reward=topic.reward, max_human_users_per_thread=topic.max_human_users_per_thread, parameters=topic.parameters)
 
             chat_topic = ChatTopic.query.get(thread.topic_id)
             loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
@@ -674,6 +674,11 @@ class ChatService:
     # @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
         cur_bot_agent = self.bot_agent_dict[(thread.engine, thread.persona_id)]
+        log.info(f'create bot agent with: {thread.parameters}')
+        #createBot is created by darma, paramter: dictionary
+        # cur_bot_agent = createBot(thread.args)
+
+
         return DialogBotChatManager(thread=thread,
                                     bot_agent=cur_bot_agent,
                                     max_turns=thread.max_turns_per_thread,

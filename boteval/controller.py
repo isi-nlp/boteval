@@ -613,7 +613,7 @@ def admin_controllers(router, service: ChatService):
                                                           max_turns_per_thread=int(args['max_turns_per_thread']),
                                                           max_human_users_per_thread=int(args['max_human_users_per_thread']),
                                                           human_moderator=args['human_moderator'],
-                                                          reward=args['reward'])
+                                                          reward=args['reward'], parameters=args)
             elif "multi-tasks-launch" in args.keys():
                 selected_task_ids = request.form.getlist('multi-tasks-launch')
                 for task_id in selected_task_ids:
@@ -625,7 +625,7 @@ def admin_controllers(router, service: ChatService):
                                                       max_turns_per_thread=int(args['max_turns_per_thread']),
                                                       max_human_users_per_thread=int(args['max_human_users_per_thread']),
                                                       human_moderator=args['human_moderator'],
-                                                      reward=args['reward'])
+                                                      reward=args['reward'], parameters=args)
             return redirect(url_for('admin.get_topics'))
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')
