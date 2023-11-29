@@ -201,7 +201,7 @@ class ChatService:
             self.bot_transforms = load_transforms(transforms_conf['bot'])
         
         self.exporter = FileExportService(self.resolve_path(config.get('chat_dir'), 'data'))
-        bot_name = config['chatbot']['bot_name']
+        self.bot_name = config['chatbot']['bot_name']
         # bot_args are no longer used as we always load all possible bots and chose the one we need at launching.
         bot_args = config['chatbot'].get('bot_args') or {}
 
@@ -217,15 +217,15 @@ class ChatService:
             self.persona_id_list = [x['id'] for x in persona_jsons]
 
         # Initialize all possible bots
-        self.bot_agent_dict = {}
-        for cur_endpoint_name in self.endpoints:
-            for cur_persona_id in self.persona_id_list:
-                tmp_dict = {
-                    # 'engine': cur_engine_name,
-                    'default_endpoint': cur_endpoint_name,
-                    'persona_id': cur_persona_id
-                }
-                self.bot_agent_dict[(cur_endpoint_name, cur_persona_id)] = load_bot_agent(bot_name, tmp_dict)
+        # self.bot_agent_dict = {}
+        # for cur_endpoint_name in self.endpoints:
+        #     for cur_persona_id in self.persona_id_list:
+        #         tmp_dict = {
+        #             # 'engine': cur_engine_name,
+        #             'default_endpoint': cur_endpoint_name,
+        #             'persona_id': cur_persona_id
+        #         }
+        #         self.bot_agent_dict[(cur_endpoint_name, cur_persona_id)] = load_bot_agent(bot_name, tmp_dict)
 
         # self.persona_id = bot_args.get('persona_id')
         # self.bot_agent = load_bot_agent(bot_name, bot_args)
@@ -542,7 +542,7 @@ class ChatService:
             # If there is data, we shouldn't update it with the topic data, otherwise the 'ext_src' might be overridden
             if not data:
                 data.update(topic.data)
-            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, engine=topic.endpoint,
+            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, bot_name=self.bot_name, engine=topic.endpoint,
                                 persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
                                 max_turns_per_thread=topic.max_turns_per_thread, human_moderator=topic.human_moderator,
                                 reward=topic.reward, max_human_users_per_thread=topic.max_human_users_per_thread, parameters=topic.parameters)
@@ -673,10 +673,15 @@ class ChatService:
 
     # @functools.lru_cache(maxsize=256)
     def get_dialog_man(self, thread: ChatThread) -> DialogBotChatManager:
-        cur_bot_agent = self.bot_agent_dict[(thread.engine, thread.persona_id)]
+        # cur_bot_agent = self.bot_agent_dict[(thread.engine, thread.persona_id)]
         log.info(f'create bot agent with: {thread.parameters}')
-        #createBot is created by darma, paramter: dictionary
-        # cur_bot_agent = createBot(thread.args)
+        parameters_dict = {
+            'parameters': thread.parameters
+        }
+
+        # bot is created by darma, paramter: dictionary
+        log.info(f'bot name is: {thread.bot_name}')
+        cur_bot_agent = load_bot_agent(thread.bot_name, parameters_dict)
 
 
         return DialogBotChatManager(thread=thread,

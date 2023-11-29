@@ -238,6 +238,7 @@ class ChatThread(BaseModelWithExternal):
     # We include the following rows because the topic may be deleted.
     # But we still need to see the content of one thread even if the corresponding
     # topic is gone.
+    bot_name: str = db.Column(db.String(64), nullable=True)
     engine: str = db.Column(db.String(64), nullable=True)
     persona_id: str = db.Column(db.String(64), nullable=True)
     max_threads_per_topic: int = db.Column(db.Integer, nullable=True)
