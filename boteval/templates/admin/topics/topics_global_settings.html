@@ -53,22 +53,6 @@
             {% endfor %}
           </select>
         </div>
-        <div>
-          <label for="endpoint">Endpoint:</label>
-          <select name="endpoint" id="endpoint">
-            {% for endpoint_name in service.endpoints %}
-              <option value="{{ endpoint_name }}">{{ endpoint_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label for="persona_id">Persona_id:</label>
-          <select name="persona_id" id="persona_id">
-            {% for persona_id_name in service.persona_id_list %}
-              <option value="{{ persona_id_name }}">{{ persona_id_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
         {% include "admin/topics/topics_limits_panel.html" %}
         <div>
           <input type="submit" value="Create Multiple Tasks"/>
