@@ -592,7 +592,7 @@ def admin_controllers(router, service: ChatService):
             topic_thread_counts_dict = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
             super_topics = \
                 [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
-            return render_template('admin/topics.html', tasks=all_topics, super_topics=super_topics,
+            return render_template('admin/topics/topics.html', tasks=all_topics, super_topics=super_topics,
                                    external_url_ok=service.is_external_url_ok, **admin_templ_args,
                                    topic_thread_counts_dict=topic_thread_counts_dict, service=service)
         else:
