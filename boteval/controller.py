@@ -310,7 +310,7 @@ def user_controllers(router, service: ChatService):
             log.info('Human moderator instructions should be used for user:', request_worker_id)
 
         if thread.max_human_users_per_thread == 1:
-            return render_template('user/chatui.html', limits=service.limits,
+            return render_template('user/chatui/chatui.html', limits=service.limits,
                                    thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
                                    thread=thread,
                                    topic=topic,
@@ -323,7 +323,7 @@ def user_controllers(router, service: ChatService):
                                    show_text_extra=FL.current_user.is_admin,
                                    data=dict())
         elif thread.max_human_users_per_thread == 2:
-            return render_template('user/chatui_two_users.html', limits=service.limits,
+            return render_template('user/chatui/chatui_two_users.html', limits=service.limits,
                                    thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
                                    thread=thread,
                                    topic=topic,
