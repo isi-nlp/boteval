@@ -70,7 +70,7 @@ class DialogBotChatManager(ChatManager):
             log.info(f'{thread.id} has no messages, so nothing to init')
             return
         log.info(f'Init Thread ID {thread.id}\'s context with {len(thread.messages)} msgs')
-        topic_appeared = False 
+        topic_appeared = False
         messages = [msg.as_dict() for msg in thread.messages]
         self.bot_agent.init_chat_context(messages)
 
@@ -229,6 +229,7 @@ class ChatService:
 
         # self.persona_id = bot_args.get('persona_id')
         # self.bot_agent = load_bot_agent(bot_name, bot_args)
+        self.cur_bot_agent = None
         self.limits = config.get('limits') or {}
         self.ratings = config['ratings']
 
@@ -572,9 +573,12 @@ class ChatService:
                 # thread.need_moderator_bot = False
                 thread.speakers[user.id] = 'Moderator'
             else:
-                thread.speakers[user.id] = speakers[-1]
-                # thread.user_1st = user.id
-                # thread.speaker_1st = speakers[-1]
+                if len(topic.data['conversation']) == 0:
+                    thread.speakers[user.id] = 'User1'
+                else:
+                    thread.speakers[user.id] = speakers[-1]
+                    # thread.user_1st = user.id
+                    # thread.speaker_1st = speakers[-1]
 
             thread.assignment_id_dict[user.id] = ext_id
             if data.get(ext_src):
@@ -681,11 +685,11 @@ class ChatService:
 
         # bot is created by darma, paramter: dictionary
         log.info(f'bot name is: {thread.bot_name}')
-        cur_bot_agent = load_bot_agent(thread.bot_name, parameters_dict)
-
+        if self.cur_bot_agent is None:
+            self.cur_bot_agent = load_bot_agent(thread.bot_name, parameters_dict)
 
         return DialogBotChatManager(thread=thread,
-                                    bot_agent=cur_bot_agent,
+                                    bot_agent=self.cur_bot_agent,
                                     max_turns=thread.max_turns_per_thread,
                                     bot_transforms=self.bot_transforms,
                                     human_transforms=self.human_transforms)
