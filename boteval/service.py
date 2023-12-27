@@ -452,15 +452,15 @@ class ChatService:
         # log.info('data is: ', data)
         log.info(f'topic.human_moderator is: {topic.human_moderator}')
 
-        if topic.human_moderator == 'yes' and data is not None and data.get(ext_src) is not None:
-            cur_user_is_qualified = self.crowd_service.is_worker_qualified(user_worker_id=user.id,
-                                                                           qual_name='human_moderator_qualification')
-
-            if cur_user_is_qualified:
-                log.info(f"Assign human moderator role to worker_id: {user.id}")
-                user.role = User.ROLE_HUMAN_MODERATOR
-            else:
-                log.info(f"Not Assign human moderator role to worker_id: {user.id}")
+        # if topic.human_moderator == 'yes' and data is not None and data.get(ext_src) is not None:
+        #     cur_user_is_qualified = self.crowd_service.is_worker_qualified(user_worker_id=user.id,
+        #                                                                    qual_name='human_moderator_qualification')
+        #
+        #     if cur_user_is_qualified:
+        #         log.info(f"Assign human moderator role to worker_id: {user.id}")
+        #         user.role = User.ROLE_HUMAN_MODERATOR
+        #     else:
+        #         log.info(f"Not Assign human moderator role to worker_id: {user.id}")
 
         topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
         # TODO: appply this second filter directly into sqlalchemy
@@ -479,9 +479,9 @@ class ChatService:
                 # print("Current chat thread does not need a human moderator, topic id: ", topic.id, ' user.role:', user.role)
                 # continue
 
-            if topic.human_moderator == 'yes' and len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
-                log.info("More than one human moderator not allowed, topic id: ", topic.id)
-                continue
+            # if topic.human_moderator == 'yes' and len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
+            #     log.info("More than one human moderator not allowed, topic id: ", topic.id)
+            #     continue
 
             if len(humans) + len(human_moderators) < topic.max_human_users_per_thread:
                 # Mark the thread as "is being created".
@@ -501,7 +501,10 @@ class ChatService:
                     # tt.need_moderator_bot = False
                     tt.speakers[user.id] = 'Moderator'
                 elif topic.human_moderator == 'yes' and len(human_moderators) == 1:
-                    tt.speakers[user.id] = speakers[-1]
+                    if len(topic.data['conversation']) == 0:
+                        tt.speakers[user.id] = 'User1'
+                    else:
+                        tt.speakers[user.id] = speakers[-1]
                 else:
                     i = -2
                     while len(speakers) + i >= 0:
@@ -569,7 +572,8 @@ class ChatService:
             if thread.submit_url_dict is None:
                 thread.submit_url_dict = {}
 
-            if topic.human_moderator == 'yes' and user.role == User.ROLE_HUMAN_MODERATOR:
+            if topic.human_moderator == 'yes':
+                user.role = User.ROLE_HUMAN_MODERATOR
                 # thread.need_moderator_bot = False
                 thread.speakers[user.id] = 'Moderator'
             else:
