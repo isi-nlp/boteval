@@ -471,6 +471,7 @@ class ChatService:
                 thread = tt
                 break
 
+            user.role = User.ROLE_HUMAN
             # if tt.human_user_2 is None or tt.human_user_2 == '':
             human_moderators = [user for user in tt.users if user.role == User.ROLE_HUMAN_MODERATOR]
             humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
