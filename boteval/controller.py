@@ -299,15 +299,15 @@ def user_controllers(router, service: ChatService):
 
         req_worker_is_human_mod = False
         instructions_for_user = service.instructions
-        if topic.human_moderator == 'yes' and request_worker_id is not None and request_worker_id != '':
-            req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
-                                                                                qual_name='human_moderator_qualification')
+        # if topic.human_moderator == 'yes' and request_worker_id is not None and request_worker_id != '':
+        #     req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
+        #                                                                         qual_name='human_moderator_qualification')
 
-        if req_worker_is_human_mod:
-            instructions_for_user = service.human_mod_instructions
-            # add one more turn for human mod: 
-            remaining_turns = remaining_turns + 1
-            log.info('Human moderator instructions should be used for user:', request_worker_id)
+        # if req_worker_is_human_mod:
+        #     instructions_for_user = service.human_mod_instructions
+        #     # add one more turn for human mod:
+        #     remaining_turns = remaining_turns + 1
+        #     log.info('Human moderator instructions should be used for user:', request_worker_id)
 
         if thread.max_human_users_per_thread == 1:
             return render_template('user/chatui/chatui.html', limits=service.limits,
