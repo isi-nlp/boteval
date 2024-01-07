@@ -248,10 +248,10 @@ class ChatService:
 
     def check_ext_url(self, ping_url, wait_time=C.PING_WAIT_TIME):
         # this will be called by app hook before_first_request
-        if not self.config['flask_config'].get('SERVER_NAME'):
-            log.warning('flask_config.SERVER_NAME is not set. crowd launching feature is disabled')
-            self._external_url_ok = None
-            return
+        # if not self.config['flask_config'].get('SERVER_NAME'):
+        #     log.warning('flask_config.SERVER_NAME is not set. crowd launching feature is disabled')
+        #     self._external_url_ok = None
+        #     return
 
         log.info(f"Pinging URL {ping_url} in {wait_time} secs")
         if wait_time and  wait_time > 0:
