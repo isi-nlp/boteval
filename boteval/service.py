@@ -1,4 +1,6 @@
 import os
+import random
+import threading
 from pathlib import Path
 import json
 from typing import List, Mapping, Optional, Tuple, Union
@@ -18,7 +20,7 @@ from .model import ChatTopic, User, ChatMessage, ChatThread, UserThread, SuperTo
 from .bots import BotAgent, load_bot_agent
 from .transforms import load_transforms, Transforms
 from .mturk import MTurkService
-
+from .utils import get_next_human_role
 
 class ChatManager:
 
@@ -250,7 +252,7 @@ class ChatService:
         # this will be called by app hook before_first_request
         if not self.config['flask_config'].get('SERVER_NAME'):
             log.warning('flask_config.SERVER_NAME is not set. crowd launching feature is disabled')
-            self._external_url_ok = None
+            self._external_url_ok = True
             return
 
         log.info(f"Pinging URL {ping_url} in {wait_time} secs")
@@ -449,176 +451,34 @@ class ChatService:
         create a new thread if create_if_missing is True.
         """
 
-        # log.info('data is: ', data)
-        log.info(f'topic.human_moderator is: {topic.human_moderator}')
-
-        # if topic.human_moderator == 'yes' and data is not None and data.get(ext_src) is not None:
-        #     cur_user_is_qualified = self.crowd_service.is_worker_qualified(user_worker_id=user.id,
-        #                                                                    qual_name='human_moderator_qualification')
-        #
-        #     if cur_user_is_qualified:
-        #         log.info(f"Assign human moderator role to worker_id: {user.id}")
-        #         user.role = User.ROLE_HUMAN_MODERATOR
-        #     else:
-        #         log.info(f"Not Assign human moderator role to worker_id: {user.id}")
-
-        topic_threads = ChatThread.query.filter_by(topic_id=topic.id).all()
-        # TODO: appply this second filter directly into sqlalchemy
-        thread = None
-        for tt in topic_threads:
-            if any(user.id == tu.id for tu in tt.users):
-                log.info('Topic thread already exists; reusing it')
-                thread = tt
-                break
-
-            # if tt.human_user_2 is None or tt.human_user_2 == '':
-            human_moderators = [user for user in tt.users if user.role == User.ROLE_HUMAN_MODERATOR]
-            humans = [user for user in tt.users if user.role == User.ROLE_HUMAN]
-
-            # if tt.need_moderator_bot and user.role == User.ROLE_HUMAN_MODERATOR:
-                # print("Current chat thread does not need a human moderator, topic id: ", topic.id, ' user.role:', user.role)
-                # continue
-
-            # if topic.human_moderator == 'yes' and len(human_moderators) > 0 and user.role == User.ROLE_HUMAN_MODERATOR:
-            #     log.info("More than one human moderator not allowed, topic id: ", topic.id)
-            #     continue
-
-            if len(humans) + len(human_moderators) < topic.max_human_users_per_thread:
-                # Mark the thread as "is being created".
-                # This is to prevent other users from joining the thread at the same time.
-                if tt.thread_state == 1:
-                    log.error("thread is being created")
-                    return None
-
-                log.info('human_user_2 join thread!')
-
-                # store speakers id
-                chat_topic = ChatTopic.query.get(tt.topic_id)
-                loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
-                speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
-
-                if topic.human_moderator == 'yes' and user.role == User.ROLE_HUMAN_MODERATOR:
-                    # tt.need_moderator_bot = False
-                    tt.speakers[user.id] = 'Moderator'
-                elif topic.human_moderator == 'yes' and len(human_moderators) == 1:
-                    if len(topic.data['conversation']) == 0:
-                        tt.speakers[user.id] = 'User1'
-                    else:
-                        tt.speakers[user.id] = speakers[-1]
-                else:
-                    i = -2
-                    while len(speakers) + i >= 0:
-                        if speakers[i] != speakers[-1]:
-                            # user.name = speakers[i]
-                            tt.speakers[user.id] = speakers[i]
-                            # tt.user_2nd = user.id
-                            # tt.speaker_2nd = speakers[i]
-                            break
-                        else:
-                            i -= 1
-
-                tt.assignment_id_dict[user.id] = ext_id
-                if tt.data.get(ext_src) is not None:
-                    tt.submit_url_dict[user.id] = tt.data.get(ext_src).get('submit_url')
-
-                # user.name = speakers[-2]
-                log.info(f'2nd user is: {user.id}, 2nd speaker is: {tt.speakers[user.id]}')
-
-                tt.users.append(user)
-                # tt.users.append(self.bot_user)
-                # tt.users.append(self.context_user)
-                # tt.human_user_2 = user.id
-
-                tt.flag_speakers_modified()
-                tt.flag_assignment_id_dict_modified()
-                tt.flag_submit_url_dict_modified()
-                db.session.merge(tt)
-                db.session.flush()
-                db.session.commit()
-
-                thread = tt
-                break
-
-        if not thread and create_if_missing:
+        thread = ChatThread.get_thread_by_topic_and_user(topic, user)
+        if thread is not None:
+            if user not in thread.users:
+                role = get_next_human_role(user, thread, topic)
+                thread.add_user(user, role)
+                thread.update_thread_in_db()
+            if ext_id or ext_src or data:
+                thread.set_external_info_for_user(user, ext_id , ext_src, data)
+                thread.update_thread_in_db()
+            return thread
+        elif create_if_missing:
             log.info(f'creating a thread: user: {user.id} topic: {topic.id}')
-            data = data or {}
-            # If there is no data from input, we directly use the data from the topic
-            # If there is data, we shouldn't update it with the topic data, otherwise the 'ext_src' might be overridden
-            if not data:
-                data.update(topic.data)
-            thread = ChatThread(topic_id=topic.id, ext_id=ext_id, ext_src=ext_src, data=data, bot_name=self.bot_name, engine=topic.endpoint,
-                                persona_id=topic.persona_id, max_threads_per_topic=topic.max_threads_per_topic,
-                                max_turns_per_thread=topic.max_turns_per_thread, human_moderator=topic.human_moderator,
-                                reward=topic.reward, max_human_users_per_thread=topic.max_human_users_per_thread, parameters=topic.parameters)
 
-            chat_topic = ChatTopic.query.get(thread.topic_id)
-            loaded_users = [speaker_id for speaker_id in chat_topic.data['conversation']]
-            speakers = [cur_user.get('speaker_id') for cur_user in loaded_users]
+            thread = ChatThread.create_thread_of_topic(topic, self.bot_name)
+            if not thread:
+                return None
 
-            if thread.human_moderator == 'yes':
-                thread.need_moderator_bot = False
-                log.info(topic.id, 'does not need a moderator bot')
-            else:
-                thread.need_moderator_bot = True
-                log.info(topic.id, 'needs a moderator bot')
+            role = get_next_human_role(user, thread, topic)
 
-            # user.name = speakers[-1]
-            if thread.speakers is None:
-                thread.speakers = {}
+            thread.add_user(user, role)
+            thread.add_user(self.bot_user)
+            thread.add_user(self.context_user)
 
-            if thread.assignment_id_dict is None:
-                thread.assignment_id_dict = {}
+            thread.set_external_info_for_user(user, ext_id, ext_src, data)
 
-            if thread.submit_url_dict is None:
-                thread.submit_url_dict = {}
+            thread.update_thread_in_db()
 
-            if topic.human_moderator == 'yes':
-                user.role = User.ROLE_HUMAN_MODERATOR
-                # thread.need_moderator_bot = False
-                thread.speakers[user.id] = 'Moderator'
-            else:
-                if len(topic.data['conversation']) == 0:
-                    thread.speakers[user.id] = 'User1'
-                else:
-                    thread.speakers[user.id] = speakers[-1]
-                    # thread.user_1st = user.id
-                    # thread.speaker_1st = speakers[-1]
-
-            thread.assignment_id_dict[user.id] = ext_id
-            if data.get(ext_src):
-                thread.submit_url_dict[user.id] = data.get(ext_src).get('submit_url')
-
-            thread.thread_state = 1
-            log.info("Set thread state to 1")
-            log.info(f'1st user is: {user.id}, 1st speaker is: {thread.speakers[user.id]}')
-
-            thread.users.append(user)
-            thread.users.append(self.bot_user)
-            thread.users.append(self.context_user)
-
-            thread.human_user_1 = user.id
-
-            db.session.add(thread)
-            db.session.flush()  # flush it to get thread_id
-            for m in topic.data['conversation']:
-                # assumption: messages are pre-transformed to reduce wait times
-                text = m['text']
-                data = dict(text_orig=m.get('text_orig'),
-                            speaker_id=m.get('speaker_id'),
-                            fake_start=True)
-                msg = ChatMessage(text=text, user_id=self.context_user.id, thread_id=thread.id, is_seed=True, data=data)
-                db.session.add(msg)
-                thread.messages.append(msg)
-            thread.thread_state = 2
-            
-            # if moderator: 
-            if topic.human_moderator == 'yes':
-                log.info("Set thread state to 2")
-                
-            db.session.merge(thread)
-            db.session.flush()
-            db.session.commit()
-        return thread
+            return thread
 
     def get_thread(self, thread_id) -> Optional[ChatThread]:
         result = ChatThread.query.get(thread_id)
@@ -715,11 +575,11 @@ class ChatService:
         if not self.crowd_service:
             log.warning('Crowd service not configured')
             return None
-        if not self.is_external_url_ok:
-            msg = 'External URL is not configured correctly. Skipping.'
-            log.warning(msg)
-            flask.flash(msg)
-            return None
+        # if not self.is_external_url_ok:
+        #     msg = 'External URL is not configured correctly. Skipping.'
+        #     log.warning(msg)
+        #     flask.flash(msg)
+        #     return None
         if self.crowd_name in (C.MTURK, C.MTURK_SANDBOX):                
             landing_url = flask.url_for('app.mturk_landing', topic_id=topic.id,
                                         _external=True, _scheme='https')

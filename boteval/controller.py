@@ -299,43 +299,29 @@ def user_controllers(router, service: ChatService):
 
         req_worker_is_human_mod = False
         instructions_for_user = service.instructions
-        if topic.human_moderator == 'yes' and request_worker_id is not None and request_worker_id != '':
-            req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
-                                                                                qual_name='human_moderator_qualification')
+        # if topic.human_moderator == 'yes' and request_worker_id is not None and request_worker_id != '':
+        #     req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
+        #                                                                         qual_name='human_moderator_qualification')
+        #
+        # if req_worker_is_human_mod:
+        #     instructions_for_user = service.human_mod_instructions
+        #     # add one more turn for human mod:
+        #     remaining_turns = remaining_turns + 1
+        #     log.info('Human moderator instructions should be used for user:', request_worker_id)
 
-        if req_worker_is_human_mod:
-            instructions_for_user = service.human_mod_instructions
-            # add one more turn for human mod: 
-            remaining_turns = remaining_turns + 1
-            log.info('Human moderator instructions should be used for user:', request_worker_id)
+        return render_template('user/chatui/chatui.html', limits=service.limits,
+                               thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
+                               thread=thread,
+                               topic=topic,
+                               socket_name=thread.socket_name,
+                               rating_questions=ratings,
+                               focus_mode=focus_mode,
+                               remaining_turns=remaining_turns,
+                               instructions_html=service.instructions,
+                               simple_instructions_html=service.simple_instructions,
+                               show_text_extra=FL.current_user.is_admin,
+                               data=dict())
 
-        if thread.max_human_users_per_thread == 1:
-            return render_template('user/chatui/chatui.html', limits=service.limits,
-                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
-                                   thread=thread,
-                                   topic=topic,
-                                   socket_name=thread.socket_name,
-                                   rating_questions=ratings,
-                                   focus_mode=focus_mode,
-                                   remaining_turns=remaining_turns,
-                                   instructions_html=service.instructions,
-                                   simple_instructions_html=service.simple_instructions,
-                                   show_text_extra=FL.current_user.is_admin,
-                                   data=dict())
-        elif thread.max_human_users_per_thread == 2:
-            return render_template('user/chatui/chatui_two_users.html', limits=service.limits,
-                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
-                                   thread=thread,
-                                   topic=topic,
-                                   socket_name=thread.socket_name,
-                                   rating_questions=ratings,
-                                   focus_mode=focus_mode,
-                                   remaining_turns=remaining_turns,
-                                   instructions_html=instructions_for_user,
-                                   simple_instructions_html=service.simple_instructions,
-                                   show_text_extra=FL.current_user.is_admin,
-                                   bot_name=C.Auth.BOT_USER,
-                                   data=dict())
 
     @router.route('/thread/<thread_id>/<user_id>/message', methods=['POST'])
     #@FL.login_required  <-- login didnt work in iframe in mturk
@@ -448,6 +434,79 @@ def user_controllers(router, service: ChatService):
             flask.flash(note_text)
             return flask.redirect(url_for('app.index'))
 
+    @router.route('api/post-message', methods=['POST'])
+    def post_message():
+        user_id = request.form.get('user_id', None)
+        thread_id = request.form.get('thread_id', None)
+        if not thread_id:
+            return f'Thread ID is required', 400
+
+        thread = ChatThread.get_thread_by_id(thread_id)
+        if not thread:
+            return f'Thread {thread_id}  NOT found', 404
+
+        user = User.get(user_id)
+        msg = ChatMessage(
+                text=request.form.get('text', None),
+                user_id=user.id,
+                thread_id=thread_id,
+                data={"speaker_id": request.form.get('speaker_id', None)}
+            )
+        success, info = thread.append_message(msg)
+
+        if success:
+            msg.save_message_to_db()
+            thread.update_thread_in_db()
+            return jsonify(dict(
+                status=C.SUCCESS,
+                message_id=msg.id,
+                timestamp=msg.time_created,
+            )), 200
+        else:
+            return jsonify(dict(status=C.ERROR, description=info)), 400
+
+
+
+    _avoid_double_submit = dict()
+    @router.route('api/get-bot-reply', methods=['POST'])
+    def get_bot_reply():
+        thread_id = request.form.get('thread_id', None)
+        if not thread_id:
+            return f'Thread ID is required', 400
+
+        thread = ChatThread.get_thread_by_id(thread_id)
+
+        if not thread:
+            return f'Thread {thread_id}  NOT found', 404
+
+        user_id = request.form.get('user_id', None)
+        post_turns = int(request.form.get('turns', 0))
+        post_idx = int(request.form.get('speaker_idx', 0))
+        idx = post_turns * len(thread.speak_order) + post_idx
+        if thread.id in _avoid_double_submit and _avoid_double_submit[thread.id] >= idx:
+            reply = dict(status=C.ERROR,
+                         description=f'Bot reply idx{idx} already create. Ignoring this request.')
+            return flask.jsonify(reply), 400
+
+        user = User.get(user_id)
+        if not user or user not in thread.users:
+            log.warning('user is not part of thread')
+            reply = dict(status=C.ERROR,
+                         description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
+            return flask.jsonify(reply), 400
+
+        try:
+            msg = service.get_dialog_man(thread).bot_reply()
+            msg.save_message_to_db()
+            thread.append_message(msg)
+            thread.update_thread_in_db()
+            reply_dict = msg.as_dict()
+            return flask.jsonify(reply_dict), 200
+        except Exception as e:
+            log.exception(e)
+            return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
+
+
     ########### M Turk Integration #########################
     @router.route('/mturk-landing/<topic_id>', methods=['GET'])
     def mturk_landing(topic_id):  # this is where mturk worker should land first
@@ -520,7 +579,6 @@ def user_controllers(router, service: ChatService):
         log.info(f'chat_thread: {chat_thread}')
         log.info(f'worker_id: {worker_id}')
         return get_thread(thread_id=chat_thread.id, request_worker_id=worker_id, focus_mode=True)
-
 
 
 ###################### ADMIN STUFF #####################
