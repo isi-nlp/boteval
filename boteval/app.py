@@ -118,7 +118,7 @@ def main():
     base_prefix = args.get('base') or '/'
     log.info(f'Internal URL http://{host}:{port}{base_prefix}')
     #socket.run(app, port=port, host=host, debug=app.debug)
-    app.run(port=port, host=host)
+    app.run(port=port, host=host, ssl_context='adhoc')
 
 if __name__ == "__main__":
     main()
