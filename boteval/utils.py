@@ -91,7 +91,16 @@ def register_template_filters(app):
 
 def get_speak_order(topic: ChatTopic) -> List[str]:
     """
-        Get the speak order of a topic.
+        Define the order of speakers in one turn for a topic.
+        This function is called when creating a new thread.
+        Customize this function to change the order of speakers.
+        The speaker order is the same as the order of the returned list.
+
+        You can have a speaker speak multiple times in one turn by adding the speaker multiple times in the list.
+        For example, if you want to have User1 speak twice in one turn, you can return ['User1', 'User1', 'Moderator'].
+
+        Chat room with existing conversation: the order is ['Moderator', 'b', 'Moderator', 'a', ...]
+        and User1 is the last speaker in the conversation, User2 is the second last speaker, etc.
         :param human_users: number of human users in the chat room
         :param topic: The topic of the thread
         :return: A list of speaker ids
