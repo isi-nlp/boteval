@@ -87,9 +87,9 @@ function doSetPageState(state) {
         $('#end_info').show()
         $('#next_msg_form').hide()
         $('#waiting_info').hide()
-        if (curUser.role !== 'Moderator') {
+        //if (curUser.role !== 'Moderator') {
             $('#ratings-view').show()
-        }
+        //}
     }
 }
 
