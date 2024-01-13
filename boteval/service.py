@@ -451,7 +451,8 @@ class ChatService:
         create a new thread if create_if_missing is True.
         """
 
-        thread = ChatThread.get_thread_by_topic_and_user(topic, user)
+        thread = (ChatThread.get_thread_by_topic_and_user(topic, user) or
+                  ChatThread.get_next_vacancy_thread_for_topic(topic))
         if thread is not None:
             if user not in thread.users:
                 role = get_next_human_role(user, thread, topic)

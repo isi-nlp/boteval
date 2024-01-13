@@ -2,7 +2,6 @@ from typing import Dict, List, Optional, Any, Tuple
 import hashlib
 from sqlalchemy import orm, sql
 
-
 from . import db, log
 
 """
@@ -60,12 +59,11 @@ class BaseModel(db.Model):
 
     def as_dict(self) -> Dict[str, Any]:
         return dict(
-            id = self.id,
-            data = self.data if self.data is not None else dict(),
+            id=self.id,
+            data=self.data if self.data is not None else dict(),
             time_created=self.time_created and self.time_created.isoformat(),
             time_updated=self.time_updated and self.time_updated.isoformat(),
         )
-
 
     def flag_data_modified(self):
         # seql alchemy isnt reliable in recognising modifications to JSON, so we explicitely tell it
@@ -73,24 +71,21 @@ class BaseModel(db.Model):
 
 
 class BaseModelWithExternal(BaseModel):
-
     __abstract__ = True
 
     ext_id: str = db.Column(db.String(64), nullable=True)
     ext_src: str = db.Column(db.String(32), nullable=True)
 
-    #Example, for MTurk, ext_src=mturk;
+    # Example, for MTurk, ext_src=mturk;
     #       ext_id= workerId for user,
     #       HITID for ChatTopic,
     #       AssignmentID for ChatThread
 
     def as_dict(self) -> Dict[str, Any]:
-        return super().as_dict() | dict(ext_id = self.ext_id, ext_src = self.ext_src)
-
+        return super().as_dict() | dict(ext_id=self.ext_id, ext_src=self.ext_src)
 
 
 class User(BaseModelWithExternal):
-
     __tablename__ = 'user'
 
     ANONYMOUS = 'Anonymous'
@@ -111,7 +106,6 @@ class User(BaseModelWithExternal):
     # eg: bot, human, admin
     role: str = db.Column(db.String(30), nullable=True)
 
-
     @property
     def is_active(self):
         return self.active
@@ -119,7 +113,7 @@ class User(BaseModelWithExternal):
     @property
     def is_authenticated(self):
         return self.is_active
-    
+
     @property
     def is_admin(self):
         return self.role == self.ROLE_ADMIN
@@ -146,7 +140,7 @@ class User(BaseModelWithExternal):
         return hashlib.sha3_256(secret.encode()).hexdigest()
 
     def verify_secret(self, secret):
-        if not self.secret: # empty secret => login disabled
+        if not self.secret:  # empty secret => login disabled
             return False
         return self.secret == self._hash(secret)
 
@@ -174,19 +168,18 @@ class User(BaseModelWithExternal):
     def as_dict(self):
         return super().as_dict() | dict(
             id=self.id,
-            name= self.name,
+            name=self.name,
             role=self.role,
         )
 
 
 class ChatMessage(BaseModelWithExternal):
-
     __tablename__ = 'message'
 
     id: int = db.Column(db.Integer, primary_key=True)
     text: str = db.Column(db.String(2048), nullable=False)
-    is_seed: bool = db.Column(db.Boolean) 
-    
+    is_seed: bool = db.Column(db.Boolean)
+
     user_id: str = db.Column(
         db.String(31), db.ForeignKey('user.id'), nullable=False)
     thread_id: int = db.Column(
@@ -197,9 +190,9 @@ class ChatMessage(BaseModelWithExternal):
         return self.time_created
 
     def as_dict(self):
-        return super().as_dict() |  dict(
+        return super().as_dict() | dict(
             text=self.text,
-            is_seed = self.is_seed, 
+            is_seed=self.is_seed,
             user_id=self.user_id,
             thread_id=self.thread_id,
         )
@@ -214,11 +207,10 @@ UserThread = db.Table(
               primary_key=True),
     db.Column('thread_id', db.Integer, db.ForeignKey('thread.id'),
               primary_key=True)
-    )
+)
 
 
 class ChatThread(BaseModelWithExternal):
-
     __tablename__ = 'thread'
 
     id: int = db.Column(db.Integer, primary_key=True)
@@ -286,6 +278,20 @@ class ChatThread(BaseModelWithExternal):
         return thread
 
     @classmethod
+    def get_next_vacancy_thread_for_topic(cls, topic: 'ChatTopic') -> Optional['ChatThread']:
+        """
+        Get a thread instance that has vacancy.
+        :return: the chat thread instance
+        """
+        threads = ChatThread.query.filter(
+            ChatThread.topic_id == topic.id
+        ).all()
+        for thread in threads:
+            if len([u for u in thread.users
+                    if u.role in [User.ROLE_HUMAN, User.ROLE_HUMAN_MODERATOR]]) < thread.max_human_users_per_thread:
+                return thread
+
+    @classmethod
     def get_thread_by_topic_and_user(cls, topic: 'ChatTopic', user: User) -> Optional['ChatThread']:
         """
         Query a thread instance of a topic that the user can be in (or already in).
@@ -298,10 +304,6 @@ class ChatThread(BaseModelWithExternal):
         ).all()
         for thread in threads:
             if user in thread.users:
-                return thread
-        for thread in threads:
-            if len([u for u in thread.users
-                    if u.role in [User.ROLE_HUMAN, User.ROLE_HUMAN_MODERATOR]]) < thread.max_human_users_per_thread:
                 return thread
 
     @classmethod
@@ -451,7 +453,7 @@ class ChatThread(BaseModelWithExternal):
             need_moderator_bot=self.need_moderator_bot,
             max_turns_per_thread=self.max_turns_per_thread,
         )
-        
+
     @property
     def socket_name(self):
         return f'sock4thread_{self.id}'
@@ -508,10 +510,9 @@ class ChatTopic(BaseModelWithExternal):
         cur_task_id = super_topic.next_task_id
         cur_id = f'{super_topic.id}_{cur_task_id:03d}'
         cur_name = f'{super_topic.name}_{cur_task_id:03d}'
-        
+
         # update target user ids: 
-        
-        
+
         topic = ChatTopic(id=cur_id, name=cur_name, data=super_topic.data, super_topic_id=super_topic.id,
                           ext_id=super_topic.ext_id, ext_src=super_topic.ext_src, endpoint=endpoint,
                           persona_id=persona_id, max_threads_per_topic=max_threads_per_topic,
@@ -526,5 +527,17 @@ class ChatTopic(BaseModelWithExternal):
         db.session.commit()
         return cls.query.get(topic.id)
 
-
-
+    @classmethod
+    def get_topics_user_not_done(cls, user) -> List['ChatTopic']:
+        """
+        Get all topics that user has not done
+        :param user:
+        :return:
+        """
+        topics = ChatTopic.query.all()
+        res = []
+        for topic in topics:
+            thread = ChatThread.get_thread_by_topic_and_user(topic, user)
+            if thread is None:
+                res.append(topic)
+        return res
