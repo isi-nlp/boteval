@@ -106,6 +106,50 @@ example-chat-task/
 <1> See <<#conf>>
 <2> See <<#add-bot>>
 
+[#onboarding]
+= Onboarding
+. Clone both `https://github.com/isi-nlp/isi_darma` and `https://github.com/isi-nlp/boteval`
+. Create symlink from boteval/darma-task to isi_darma/boteval-darma-task
+[source,shell]
+----
+ln -s <path to isi_darma repo>/isi_darma/boteval-darma-task darma-task
+----
+[start=3]
+. Create symlink from boteval/templates to isi_darma/configurable_files/templates
+[source,shell]
+----
+ln -s <path to isi_darma repo>/isi_darma/configurable_files/templates boteval/templates
+----
+[start=4]
+. Run job locally
+.. Create a python venv and install modules in requirements.txt
+.. export `OPENAI_KEY=<open ai key you have>`
+.. `python -m boteval darma-task -c darma-task/conf-local.yml -b /boteval -d`
+
+If you are using a windows machine:
+Some of the setup steps are different:
+[start=2]
+. Create symlink from boteval/darma-task to isi_darma/boteval-darma-task
+
+[source,shell]
+----
+mklink /J  <path to boteval repo>\boteval\darma-task <path to isi_darma repo>\isi_darma\boteval-darma-task
+----
+[start=3]
+. Create symlink from boteval/boteval/templates to isi_darma/configurable_files/templates
+
+[source,shell]
+----
+ mklink /J  <path to boteval repo>\boteval\boteval\templates <path to isi_darma repo>\isi_darma\configurable_files\templates
+----
+[start=4]
+. Run job locally
+.. `.\venv\Scripts\activate` to activate your Python venv
+.. Use the Command Prompt (cmd) instead of PowerShell:
+`SET OPENAI_KEY=<open ai key you have>` (Use the keyword ‘SET’ instead of ‘export’ when setting up the OPENAI_KEY)
+
+All the other steps should be the same.
+
 
 [#conf]
 = Config file
