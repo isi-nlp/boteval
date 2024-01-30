@@ -361,9 +361,16 @@ Here we say that, we expose access to `flask.config` datastructure: anything we 
 flask_config: #<5>
   DATABASE_FILE_NAME: 'sqlite-dev-01.db' #<1>
   SQLALCHEMY_TRACK_MODIFICATIONS: false
+  SERVER_NAME: 127.0.0.1:7072 #<2>
+  PREFERRED_URL_SCHEME: https #<3>
 ----
-<1> `DATABASE_FILE_NAME` is the filename for sqlite3 databse. 
-
+<1> `DATABASE_FILE_NAME` is the filename for sqlite3 databse.
+<2> `SERVER_NAME` affects the URL launched with MTurk HIT.
+    If you are running the server locally, then you may want to set `SERVER_NAME` to local IP address and port number.
+    If you are running the server on a public domain, then you may want to set `SERVER_NAME` to the domain name.
+<3> `PREFERRED_URL_SCHEME` is the protocol (http or https) for the server. **Note**: MTurk only accepts HTTPS.
+    Currently, we are using a self-signed certificate for HTTPS. If you want to use a real certificate,
+    you might need to modify the code in `app.py:main()`
 
 Make sure to comment out SERVER_NAME and PREFERRED_URL_SCHEME to run locally. 
 
