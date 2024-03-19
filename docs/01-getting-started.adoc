@@ -106,6 +106,50 @@ example-chat-task/
 <1> See <<#conf>>
 <2> See <<#add-bot>>
 
+[#onboarding]
+= Onboarding
+. Clone both `https://github.com/isi-nlp/isi_darma` and `https://github.com/isi-nlp/boteval`
+. Create symlink from boteval/darma-task to isi_darma/boteval-darma-task
+[source,shell]
+----
+ln -s <path to isi_darma repo>/isi_darma/boteval-darma-task darma-task
+----
+[start=3]
+. Create symlink from boteval/templates to isi_darma/configurable_files/templates
+[source,shell]
+----
+ln -s <path to isi_darma repo>/isi_darma/configurable_files/templates boteval/templates
+----
+[start=4]
+. Run job locally
+.. Create a python venv and install modules in requirements.txt
+.. export `OPENAI_KEY=<open ai key you have>`
+.. `python -m boteval darma-task -c darma-task/conf-local.yml -b /boteval -d`
+
+If you are using a windows machine:
+Some of the setup steps are different:
+[start=2]
+. Create symlink from boteval/darma-task to isi_darma/boteval-darma-task
+
+[source,shell]
+----
+mklink /J  <path to boteval repo>\boteval\darma-task <path to isi_darma repo>\isi_darma\boteval-darma-task
+----
+[start=3]
+. Create symlink from boteval/boteval/templates to isi_darma/configurable_files/templates
+
+[source,shell]
+----
+ mklink /J  <path to boteval repo>\boteval\boteval\templates <path to isi_darma repo>\isi_darma\configurable_files\templates
+----
+[start=4]
+. Run job locally
+.. `.\venv\Scripts\activate` to activate your Python venv
+.. Use the Command Prompt (cmd) instead of PowerShell:
+`SET OPENAI_KEY=<open ai key you have>` (Use the keyword ‘SET’ instead of ‘export’ when setting up the OPENAI_KEY)
+
+All the other steps should be the same.
+
 
 [#conf]
 = Config file
@@ -118,8 +162,6 @@ chatbot:
   display_name: 'Moderator'
   topics_file: chat_topics.json
   bot_name: hf-transformers   # <1>
-  bot_args:                   # <1>
-    model_name: facebook/blenderbot_small-90M
 
 onboarding: #<2> 
   agreement_file: user-agreement.html
@@ -146,6 +188,8 @@ limits:  #<4>
   max_threads_per_topic: &max_assignments 3
   max_turns_per_thread: 4
   reward: &reward '0.01' # dollars
+  max_human_users_per_thread: 2
+  human_moderator: 'yes'
 
 flask_config: #<5>
   # sqlalchemy settings https://flask-sqlalchemy.palletsprojects.com/en/2.x/config/
@@ -167,6 +211,22 @@ mturk: #<6>
     Title: 'Evaluate a chatbot'
     Keywords: 'chatbot,chat,research'
     Description: 'Evaluate a chat bot by talking to it for a while and receive a reward'
+
+customization: #<7>
+  argument1:
+    - option1
+    - option2
+    - option3
+  argument2: 'default_value'
+
+limits_to_display: #<8>
+  - max_threads_per_user
+  - max_threads_per_topic
+  - multi_topics_creation
+  - multi_tasks_launch
+  - max_human_users_per_thread
+  - human_moderator
+  - max_turns_per_thread
 ----
 :xrefstyle: full
 <1> See <<#conf-bot>>
@@ -175,12 +235,13 @@ mturk: #<6>
 <4> See <<#conf-limits>>
 <5> See <<#conf-flask>>
 <6> See <<#conf-mturk>>
+<7> See <<#conf-customization>>
+<8> See <<#conf-limits_to_display>>
 
 [#conf-bot]
 == Bot Settings
 
-* `bot_name` (str) and `bot_args` (dict) are required to enable chatbot backend.
-* `bot_name` is a string where as `bot_args` is dictionary which is provided as key-word arguments. `bot_args` can be optional (i.e. missing) for bots that require no arguments.
+* `bot_name` (str) is required to enable chatbot backend.
 
 .Example Bot
 [source,python,linenums]
@@ -199,14 +260,12 @@ class TransformerBot(BotAgent):
         super().__init__(name=f'{self.NAME}:{model_name}')
         self.model_name = model_name
 ----
-Here, with `bot_name='hf-transformers'`,  `bot_args` are optional as there are no arguments of `__init__` method that require value at runtime. However, if we want to change `model_name`, here is an example for how to provide it:
+If we want to change `model_name`, here is an example for how to provide it:
 [source,yaml]
 ----
 chatbot:
   #(other args)
-  bot_name: hf-transformers 
-  bot_args:
-    model_name: facebook/blenderbot_small-90M
+  bot_name: hf-transformers
 ----
 
 Seed Conversation::
@@ -275,12 +334,16 @@ limits:
   max_threads_per_user: 10   #<1>
   max_threads_per_topic: 3  #<2>
   max_turns_per_thread: 4   #<3>
-  reward: '0.01'           #<4>    
+  reward: '0.01'           #<4>
+  max_human_users_per_thread: 2 #<5>
+  human_moderator: 'yes'  #<6>
 ----
 <1> Maximum number of threads (mtuk/assignments) a worker can do
 <2> Maximum number of threads (mtuk/assignments) we need for a topic (mturk/HIT)
 <3> Maximum number of worker replies required in a thread (/assignment) to consider it as complete
 <4> Reward amount. Note: currently payment can be provided to MTurk workers only; we dont have our own payment processing backend.
+<5> Maximum number of human users allowed in a thread. This is useful when we want to have a human moderator in a thread, or when we want to have a group chat (e.g., two volunteers and one bot moderator).
+<6> Whether to have a human moderator in a thread (only allowing `yes` or `no`). If set to `yes`, then a human moderator will be added to the thread. The human moderator will be assigned to the thread as soon as the first worker joins the thread.
 
 [#conf-flask]
 == Flask Server Settings
@@ -298,9 +361,16 @@ Here we say that, we expose access to `flask.config` datastructure: anything we 
 flask_config: #<5>
   DATABASE_FILE_NAME: 'sqlite-dev-01.db' #<1>
   SQLALCHEMY_TRACK_MODIFICATIONS: false
+  SERVER_NAME: 127.0.0.1:7072 #<2>
+  PREFERRED_URL_SCHEME: https #<3>
 ----
-<1> `DATABASE_FILE_NAME` is the filename for sqlite3 databse. 
-
+<1> `DATABASE_FILE_NAME` is the filename for sqlite3 databse.
+<2> `SERVER_NAME` affects the URL launched with MTurk HIT.
+    If you are running the server locally, then you may want to set `SERVER_NAME` to local IP address and port number.
+    If you are running the server on a public domain, then you may want to set `SERVER_NAME` to the domain name.
+<3> `PREFERRED_URL_SCHEME` is the protocol (http or https) for the server. **Note**: MTurk only accepts HTTPS.
+    Currently, we are using a self-signed certificate for HTTPS. If you want to use a real certificate,
+    you might need to modify the code in `app.py:main()`
 
 Make sure to comment out SERVER_NAME and PREFERRED_URL_SCHEME to run locally. 
 
@@ -355,3 +425,60 @@ To launch HITs on mturk, follow these steps
 . Login as admin user (See <<#quickstart>>)
 . Go to _Admin Dashboard > Topics > Launch on Mturk or Mturk Sandbox_ (depending on cofig)
 
+[#conf-customization]
+== Customization Settings
+This session is for any custom settings that you want to pass to the bot during the task creation. The arguments will be shown to the admin on the topics page.
+[source,yaml]
+----
+customization:
+  argument1: #<1>
+    - option1
+    - option2
+    - option3
+  argument2: 'option1' #<2>
+----
+<1> If there are a list of options, they will be shown as a dropdown.
+<2> If there is only one option, it will be shown as a text box. Here, the default value of the text input field will be 'option1'.
+After the admin clicks on the 'Create Task' button, the arguments will be passed to the bot as a dictionary (e.g., `{argument1: option1, argument2: option1}`.
+
+[#conf-limits_to_display]
+== Limits to Display Settings
+This session is for the admin to choose which "limits" to display on the topics page.
+[source,yaml]
+----
+limits_to_display:
+  - max_threads_per_user
+  - max_threads_per_topic
+  - multi_topics_creation
+  - multi_tasks_launch
+  - max_human_users_per_thread
+  - human_moderator
+  - max_turns_per_thread
+----
+
+Here are some pre-defined configurations options when launching (one) task(s) or for global settings. You can choose to display some of them including the followings under the `limits_to_display`.
+
+Here are all the options for launching (one) task(s):
+If not included, the default values will be used.
+
+ - `max_threads_per_topic`: how many threads per topic we allow - integer
+ default: 10
+ - `max_turns_per_thread`: how many turns per thread we allow the volunteer to chat (with the bot) - integer
+ default: 10
+ - `max_human_users_per_thread`: how many volunteers can chat in the same thread - integer
+ default: 1
+ - `human_moderator`: whether the moderator of the thread is a human or not - two options: 'yes' or 'no'
+ default: 'no'
+ - `reward`: how much we pay the volunteer for completing the task (on MTurk) - float
+ default: 0.01
+
+Here are all the options for global settings (shown on the top of the admin topics page):
+If not included, the corresponding panel won't appear on the admin topics page.
+- `max_threads_per_user`: how many threads per user we allow - integer
+default: 10
+- `multi_topics_creation`: whether we allow the admin to create multiple topics at once
+default: 'no'
+- `multi_tasks_launch`: whether we allow the admin to launch multiple tasks at once
+default: 'no'
+
+Basically, if you include the option in the `limits_to_display`, the corresponding panel will appear on the admin topics page. If you don't include the option, the corresponding panel won't appear on the admin topics page.
