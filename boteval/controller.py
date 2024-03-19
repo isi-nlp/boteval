@@ -1,3 +1,4 @@
+
 import functools
 from typing import List, Tuple
 import random
@@ -11,6 +12,7 @@ import flask_login as FL
 
 from boteval.service import ChatService
 
+
 from . import log, C, db
 from .utils import jsonify, render_template, register_template_filters
 from .model import ChatMessage, ChatThread, ChatTopic, User, SuperTopic
@@ -23,12 +25,13 @@ def wrap(body=None, status=C.SUCCESS, description=None):
         body=body)
 
 
+
 class AdminLoginDecorator:
+
     """
     Similar to flask-login's `login_required` but checks for role=admin on user
     This is a stateful decorator (hence class instead of function)
     """
-
     def __init__(self, login_manager=None) -> None:
         self.login_manager = login_manager
 
@@ -41,18 +44,18 @@ class AdminLoginDecorator:
             elif FL.current_user.role != User.ROLE_ADMIN:
                 flask.flash('This functionality is for admin only')
                 return 'ERROR: Access denied. This resource can only be accessed by admin user.', 403
-            else:  # user is logged in and they have role=admin;
+            else: # user is logged in and they have role=admin;
                 return func(*args, **kwargs)
 
         return decorated_view
-
 
 admin_login_required = None
 
 
 def init_login_manager(login_manager):
+
     global admin_login_required
-    admin_login_required = AdminLoginDecorator(login_manager=login_manager)
+    admin_login_required =  AdminLoginDecorator(login_manager=login_manager)
 
     @login_manager.user_loader
     def load_user(user_id: str):
@@ -68,18 +71,18 @@ def is_safe_url(url):
     # TODO: validate url
     return True
 
-
 def register_app_hooks(app, service: ChatService):
+
     @app.before_request
     def update_last_active():
-        user: User = FL.current_user
+        user:User = FL.current_user
         if user and user.is_active:
-            if not user.last_active or \
-                    (datetime.now() - user.last_active).total_seconds() > C.USER_ACTIVE_UPDATE_FREQ:
+            if not user.last_active or\
+                (datetime.now() - user.last_active).total_seconds() > C.USER_ACTIVE_UPDATE_FREQ:
                 user.last_active = datetime.now()
                 db.session.merge(user)  # update
                 db.session.commit()
-
+    
     @app.before_first_request
     def before_first_request():
         log.info('Before first request')
@@ -88,6 +91,7 @@ def register_app_hooks(app, service: ChatService):
 
 
 def user_controllers(router, service: ChatService):
+
     @router.route('/ping', methods=['GET', 'POST'])
     def ping():
         return jsonify(dict(reply='pong', time=datetime.now().timestamp())), 200
@@ -136,8 +140,7 @@ def user_controllers(router, service: ChatService):
             if user:
                 flask.flash(f'User {user.id} already exists. Try login instead.')
             elif len(user_id) < 2 or len(user_id) > 16 or not user_id.isalnum():
-                flask.flash(
-                    'Invalid User ID. ID should be at least 2 chars and atmost 16 chars and only alpha numeric chars are permitted')
+                flask.flash('Invalid User ID. ID should be at least 2 chars and atmost 16 chars and only alpha numeric chars are permitted')
             elif len(secret) < 4:
                 flask.flash('Password should be atleast 4 chars long')
             else:
@@ -146,13 +149,13 @@ def user_controllers(router, service: ChatService):
                 ext_src = args.pop('ext_src', None)
                 user = User.create_new(user_id, secret, name=name, ext_id=ext_id, ext_src=ext_src, data=args)
                 tmpl_args['action'] = 'login'
-                flask.flash(
-                    f'Sign up success. Try login with your user ID: {user.id}. Verify that it works and write down the password for future logins.')
+                flask.flash(f'Sign up success. Try login with your user ID: {user.id}. Verify that it works and write down the password for future logins.')
                 return render_template('login.html', **tmpl_args)
         else:
             flask.flash('Wrong action. only login and signup are supported')
             tmpl_args['action'] = 'login'
         return render_template('login.html', user_id=user_id, **tmpl_args)
+
 
     @router.route('/seamlesslogin', methods=['GET', 'POST'])
     def seamlesslogin():
@@ -172,7 +175,7 @@ def user_controllers(router, service: ChatService):
             ext_src=ext_src,
             onboarding=service.onboarding)
         log.info(f"login/signup. next={next_url} | ext: src: {ext_src}  id: {ext_id}")
-        if request.method == 'GET':  # for GET, show terms,
+        if request.method == 'GET': # for GET, show terms,
             return render_template('seamlesslogin.html', **tmpl_args)
 
         # form sumission as POST => create a/c
@@ -181,7 +184,7 @@ def user_controllers(router, service: ChatService):
         secret = args.pop('secret')
         user = User.get(user_id)
         log.info(f'Form:: {user_id} {args}')
-        if user:  # user already exists
+        if user:# user already exists
             log.warning(f'User {user_id} already exists')
         else:
             name = args.pop('name', None)
@@ -193,6 +196,7 @@ def user_controllers(router, service: ChatService):
             return flask.redirect(next_url)
         return flask.redirect(flask.url_for('app.index'))
 
+
     @router.route('/logout', methods=['GET'])
     @FL.login_required
     def logout():
@@ -203,10 +207,11 @@ def user_controllers(router, service: ChatService):
     @router.route('/about', methods=['GET'])
     def about():
         return render_template('about.html')
-
+    
     @router.route('/instructions', methods=['GET'])
     def instructions(focus_mode=False):
         return render_template('page.html', content=service.instructions, focus_mode=focus_mode)
+
 
     @router.route('/', methods=['GET'])
     @FL.login_required
@@ -219,7 +224,7 @@ def user_controllers(router, service: ChatService):
                       threads_completed=sum(th.episode_done for th in threads))
         limits.update(service.limits)
         max_threads_per_topic = limits['max_threads_per_topic']
-        thread_counts = service.get_thread_counts(episode_done=True)  # completed threads
+        thread_counts = service.get_thread_counts(episode_done=True) # completed threads
         for thread in threads:
             if ChatTopic.query.get(thread.topic_id) is None:
                 continue
@@ -229,20 +234,20 @@ def user_controllers(router, service: ChatService):
             data[topic_id][2] = n_threads
         data = list(data.values())
         random.shuffle(data)  # randomize
-
         # Ranks:  threads t threads that need anotation in the top
         def sort_key(rec):
             _, my_thread, n_threads = rec
             if my_thread:
-                if not my_thread.episode_done:  # Rank 1 incomplete threads,
+                if not my_thread.episode_done: # Rank 1 incomplete threads,
                     return -1
-                else:  # completed thread
+                else: # completed thread
                     return max_threads_per_topic  # done, push it to the end
             else:
                 return n_threads
 
         data = list(sorted(data, key=sort_key))
         return render_template('user/index.html', data=data, limits=limits)
+
 
     @router.route('/launch-topic/<topic_id>', methods=['GET'])
     @FL.login_required
@@ -294,38 +299,53 @@ def user_controllers(router, service: ChatService):
 
         req_worker_is_human_mod = False
         instructions_for_user = service.instructions
-        # if topic.human_moderator == 'yes' and request_worker_id is not None and request_worker_id != '':
-        #     req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
-        #                                                                         qual_name='human_moderator_qualification')
-        #
-        # if req_worker_is_human_mod:
-        #     instructions_for_user = service.human_mod_instructions
-        #     # add one more turn for human mod:
-        #     remaining_turns = remaining_turns + 1
-        #     log.info('Human moderator instructions should be used for user:', request_worker_id)
+        if topic.human_moderator == 'yes' and request_worker_id is not None and request_worker_id != '':
+            req_worker_is_human_mod = service.crowd_service.is_worker_qualified(user_worker_id=request_worker_id,
+                                                                                qual_name='human_moderator_qualification')
 
-        return render_template('user/chatui/chatui.html', limits=service.limits,
-                               thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
-                               thread=thread,
-                               topic=topic,
-                               socket_name=thread.socket_name,
-                               rating_questions=ratings,
-                               focus_mode=focus_mode,
-                               remaining_turns=remaining_turns,
-                               instructions_html=service.instructions,
-                               simple_instructions_html=service.simple_instructions,
-                               show_text_extra=FL.current_user.is_admin,
-                               data=dict())
+        if req_worker_is_human_mod:
+            instructions_for_user = service.human_mod_instructions
+            # add one more turn for human mod: 
+            remaining_turns = remaining_turns + 1
+            log.info('Human moderator instructions should be used for user:', request_worker_id)
+
+        if thread.max_human_users_per_thread == 1:
+            return render_template('user/chatui.html', limits=service.limits,
+                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
+                                   thread=thread,
+                                   topic=topic,
+                                   socket_name=thread.socket_name,
+                                   rating_questions=ratings,
+                                   focus_mode=focus_mode,
+                                   remaining_turns=remaining_turns,
+                                   instructions_html=service.instructions,
+                                   simple_instructions_html=service.simple_instructions,
+                                   show_text_extra=FL.current_user.is_admin,
+                                   data=dict())
+        elif thread.max_human_users_per_thread == 2:
+            return render_template('user/chatui_two_users.html', limits=service.limits,
+                                   thread_json=json.dumps(thread.as_dict(), ensure_ascii=False),
+                                   thread=thread,
+                                   topic=topic,
+                                   socket_name=thread.socket_name,
+                                   rating_questions=ratings,
+                                   focus_mode=focus_mode,
+                                   remaining_turns=remaining_turns,
+                                   instructions_html=instructions_for_user,
+                                   simple_instructions_html=service.simple_instructions,
+                                   show_text_extra=FL.current_user.is_admin,
+                                   bot_name=C.Auth.BOT_USER,
+                                   data=dict())
 
     @router.route('/thread/<thread_id>/<user_id>/message', methods=['POST'])
-    # @FL.login_required  <-- login didnt work in iframe in mturk
+    #@FL.login_required  <-- login didnt work in iframe in mturk
     def post_new_message(thread_id, user_id):
         thread = service.get_thread(thread_id)
         if not thread:
             return f'Thread {thread_id}  NOT found', 404
-        # user = FL.current_user
+        #user = FL.current_user
         user = User.get(user_id)
-        if not user or user not in thread.users:
+        if not user  or user not in thread.users:
             log.warning('user is not part of thread')
             reply = dict(status=C.ERROR,
                          description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
@@ -336,7 +356,7 @@ def user_controllers(router, service: ChatService):
             reply = dict(status=C.ERROR,
                          description=f'requires "text" field of type string')
             return flask.jsonify(reply), 400
-
+        
         text = text[:C.MAX_TEXT_LENGTH]
         msg = ChatMessage(text=text, user_id=user.id, thread_id=thread.id, data={"speaker_id": speaker_id})
         try:
@@ -347,27 +367,29 @@ def user_controllers(router, service: ChatService):
             log.exception(e)
             return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
 
-    # same as above but just post current thread without new text
-    @router.route('/thread/<thread_id>/<user_id>/current_thread', methods=['POST'])
-    def post_current_thread(thread_id, user_id):
-        thread = service.get_thread(thread_id)
-        if not thread:
-            return f'Thread {thread_id}  NOT found', 404
 
+    # same as above but just post current thread without new text 
+    @router.route('/thread/<thread_id>/<user_id>/current_thread', methods=['POST'])
+    def post_current_thread(thread_id, user_id): 
+        thread = service.get_thread(thread_id)
+        if not thread: 
+            return f'Thread {thread_id}  NOT found', 404
+        
         user = User.get(user_id)
         if not user or user not in thread.users:
             log.warning('user is not part of thread')
             reply = dict(status=C.ERROR,
                          description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
             return flask.jsonify(reply), 400
-
-        try:
+        
+        try: 
             reply, episode_done = service.current_thread(thread)
             reply_dict = reply.as_dict() | dict(episode_done=episode_done)
             return flask.jsonify(reply_dict), 200
         except Exception as e:
             log.exception(e)
             return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
+    
 
     @router.route('/thread/<thread_id>/<user_id>/latest_message', methods=['GET'])
     def get_latest_message(thread_id, user_id):
@@ -401,10 +423,10 @@ def user_controllers(router, service: ChatService):
         return flask.jsonify(thread.as_dict()), 200
 
     @router.route('/thread/<thread_id>/<user_id>/rating', methods=['POST'])
-    # @FL.login_required   <-- login didnt work in iframe in mturk
+    #@FL.login_required   <-- login didnt work in iframe in mturk
     def thread_rating(thread_id, user_id):
         thread = service.get_thread(thread_id)
-        user = User.get(user_id)  # FL.current_user
+        user = User.get(user_id)   # FL.current_user
         if not thread:
             return f'Thread {thread_id} NOT found', 404
         if not user:
@@ -426,138 +448,60 @@ def user_controllers(router, service: ChatService):
             flask.flash(note_text)
             return flask.redirect(url_for('app.index'))
 
-    @router.route('api/post-message', methods=['POST'])
-    def post_message():
-        user_id = request.form.get('user_id', None)
-        thread_id = request.form.get('thread_id', None)
-        if not thread_id:
-            return f'Thread ID is required', 400
-
-        thread = ChatThread.get_thread_by_id(thread_id)
-        if not thread:
-            return f'Thread {thread_id}  NOT found', 404
-
-        user = User.get(user_id)
-        msg = ChatMessage(
-            text=request.form.get('text', None),
-            user_id=user.id,
-            thread_id=thread_id,
-            data={"speaker_id": request.form.get('speaker_id', None)}
-        )
-        success, info = thread.append_message(msg)
-
-        if success:
-            msg.save_message_to_db()
-            thread.update_thread_in_db()
-            return jsonify(dict(
-                status=C.SUCCESS,
-                message_id=msg.id,
-                timestamp=msg.time_created,
-            )), 200
-        else:
-            return jsonify(dict(status=C.ERROR, description=info)), 400
-
-    _avoid_double_submit = dict()
-
-    @router.route('api/get-bot-reply', methods=['POST'])
-    def get_bot_reply():
-        thread_id = request.form.get('thread_id', None)
-        if not thread_id:
-            return f'Thread ID is required', 400
-
-        thread = ChatThread.get_thread_by_id(thread_id)
-
-        if not thread:
-            return f'Thread {thread_id}  NOT found', 404
-
-        user_id = request.form.get('user_id', None)
-        post_turns = int(request.form.get('turns', 0))
-        post_idx = int(request.form.get('speaker_idx', 0))
-        idx = post_turns * len(thread.speak_order) + post_idx
-        if thread.id in _avoid_double_submit and _avoid_double_submit[thread.id] >= idx:
-            reply = dict(status=C.ERROR,
-                         description=f'Bot reply idx{idx} already create. Ignoring this request.')
-            return flask.jsonify(reply), 400
-
-        user = User.get(user_id)
-        if not user or user not in thread.users:
-            log.warning('user is not part of thread')
-            reply = dict(status=C.ERROR,
-                         description=f'User {user.id} is not part of thread {thread.id}. Wrong thread!')
-            return flask.jsonify(reply), 400
-
-        try:
-            msg = service.get_dialog_man(thread).bot_reply()
-            msg.save_message_to_db()
-            thread.append_message(msg)
-            thread.update_thread_in_db()
-            reply_dict = msg.as_dict()
-            return flask.jsonify(reply_dict), 200
-        except Exception as e:
-            log.exception(e)
-            return flask.jsonify(dict(status=C.ERROR, description='Something went wrong on server side')), 500
-
     ########### M Turk Integration #########################
     @router.route('/mturk-landing/<topic_id>', methods=['GET'])
     def mturk_landing(topic_id):  # this is where mturk worker should land first
-        assignment_id = request.values.get('assignmentId')
-        if assignment_id == 'ASSIGNMENT_ID_NOT_AVAILABLE':
-            # In preview mode: show instructions
-            return instructions(focus_mode=True)
 
+        assignment_id = request.values.get('assignmentId')
+        is_previewing = assignment_id == 'ASSIGNMENT_ID_NOT_AVAILABLE'
         hit_id = request.values.get('hitId')
-        worker_id = request.values.get('workerId')  # wont be available while previewing
-        submit_url = request.values.get('turkSubmitTo', '')  # wont be available while previewing
+        worker_id = request.values.get('workerId')          # wont be available while previewing
+        submit_url = request.values.get('turkSubmitTo', '') # wont be available while previewing
         if not hit_id:
             return f'HITId not found. {assignment_id=} {worker_id=} This URL is reserved for Mturk users only: {submit_url}', 400
+        
+        # because Jon suggested we make it seamless for mturk users
+        seamless_login = service.config.is_seamless_crowd_login
 
-
-        ext_src = C.MTURK_SANDBOX if 'sandbox' in submit_url else C.MTURK
+        ext_src = C.MTURK_SANDBOX if 'sandbox' in submit_url else C.MTURK 
         if submit_url:
             submit_url = submit_url.rstrip('/') + '/mturk/externalSubmit'
-
+        
+        #Our mapping: Worker=User; Assignment = ChatThread; HIT=ChatTopic
         # Step 1: map Hit to Topic, so we can perview it
-        # topic = ChatTopic.query.filter_by(ext_id=hit_id).first()
-        # if not topic:
-        #     return 'Invalid HIT or topic ID.', 400
+        topic = ChatTopic.query.filter_by(ext_id=hit_id).first()
+        if not topic:
+            return 'Invalid HIT or topic ID.', 400
+
+        # We shouldn't check limit here, because we don't know the user yet.
+        # If the user has already participated in this task, we should still allow them to review the history.
+        # So, the following code is commented out.
+        # limit_exceeded, msg = service.limit_check(topic=topic, user=None)
+        # if limit_exceeded:
+        #     return msg, 400
+
+        if is_previewing: 
+            return instructions(focus_mode=True) # sending index page for now. We can do better later
 
         # Step2. Find the mapping user
         user = User.query.filter_by(ext_src=ext_src, ext_id=worker_id).first()
-        if not user:  # sign up and come back (so set next)
-
+        if not user: # sign up and come back (so set next)
+            
             return flask.redirect(
                 url_for('app.seamlesslogin', ext_id=worker_id, ext_src=ext_src, next=request.url))
-
+            
         if not FL.current_user or FL.current_user.get_id() != user.id:
             FL.logout_user()
             FL.login_user(user, remember=True, force=True)
-
-        # limit_exceeded, msg = service.limit_check(topic=topic, user=user)
-        # if limit_exceeded:  # we may need to block user i.e. change user qualification
-        #     return msg, 400
-
-        def _get_thread():
-            topics = ChatTopic.get_topics_user_not_done(user)
-            if len(topics) == 0:
-                return None
-            # Check if someone waiting in an existing thread
-            for topic in topics:
-                thread = ChatThread.get_next_vacancy_thread_for_topic(topic)
-                if thread is not None:
-                    thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True)
-                    return thread
-
-            thread = service.get_thread_for_topic(user=FL.current_user, topic=topics[0], create_if_missing=True)
-            return thread
-
-        thread = _get_thread()
-        if not thread:
-            return 'No more threads left to annotate. Thank you for your contribution!', 200
+        
+        limit_exceeded, msg = service.limit_check(topic=topic, user=user)
+        if limit_exceeded: # we may need to block user i.e. change user qualification
+            return msg, 400
 
         # user exist, logged in => means user already signed up and doing so, gave consent,     
         # Step 3: map assignment to chat thread -- 
         data = {
-            ext_src: {
+            ext_src : {
                 'submit_url': submit_url,
                 'is_sandbox': 'workersandbox' in submit_url,
                 'assignment_id': assignment_id,
@@ -565,20 +509,18 @@ def user_controllers(router, service: ChatService):
                 'worker_id': worker_id
             }
         }
-        thread.set_external_info_for_user(user, assignment_id, ext_src, data)
-        thread.update_thread_in_db()
-        # chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
-        #                                            ext_id=assignment_id, ext_src=ext_src, data=data)
+        chat_thread = service.get_thread_for_topic(user=FL.current_user, topic=topic, create_if_missing=True,
+            ext_id=assignment_id, ext_src=ext_src, data=data)
+        
+        if chat_thread is None: 
+            err_msg = 'Another user is loading this chat topic. Please retry after 10 seconds!'
+            log.error(err_msg)
+            return err_msg, 400
 
-        # if chat_thread is None:
-        #     err_msg = 'Another user is loading this chat topic. Please retry after 10 seconds!'
-        #     log.error(err_msg)
-        #     return err_msg, 400
+        log.info(f'chat_thread: {chat_thread}')
+        log.info(f'worker_id: {worker_id}')
+        return get_thread(thread_id=chat_thread.id, request_worker_id=worker_id, focus_mode=True)
 
-        # log.info(f'chat_thread: {chat_thread}')
-        # log.info(f'worker_id: {worker_id}')
-
-        return get_thread(thread_id=thread.id, request_worker_id=worker_id, focus_mode=True)
 
 
 ###################### ADMIN STUFF #####################
@@ -650,7 +592,7 @@ def admin_controllers(router, service: ChatService):
             topic_thread_counts_dict = {topic: topic_thread_counts.get(topic.id, 0) for topic in all_topics}
             super_topics = \
                 [(super_topic, super_topic_thread_counts.get(super_topic.id, 0)) for super_topic in all_super_topics]
-            return render_template('admin/topics/topics.html', tasks=all_topics, super_topics=super_topics,
+            return render_template('admin/topics.html', tasks=all_topics, super_topics=super_topics,
                                    external_url_ok=service.is_external_url_ok, **admin_templ_args,
                                    topic_thread_counts_dict=topic_thread_counts_dict, service=service)
         else:
@@ -671,7 +613,7 @@ def admin_controllers(router, service: ChatService):
                                                           max_turns_per_thread=int(args['max_turns_per_thread']),
                                                           max_human_users_per_thread=int(args['max_human_users_per_thread']),
                                                           human_moderator=args['human_moderator'],
-                                                          reward=args['reward'], parameters=args)
+                                                          reward=args['reward'])
             elif "multi-tasks-launch" in args.keys():
                 selected_task_ids = request.form.getlist('multi-tasks-launch')
                 for task_id in selected_task_ids:
@@ -683,7 +625,7 @@ def admin_controllers(router, service: ChatService):
                                                       max_turns_per_thread=int(args['max_turns_per_thread']),
                                                       max_human_users_per_thread=int(args['max_human_users_per_thread']),
                                                       human_moderator=args['human_moderator'],
-                                                      reward=args['reward'], parameters=args)
+                                                      reward=args['reward'])
             return redirect(url_for('admin.get_topics'))
 
     @router.route(f'/topic/<topic_id>/launch/<crowd_name>')

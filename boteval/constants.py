@@ -51,5 +51,3 @@ MTURK_SANDBOX_URL = 'https://mturk-requester-sandbox.us-east-1.amazonaws.com'
 AWS_MAX_RESULTS = 100 
 MTURK_LOG_LEVEL = logging.INFO
 
-BOT_REPLY_DELAY_START = 5.0  # bot reply delay in seconds, value is small for debugging
-BOT_REPLY_DELAY_END = 10.0  # bot reply delay in seconds

@@ -74,9 +74,6 @@ def init_app(**args):
         app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
         log.info(f'SQLALCHEMY_DATABASE_URI = {db_uri}')
 
-    scheme = app.config.get('PREFERRED_URL_SCHEME', 'http')
-    app.config['PREFERRED_URL_SCHEME'] = scheme
-
     if (task_dir / '__init__.py').exists(): # task dir has python code
         log.info(f'{task_dir} is a python module. Going to import it.')
         load_dir_as_module(task_dir)
@@ -121,10 +118,7 @@ def main():
     base_prefix = args.get('base') or '/'
     log.info(f'Internal URL http://{host}:{port}{base_prefix}')
     #socket.run(app, port=port, host=host, debug=app.debug)
-    if app.config['PREFERRED_URL_SCHEME'] == 'https':
-        app.run(port=port, host=host, ssl_context='adhoc')
-    else:
-        app.run(port=port, host=host)
+    app.run(port=port, host=host)
 
 if __name__ == "__main__":
     main()
