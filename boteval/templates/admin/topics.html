@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{url_for('admin.index')}}">Admin</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Topics</li>
+    </ol>
+  </nav>
+
+  <h3 class="text-center">{% block title %} Topics {% endblock %}</h3>
+  <div class="row">
+    <div class="col-12">
+    {%set ext_url= url_for('app.index', _external=True, _scheme='https')%}
+        External URL: <a href="{{ext_url}}" target="_blank">{{ext_url}}</a> Okay? {{external_url_ok and 'Yes' or 'No'}}
+    <div class="alert {%if external_url_ok %} alert-info {%else%} alert-warning {%endif%}">
+    If you are planning to crowdsource tasks on platforms like MTurk, make sure to have the above URL is accessible via the (public) Internet.      <br/>
+      <details>
+        <summary>More Info:</summary>
+        <ol>
+          <li>set <code>flask_config.SERVER_NAME=</code> in config YML file to publicly visible server name/address.</li>
+          <li>Install and verify your SSL certificate are correct for HTTPS connection. Example: <a href="https://certbot.eff.org/" target="_blank">https://certbot.eff.org/</a> makes it easy. However, you need a domain name for your server.</li>
+          <li>Setup reverse proxy to serve this app. Example: see <code>docs/nginx-conf.adoc</code> file in git repository for an example Nginx config.</li>
+        </ol> 
+      </details>
+    </div>
+  </div>
+  </div>
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+          <table class="table table-striped">
+            <tr>
+              <td>
+                <div class="card-body">
+                  <h4>Set maximum thread per user:</h4>
+                  <form method="POST" action="#">
+                  <div>
+                    <label for="max_threads_per_user">Max_threads_per_user:</label>
+                    <input type="number" name="max_threads_per_user" id="max_threads_per_user" value="{{ service.limits["max_threads_per_user"] }}" />
+                  </div>
+                  <div>
+                    <input type="submit" value="Set"/>
+                  </div>
+                  </form>
+                </div>
+{#                {% if crowd_name %}#}
+                  <div class="card-body">
+                    <h4>Multi-task Launch:</h4>
+                    <form method="POST" action="#">
+                        <div>
+                          <label for="multi-tasks-launch" style="vertical-align: top;">Unlaunched Tasks:</label>
+                          <select name="multi-tasks-launch" id="multi-tasks-launch" multiple style="height: 10rem;" class="form-control selectpicker" data-live-search="true">
+                                {% for task in tasks %}
+                                    {% if not task.ext_id %}
+                                        <option value="{{ task.id }}">{{ task.id }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                          </select>
+                        </div>
+                        <div>
+                            <input type="submit" value="Launch multiple tasks"/>
+                        </div>
+                    </form>
+                  </div>
+{#                {% endif %}#}
+              </td>
+              <td>
+                  <h4>Multi-task Creation:</h4>
+                  <form method="POST" action="#">
+                  <div>
+                      <label for="multi-topics-creation" style="vertical-align: top;">Topics:</label>
+                      <select name="multi-topics-creation" id="multi-topics-creation" multiple style="height: 10rem;" class="form-control selectpicker" data-live-search="true">
+                            {% for super_topic, num_threads in super_topics %}
+                                <option value="{{ super_topic.id }}">{{ super_topic.id }}</option>
+                            {% endfor %}
+                      </select>
+                  </div>
+                  <div>
+                        <label for="endpoint">Endpoint:</label>
+                        <select name="endpoint" id="endpoint">
+                            {% for endpoint_name in service.endpoints %}
+                                <option value="{{ endpoint_name }}">{{ endpoint_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="persona_id">Persona_id:</label>
+                        <select name="persona_id" id="persona_id">
+                            {% for persona_id_name in service.persona_id_list %}
+                                <option value="{{ persona_id_name }}">{{ persona_id_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="max_threads_per_topic">Max_threads_per_topic:</label>
+                        <input type="number" name="max_threads_per_topic" id="max_threads_per_topic" value="{{ service.limits["max_threads_per_topic"] }}" />
+                    </div>
+                    <div>
+                        <label for="max_turns_per_thread">Max_turns_per_thread:</label>
+                        <input type="number" name="max_turns_per_thread" id="max_turns_per_thread" value="{{ service.limits["max_turns_per_thread"] }}" />
+                    </div>
+                    <div>
+                        <label for="max_human_users_per_thread">max_human_users_per_thread:</label>
+                        <select name="max_human_users_per_thread" id="max_human_users_per_thread">
+                            <option value=1>1</option>
+                            <option value=2>2</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="human_moderator">human_moderator:</label>
+                        <select name="human_moderator" id="human_moderator">
+                            <option value="no">no</option>
+                            <option value="yes">yes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="reward">Reward:</label>
+                        <input type="text" name="reward" id="reward" value="{{service.limits["reward"]}}" />
+                    </div>
+                    <div>
+                        <input type="submit" value="Create Multiple Tasks"/>
+                    </div>
+                  </form>
+              </td>
+            </tr>
+            <tr>
+              <div class="card-body"> 
+                <form method="POST" action="{{url_for('admin.delete_all_topics')}}">
+                  <div>
+                    <input class="button btn btn-danger" type="submit" value="Delete All Tasks"/>
+                  </div>
+                </form>
+              </div> 
+            </tr>
+          </table>
+        <div class="card-body">
+          <span>Found {{ super_topics | length }} topics </span>
+        </div>
+      </div>
+      <table class="table table-striped">
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Topic</th>
+          <th scope="col">Num Threads</th>
+          <th scope="col">Time</th>
+          <th scope="col">Actions</th>
+        </tr>
+        {% for super_topic, num_threads in super_topics %}
+        <tr>
+          <td>{{loop.index}}</td>
+          <td scope="row"> {{super_topic.id}} </td>
+          <td> {{num_threads}} </td>
+          <td> Created {{super_topic.time_created|ctime}}; {{super_topic.time_modified|ctime}}  </td>
+          <td>
+            <form method="POST" action="#">
+                <div>
+                    <label for="endpoint">Endpoint:</label>
+                    <select name="endpoint" id="endpoint">
+                        {% for endpoint_name in service.endpoints %}
+                            <option value="{{ endpoint_name }}">{{ endpoint_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="persona_id">Persona_id:</label>
+                    <select name="persona_id" id="persona_id">
+                        {% for persona_id_name in service.persona_id_list %}
+                            <option value="{{ persona_id_name }}">{{ persona_id_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="max_threads_per_topic">Max_threads_per_topic:</label>
+                    <input type="number" name="max_threads_per_topic" id="max_threads_per_topic" value="{{ service.limits["max_threads_per_topic"] }}" />
+                </div>
+                <div>
+                    <label for="max_turns_per_thread">Max_turns_per_thread:</label>
+                    <input type="number" name="max_turns_per_thread" id="max_turns_per_thread" value="{{ service.limits["max_turns_per_thread"] }}" />
+                </div>
+                <div>
+                    <label for="max_human_users_per_thread">max_human_users_per_thread:</label>
+                    <select name="max_human_users_per_thread" id="max_human_users_per_thread">
+                        <option value=1>1</option>
+                        <option value=2>2</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="human_moderator">human_moderator:</label>
+                    <select name="human_moderator" id="human_moderator">
+                        <option value="no">no</option>
+                        <option value="yes">yes</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="reward">Reward:</label>
+                    <input type="text" name="reward" id="reward" value="{{service.limits["reward"]}}" />
+                </div>
+                <div>
+                    <input type="submit" value="Create New Task"/>
+                </div>
+                <input type="hidden" id="super_topic_id" name="super_topic_id" value="{{ super_topic.id }}">
+            </form>
+          {% for topic in super_topic.topics %}
+              <div>Task ID: {{ topic.id }}</div>
+          <ul>
+              <li>Num of Threads = {{ topic_thread_counts_dict.get(topic.id, 0) }}</li>
+              <li>Endpoint: {{ topic.endpoint }}</li>
+              <li>Persona_id: {{ topic.persona_id }}</li>
+              <li>Max threads per topic: {{ topic.max_threads_per_topic }}</li>
+              <li>Max turns per thread: {{ topic.max_turns_per_thread }}</li>
+              <li>Max human users per thread: {{ topic.max_human_users_per_thread }}</li>
+              <li>Human moderator: {{ topic.human_moderator }}</li>
+              <li>Reward: {{ topic.reward }}</li>
+            {% if topic.ext_id %}
+              {% set task_url = topic.data.get(topic.ext_src, {}).get('ext_url') %}
+              <li>{{topic.ext_src}}: {{topic.ext_id}}</li>
+              <li>
+                <a href="{{task_url}}" target="_blank">Task URL</a>
+                <button type="button" class="btn btn-primary" onclick="copy_to_clipboard(text='{{task_url}}')">Copy URL</button>
+              </li>
+              {% if topic.ext_src in [C.MTURK, C.MTURK_SANDBOX ] %}
+              <li><a href="{{url_for('admin.' + topic.ext_src + '_get_HIT', HIT_id=topic.ext_id)}}">See MTurk Assignments</a> </li>
+              {%endif%}
+
+            {% elif crowd_name %}
+            <li>
+              <a href="{{url_for('admin.launch_topic_on_crowd', crowd_name=crowd_name, topic_id=topic.id)}}">Launch on {{crowd_name}}</a> 
+            </li>
+            {% else %}
+            <li>N/A</li>
+            {% endif %}
+            <li>
+              <!-- <button type="button" class="btn btn-primary" onclick="admin.delete_topic()">Delete Task</button> -->
+              <a href="{{url_for('admin.delete_topic', topic_id=topic.id)}}">Delete Task</a>
+            </li>
+            <br/>
+          </ul>
+          {% endfor %}
+        </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

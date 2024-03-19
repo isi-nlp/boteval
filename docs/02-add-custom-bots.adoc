@@ -5,15 +5,14 @@ include::_head.adoc[]
 
 If `\\__init__.py` file is found at the root of task directory, then the directory is treated as python module and imported it.
 
-TIP: Refer to `boteval/bots.py` file and `example-chat-task` directory for an example.
+TIP: Refer to `example-chat-task` directory for an example.
 
-NOTE: You may have to install additional requirements/libs for your code. +
-      To add a custom bot, you must implement a class that extends `boteval.bots.BotAgent` class.
+NOTE: you may have to install additional requirements/libs for your code.
 
 .Example bot and transform
 [source,python,linenums]
 ----
-from typing import Any, Dict, List
+from typing import Any
 
 from boteval import log, C, registry as R
 from boteval.bots import BotAgent
@@ -21,21 +20,25 @@ from boteval.transforms import BaseTransform, SpacySplitter
 from boteval.model import ChatMessage
 
 
-@R.register(R.BOT, 'dummybot')
-class DummyBot(BotAgent):
+@R.register(R.BOT, name="my-dummy-bot")
+class MyDummpyBot(BotAgent):
+    
+    def __init__(self, **kwargs):
+        super().__init__(name="dummybot", **kwargs)
+        self.args = kwargs
+        log.info(f"{self.name} initialized; args={self.args}")
 
-    NAME = 'dummybot'
-
-    def init_chat_context(self, init_messages: List[Dict[str, Any]]):
-        log.debug(f'Initializing chat context with {len(init_messages)} messages')
-    def talk(self, **kwargs):
-        context = (self.last_msg or {}).get('text', '')
-        if context.lower() == 'ping':
-            return 'pong'
-        return dict(text="dummybot reply --" + context[-30:], data={'speaker_id': 'Moderator'})
+    def talk(self) -> dict[str, Any]:
+        if not self.last_msg:
+            reply = f"Hello there! I am {C.BOT_DISPLAY_NAME}."
+        elif 'ping' in self.last_msg['text'].lower():
+            reply = 'pong'
+        else:
+            reply = f"Dummy reply for -- {self.last_msg['text']}"
+        return dict(text=reply)
 
     def hear(self, msg: dict[str, Any]):
-        log.debug(f'dummybot is hearing messages')
+        self.last_msg = msg
 
 
 @R.register(R.TRANSFORM, name='my-transform')

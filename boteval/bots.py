@@ -25,17 +25,17 @@ class BotAgent:
         self.update_signature(agent_name=name)
         self.last_msg = None
 
-    def init_chat_context(self, init_messages: List[Dict[str, Any]]):
-        raise NotImplementedError(f'{type(self)} must implement init_chat_context() method')
-
-    def hear(self, msg: Dict[str, Any]):
-        raise NotImplementedError(f'{type(self)} must implement hear() method')
-
-    def talk(self) -> Dict[str, Any]:
-        raise NotImplementedError(f'{type(self)} must implement talk() method')
+    def get_name(self) -> str:
+        raise NotImplementedError()
 
     def update_signature(self, **kwargs):
         self.signature.update(kwargs)
+
+    def hear(self, msg: Dict[str, Any]):
+        self.last_msg = msg
+
+    def talk(self) -> Dict[str, Any]:
+        raise NotImplementedError(f'{type(self)} must implement talk() method')
 
     def interactive_shell(self):
         log.info(f'Launching an interactive shell with {type(self)}.\n'
@@ -60,13 +60,11 @@ class DummyBot(BotAgent):
 
     NAME = 'dummybot'
 
-    def init_chat_context(self, init_messages: List[Dict[str, Any]]):
-        log.debug(f'Initializing chat context with {len(init_messages)} messages')
-    def talk(self, **kwargs):
+    def talk(self):
         context = (self.last_msg or {}).get('text', '')
         if context.lower() == 'ping':
             return 'pong'
-        return dict(text="dummybot reply --" + context[-30:], data={'speaker_id': 'Moderator'})
+        return dict(text="dummybot reply --" + context[-30:])
 
 
 @R.register(R.BOT, 'hf-transformers')
